@@ -3,6 +3,7 @@ import { query, withTransaction } from '../db';
 import env from '../config/env';
 import ApiError from '../utils/ApiError';
 import { writeAudit } from '../utils/audit';
+import { istDayOfWeek } from '../utils/istDate';
 
 export interface RegisterTenantInput {
   name: string;
@@ -320,7 +321,7 @@ export async function getTenantDashboard(tenantId: number, month?: number, year?
       (SELECT COALESCE(sum(amount_paid),0)::int FROM fee_payments WHERE tenant_id = $1 AND paid_on >= $2::date AND paid_on < $3::date) AS "feesCollectedThisMonth",
       (SELECT COALESCE(sum(amount_paid),0)::int FROM fee_payments WHERE tenant_id = $1 AND paid_on >= $4::date AND paid_on < $2::date) AS "feesCollectedLastMonth",
       (SELECT COALESCE(sum(amount_paid),0)::int FROM fee_payments WHERE tenant_id = $1 AND paid_on < $2::date) AS "feesCollectedBeforeThisMonth",
-      (SELECT COALESCE(sum(amount),0)::int FROM fee_structures WHERE tenant_id = $1) AS "totalFees"
+      (SELECT COALESCE(sum(amount),0)::int FROM fee_dues WHERE tenant_id = $1) AS "totalFees"
   `, [tenantId, startDateStr, endDateStr, lastMonthStartDateStr]);
 
   const stats = rows[0];
@@ -348,22 +349,25 @@ export async function getTenantDashboard(tenantId: number, month?: number, year?
     ORDER BY day_series.day ASC
   `, isCurrentMonth ? [tenantId] : [tenantId, endDateStr]);
 
+  // LEFT JOINs from batch_schedule since a slot may not have a teacher
+  // assigned yet (unlike the old timetable row's required teacher_id).
   const scheduleRes = await query(`
     SELECT
-      t.id,
-      t.start_time as "startTime",
-      t.end_time as "endTime",
+      bs.id,
+      bs.start_time as "startTime",
+      bs.end_time as "endTime",
       b.name as "batchName",
       s.name as "subjectName",
       u.full_name as "teacherName"
-    FROM timetable t
-    JOIN batches b ON b.id = t.batch_id
-    LEFT JOIN subjects s ON s.id = t.subject_id
-    JOIN users u ON u.id = t.teacher_id
-    WHERE t.tenant_id = $1 AND t.day_of_week = EXTRACT(DOW FROM CURRENT_DATE)
-    ORDER BY t.start_time ASC
+    FROM batch_schedule bs
+    JOIN batches b ON b.id = bs.batch_id
+    LEFT JOIN subjects s ON s.id = bs.subject_id
+    LEFT JOIN teacher_assignments ta ON ta.batch_id = bs.batch_id AND ta.subject_id = bs.subject_id AND ta.tenant_id = bs.tenant_id
+    LEFT JOIN users u ON u.id = ta.teacher_user_id
+    WHERE bs.tenant_id = $1 AND bs.day_of_week = $2
+    ORDER BY bs.start_time ASC
     LIMIT 5
-  `, [tenantId]);
+  `, [tenantId, istDayOfWeek()]);
 
   return {
     overview: {

@@ -4,6 +4,7 @@ import '../../providers/management_providers.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
+import '../../widgets/custom_dropdown.dart';
 
 import 'teacher_details_screen.dart';
 
@@ -67,7 +68,8 @@ class TeachersScreen extends ConsumerWidget {
                 child: teachersAsync.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text('Error: $err')),
+                  error: (err, stack) =>
+                      Center(child: Text(friendlyErrorMessage(err))),
                   data: (teachers) {
                     return RefreshIndicator(
                       onRefresh: () async => ref.invalidate(teachersProvider),
@@ -196,7 +198,12 @@ class TeachersScreen extends ConsumerWidget {
                                     child: Text('No teachers found.'),
                                   )
                                 : ListView.separated(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      16,
+                                      16,
+                                      160,
+                                    ),
                                     itemCount: teachers.length,
                                     separatorBuilder: (_, __) =>
                                         const SizedBox(height: 12),
@@ -223,12 +230,7 @@ class TeachersScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (ctx) => const _AddTeacherBottomSheet(),
-        ),
+        onPressed: () => _openAddTeacherSheet(context, ref),
         backgroundColor: const Color(0xFF1F2E27),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
@@ -483,15 +485,38 @@ class TeachersScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(friendlyErrorMessage(e)),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
   }
 }
 
+/// Loads the tenant's batches before opening the Add Teacher sheet, so the
+/// sheet can offer batch+subject assignment in the same step as creation
+/// (rather than requiring a separate trip to Teacher Details afterwards).
+/// A teacher can still be created with zero batches assigned — the batch
+/// field is optional — and more assignments can always be added later from
+/// Teacher Details.
+Future<void> _openAddTeacherSheet(BuildContext context, WidgetRef ref) async {
+  final batches = await ref.read(batchesProvider.future);
+  if (!context.mounted) return;
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) =>
+        _AddTeacherBottomSheet(batches: batches.cast<Map<String, dynamic>>()),
+  );
+}
+
 class _AddTeacherBottomSheet extends ConsumerStatefulWidget {
-  const _AddTeacherBottomSheet();
+  final List<Map<String, dynamic>> batches;
+
+  const _AddTeacherBottomSheet({required this.batches});
 
   @override
   ConsumerState<_AddTeacherBottomSheet> createState() =>
@@ -504,6 +529,8 @@ class _AddTeacherBottomSheetState
   final _phone = TextEditingController();
   final _password = TextEditingController();
   final _email = TextEditingController();
+  int? _batchId;
+  int? _subjectId;
   bool _saving = false;
   String? _error;
 
@@ -516,6 +543,25 @@ class _AddTeacherBottomSheetState
     super.dispose();
   }
 
+  List<Map<String, dynamic>> get _batchSubjects {
+    if (_batchId == null) return const [];
+    final batch = widget.batches.firstWhere(
+      (b) => b['id'] == _batchId,
+      orElse: () => const {},
+    );
+    final subjectIds =
+        (batch['subjectIds'] as List<dynamic>?)?.cast<int>() ?? const [];
+    final subjectNames =
+        (batch['subjectNames'] as List<dynamic>?)?.cast<dynamic>() ?? const [];
+    return [
+      for (var i = 0; i < subjectIds.length; i++)
+        {
+          'id': subjectIds[i],
+          'name': i < subjectNames.length ? subjectNames[i] : 'Subject',
+        },
+    ];
+  }
+
   Future<void> _submit() async {
     if (_fullName.text.trim().isEmpty ||
         _phone.text.trim().isEmpty ||
@@ -523,24 +569,58 @@ class _AddTeacherBottomSheetState
       setState(() => _error = 'Full name, phone and password are required.');
       return;
     }
+    if (_batchId != null && _subjectId == null) {
+      setState(() => _error = 'Select a subject for the chosen batch.');
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
     });
+    final api = ref.read(apiServiceProvider);
     try {
-      await createTeacher(
-        ref.read(apiServiceProvider),
+      final teacher = await createTeacher(
+        api,
         fullName: _fullName.text.trim(),
         phone: _phone.text.trim(),
         password: _password.text,
         email: _email.text.trim(),
       );
       ref.invalidate(teachersProvider);
+
+      if (_batchId != null && _subjectId != null) {
+        try {
+          await assignTeacherToBatch(
+            api,
+            teacherUserId: teacher['id'] as int,
+            batchId: _batchId!,
+            subjectId: _subjectId!,
+          );
+        } catch (e) {
+          // The teacher account was already created successfully — a failed
+          // assignment (e.g. a schedule clash) shouldn't look like the whole
+          // action failed. Report it separately so the admin knows to assign
+          // manually from Teacher Details instead of retrying creation.
+          if (mounted) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Teacher created, but batch assignment failed: ${friendlyErrorMessage(e)}. Assign it from Teacher Details instead.',
+                ),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          return;
+        }
+      }
+
       if (mounted) Navigator.pop(context);
     } catch (e) {
       setState(() {
         _saving = false;
-        _error = '$e';
+        _error = friendlyErrorMessage(e);
       });
     }
   }
@@ -548,6 +628,9 @@ class _AddTeacherBottomSheetState
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
@@ -555,13 +638,24 @@ class _AddTeacherBottomSheetState
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle — consistent with every other bottom sheet in the app.
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              height: 4,
+              width: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
@@ -578,73 +672,150 @@ class _AddTeacherBottomSheetState
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            CustomTextField(
-              label: 'Full Name',
-              hint: 'e.g. Rahul Sharma',
-              controller: _fullName,
-              prefixIcon: Icons.person_outline,
-            ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Phone Number',
-              hint: '10 digit mobile number',
-              controller: _phone,
-              prefixIcon: Icons.phone_outlined,
-            ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Password',
-              hint: 'Min 6 characters',
-              isPassword: true,
-              controller: _password,
-              prefixIcon: Icons.lock_outline,
-            ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Email Address (Optional)',
-              hint: 'teacher@example.com',
-              controller: _email,
-              prefixIcon: Icons.email_outlined,
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: Colors.red,
-                      size: 20,
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CustomTextField(
+                    label: 'Full Name',
+                    hint: 'e.g. Rahul Sharma',
+                    controller: _fullName,
+                    prefixIcon: Icons.person_outline,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Phone Number',
+                    hint: '10 digit mobile number',
+                    controller: _phone,
+                    prefixIcon: Icons.phone_outlined,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Password',
+                    hint: 'Min 6 characters',
+                    isPassword: true,
+                    controller: _password,
+                    prefixIcon: Icons.lock_outline,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Email Address (Optional)',
+                    hint: 'teacher@example.com',
+                    controller: _email,
+                    prefixIcon: Icons.email_outlined,
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Assign to Batch (Optional)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1F2E27),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red, fontSize: 13),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Pick a batch and subject now, or assign one later from Teacher Details.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 10),
+                  CustomDropdown<int>(
+                    label: 'Batch',
+                    hint: 'Select a batch',
+                    prefixIcon: Icons.group_outlined,
+                    value: _batchId,
+                    options: widget.batches
+                        .map(
+                          (b) => DropdownOption<int>(
+                            value: b['id'] as int,
+                            label: b['name']?.toString() ?? '',
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() {
+                      _batchId = v;
+                      _subjectId = null;
+                    }),
+                  ),
+                  const SizedBox(height: 16),
+                  CustomDropdown<int>(
+                    label: 'Subject',
+                    hint: _batchId == null
+                        ? 'Select a batch first'
+                        : 'Select a subject',
+                    prefixIcon: Icons.menu_book,
+                    value: _subjectId,
+                    enabled: _batchId != null,
+                    options: _batchSubjects
+                        .map(
+                          (s) => DropdownOption<int>(
+                            value: s['id'] as int,
+                            label: s['name']?.toString() ?? '',
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _subjectId = v),
+                  ),
+                  if (_batchId != null && _batchSubjects.isEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'This batch has no subjects yet.',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
                       ),
                     ),
                   ],
-                ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
-            const SizedBox(height: 32),
-            _saving
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: _saving
                 ? const Center(child: CircularProgressIndicator())
                 : SizedBox(
+                    width: double.infinity,
                     height: 52,
                     child: CustomButton(
                       text: 'Add Teacher',
                       onPressed: _submit,
                     ),
                   ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

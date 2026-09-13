@@ -48,7 +48,9 @@ class _ProfileAvatarState extends ConsumerState<ProfileAvatar> {
         throw Exception('Cloudinary is not configured on the server.');
       }
 
-      final uri = Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/auto/upload');
+      final uri = Uri.parse(
+        'https://api.cloudinary.com/v1_1/$cloudName/auto/upload',
+      );
       final req = http.MultipartRequest('POST', uri)
         ..fields['api_key'] = apiKey.toString()
         ..fields['timestamp'] = sig['timestamp'].toString()
@@ -57,19 +59,28 @@ class _ProfileAvatarState extends ConsumerState<ProfileAvatar> {
 
       final file = File(picked.path!);
       final length = await file.length();
-      req.files.add(http.MultipartFile('file', file.openRead(), length, filename: picked.name));
+      req.files.add(
+        http.MultipartFile(
+          'file',
+          file.openRead(),
+          length,
+          filename: picked.name,
+        ),
+      );
 
       final streamed = await req.send();
       final res = await http.Response.fromStream(streamed);
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final data = jsonDecode(res.body);
-        await ref.read(authProvider.notifier).updateAvatarUrl(data['secure_url'] as String);
+        await ref
+            .read(authProvider.notifier)
+            .updateAvatarUrl(data['secure_url'] as String);
       } else {
         throw Exception('Upload failed (${res.statusCode})');
       }
     } catch (e) {
-      _showError('Could not update photo: $e');
+      _showError('Could not update photo: ${friendlyErrorMessage(e)}');
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -77,7 +88,9 @@ class _ProfileAvatarState extends ConsumerState<ProfileAvatar> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -99,23 +112,36 @@ class _ProfileAvatarState extends ConsumerState<ProfileAvatar> {
               color: Colors.white.withValues(alpha: 0.15),
               border: Border.all(color: const Color(0xFFA87D26), width: 3),
               image: avatarUrl != null && avatarUrl.isNotEmpty
-                  ? DecorationImage(image: NetworkImage(avatarUrl), fit: BoxFit.cover)
+                  ? DecorationImage(
+                      image: NetworkImage(avatarUrl),
+                      fit: BoxFit.cover,
+                    )
                   : null,
             ),
             child: avatarUrl == null || avatarUrl.isEmpty
-                ? Icon(Icons.person_rounded, color: Colors.white, size: widget.radius * 1.05)
+                ? Icon(
+                    Icons.person_rounded,
+                    color: Colors.white,
+                    size: widget.radius * 1.05,
+                  )
                 : null,
           ),
           if (_uploading)
             Container(
               width: size,
               height: size,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.black45),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black45,
+              ),
               child: const Center(
                 child: SizedBox(
                   width: 22,
                   height: 22,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
                 ),
               ),
             ),
@@ -131,7 +157,11 @@ class _ProfileAvatarState extends ConsumerState<ProfileAvatar> {
                   color: const Color(0xFFA87D26),
                   border: Border.all(color: const Color(0xFF1F2E27), width: 2),
                 ),
-                child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
+                child: const Icon(
+                  Icons.camera_alt_rounded,
+                  color: Colors.white,
+                  size: 14,
+                ),
               ),
             ),
           ),

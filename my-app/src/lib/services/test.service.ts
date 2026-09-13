@@ -3,6 +3,7 @@ import { query, withTransaction } from '../db';
 import ApiError from '../utils/ApiError';
 import * as notificationCenter from './notificationCenter.service';
 import logger from '../utils/logger';
+import { formatIst } from '../utils/istDate';
 import type { PoolClient } from 'pg';
 
 export interface CreateTestInput {
@@ -55,7 +56,7 @@ export async function createTest(tenantId: number, data: CreateTestInput) {
             userIds,
             tenantId,
             title: 'New test scheduled',
-            body: `${data.title} — scheduled for ${new Date(data.testDate!).toLocaleString('en-IN')}.`,
+            body: `${data.title} — scheduled for ${formatIst(data.testDate!)}.`,
             type: 'test_scheduled',
             entityId: test.id,
           })

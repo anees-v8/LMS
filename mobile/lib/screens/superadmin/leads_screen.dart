@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/superadmin_providers.dart';
 import '../../services/api_service.dart';
+import '../../widgets/custom_dropdown.dart';
 
 const List<String> _statuses = ['new', 'contacted', 'converted', 'lost'];
 
@@ -68,7 +69,8 @@ class LeadsScreen extends ConsumerWidget {
                 child: leadsAsync.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text('Error: $err')),
+                  error: (err, stack) =>
+                      Center(child: Text(friendlyErrorMessage(err))),
                   data: (leads) {
                     if (leads.isEmpty) {
                       return const Center(child: Text('No leads yet.'));
@@ -150,20 +152,18 @@ class LeadsScreen extends ConsumerWidget {
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: DropdownButtonFormField<String>(
-                                          initialValue:
+                                        child: CustomDropdown<String>(
+                                          label: 'Status',
+                                          hint: 'Select a status',
+                                          value:
                                               _statuses.contains(lead['status'])
                                               ? lead['status'] as String
                                               : 'new',
-                                          decoration: const InputDecoration(
-                                            isDense: true,
-                                            border: OutlineInputBorder(),
-                                          ),
-                                          items: _statuses
+                                          options: _statuses
                                               .map(
-                                                (s) => DropdownMenuItem(
+                                                (s) => DropdownOption<String>(
                                                   value: s,
-                                                  child: Text(s),
+                                                  label: s,
                                                 ),
                                               )
                                               .toList(),
@@ -182,7 +182,9 @@ class LeadsScreen extends ConsumerWidget {
                                                   context,
                                                 ).showSnackBar(
                                                   SnackBar(
-                                                    content: Text('$e'),
+                                                    content: Text(
+                                                      friendlyErrorMessage(e),
+                                                    ),
                                                     backgroundColor: Colors.red,
                                                   ),
                                                 );

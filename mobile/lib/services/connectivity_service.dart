@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///
 /// Screens can optionally watch this to show an offline banner.
 final connectivityProvider = StreamProvider<bool>((ref) {
-  return Connectivity()
-      .onConnectivityChanged
-      .map((results) => results.any((r) => r != ConnectivityResult.none));
+  return Connectivity().onConnectivityChanged.map(
+    (results) => results.any((r) => r != ConnectivityResult.none),
+  );
 });

@@ -17,7 +17,8 @@ class OfflineBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final connectivity = ref.watch(connectivityProvider);
-    final isOffline = connectivity.whenOrNull(data: (online) => !online) ?? false;
+    final isOffline =
+        connectivity.whenOrNull(data: (online) => !online) ?? false;
 
     if (!isOffline) return const SizedBox.shrink();
 

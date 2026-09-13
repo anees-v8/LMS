@@ -48,7 +48,11 @@ class AttendanceStatusButtonRow extends StatelessWidget {
   final String? status;
   final ValueChanged<String> onChanged;
 
-  const AttendanceStatusButtonRow({super.key, required this.status, required this.onChanged});
+  const AttendanceStatusButtonRow({
+    super.key,
+    required this.status,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {

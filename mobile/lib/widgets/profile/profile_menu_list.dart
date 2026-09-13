@@ -29,7 +29,10 @@ class ProfileMenuList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Column(
         children: [
           for (var i = 0; i < items.length; i++) ...[
@@ -55,12 +58,31 @@ class _MenuItem extends StatelessWidget {
         leading: Container(
           width: 40,
           height: 40,
-          decoration: BoxDecoration(color: data.iconBg, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(
+            color: data.iconBg,
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Icon(data.icon, color: data.iconColor, size: 20),
         ),
-        title: Text(data.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.primaryDark)),
-        subtitle: data.subtitle != null ? Text(data.subtitle!, style: const TextStyle(fontSize: 11, color: Colors.grey)) : null,
-        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+        title: Text(
+          data.label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: AppColors.primaryDark,
+          ),
+        ),
+        subtitle: data.subtitle != null
+            ? Text(
+                data.subtitle!,
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              )
+            : null,
+        trailing: const Icon(
+          Icons.arrow_forward_ios_rounded,
+          size: 14,
+          color: Colors.grey,
+        ),
         onTap: data.onTap,
       ),
     );

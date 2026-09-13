@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../providers/superadmin_providers.dart';
+import '../../services/api_service.dart';
 import '../../theme/app_colors.dart';
 
 class TenantDetailsScreen extends ConsumerStatefulWidget {
@@ -9,7 +10,8 @@ class TenantDetailsScreen extends ConsumerStatefulWidget {
   const TenantDetailsScreen({super.key, required this.tenant});
 
   @override
-  ConsumerState<TenantDetailsScreen> createState() => _TenantDetailsScreenState();
+  ConsumerState<TenantDetailsScreen> createState() =>
+      _TenantDetailsScreenState();
 }
 
 class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
@@ -17,7 +19,20 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
 
   String _formatDate(DateTime? date) {
     if (date == null) return 'N/A';
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
@@ -30,7 +45,8 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
     final String status = tenant['status']?.toString() ?? 'unknown';
 
     final bool isActive = tenant['isActive'] == true;
-    final String location = '${city != null && city.isNotEmpty ? '$city, ' : ''}Maharashtra';
+    final String location =
+        '${city != null && city.isNotEmpty ? '$city, ' : ''}Maharashtra';
 
     final dashboardAsync = ref.watch(tenantDashboardProvider(id));
     final subAsync = ref.watch(tenantSubscriptionProvider(id));
@@ -54,12 +70,20 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                 ),
                 onPressed: () {},
               ),
-              IconButton(icon: const Icon(Icons.more_vert, color: Colors.white), onPressed: () {}),
+              IconButton(
+                icon: const Icon(Icons.more_vert, color: Colors.white),
+                onPressed: () {},
+              ),
             ],
             flexibleSpace: FlexibleSpaceBar(
               background: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 48.0, right: 96.0, top: 8.0, bottom: 8.0),
+                  padding: const EdgeInsets.only(
+                    left: 48.0,
+                    right: 96.0,
+                    top: 8.0,
+                    bottom: 8.0,
+                  ),
                   child: Row(
                     children: [
                       Container(
@@ -69,7 +93,11 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.business, color: Color(0xFF1F2E27), size: 28),
+                        child: const Icon(
+                          Icons.business,
+                          color: Color(0xFF1F2E27),
+                          size: 28,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -94,20 +122,35 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                                 if (isActive)
                                   Container(
                                     margin: const EdgeInsets.only(left: 8),
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: Colors.green.withValues(alpha: 0.2),
+                                      color: Colors.green.withValues(
+                                        alpha: 0.2,
+                                      ),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(color: Colors.green),
                                     ),
-                                    child: const Text('Active', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
+                                    child: const Text(
+                                      'Active',
+                                      style: TextStyle(
+                                        color: Colors.green,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
                               ],
                             ),
                             const SizedBox(height: 4),
                             Text(
                               location,
-                              style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
@@ -118,7 +161,7 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
               ),
             ),
           ),
-          
+
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -127,17 +170,24 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                 children: [
                   // Subscription Banner
                   subAsync.when(
-                    loading: () => const SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
+                    loading: () => const SizedBox(
+                      height: 80,
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
                     error: (err, stack) => const SizedBox(),
                     data: (sub) {
                       final planName = sub['planName']?.toString() ?? 'N/A';
                       final isTrial = sub['status'] == 'trial';
                       final trialEndsStr = sub['trialEndsAt'];
-                      final trialEndsAt = trialEndsStr != null ? DateTime.tryParse(trialEndsStr) : null;
-                      
+                      final trialEndsAt = trialEndsStr != null
+                          ? DateTime.tryParse(trialEndsStr)
+                          : null;
+
                       int daysLeft = 0;
                       if (trialEndsAt != null) {
-                        daysLeft = trialEndsAt.difference(DateTime.now()).inDays;
+                        daysLeft = trialEndsAt
+                            .difference(DateTime.now())
+                            .inDays;
                       }
 
                       return Container(
@@ -146,31 +196,61 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
-                            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
                           ],
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.workspace_premium, color: Colors.orange.shade600, size: 28),
+                            Icon(
+                              Icons.workspace_premium,
+                              color: Colors.orange.shade600,
+                              size: 28,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(planName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  Text(
+                                    planName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
                                   if (trialEndsAt != null)
-                                    Text('Trial ends on ${_formatDate(trialEndsAt)}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                    Text(
+                                      'Trial ends on ${_formatDate(trialEndsAt)}',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
                             if (isTrial && daysLeft >= 0)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.orange.shade50,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Text('$daysLeft Days Left', style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Text(
+                                  '$daysLeft Days Left',
+                                  style: TextStyle(
+                                    color: Colors.orange.shade800,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ),
                             const SizedBox(width: 8),
                             ElevatedButton.icon(
@@ -178,11 +258,22 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF1F2E27),
                                 foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                               ),
                               icon: const Icon(Icons.star_border, size: 16),
-                              label: const Text('Upgrade Plan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              label: const Text(
+                                'Upgrade Plan',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -190,14 +281,24 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Overview Header
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Overview', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1F2E27))),
+                      const Text(
+                        'Overview',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1F2E27),
+                        ),
+                      ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           border: Border.all(color: Colors.grey.shade300),
@@ -205,22 +306,41 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade700),
+                            Icon(
+                              Icons.calendar_today,
+                              size: 14,
+                              color: Colors.grey.shade700,
+                            ),
                             const SizedBox(width: 6),
-                            Text('Today, ${_formatDate(DateTime.now())}', style: TextStyle(fontSize: 12, color: Colors.grey.shade800, fontWeight: FontWeight.w500)),
+                            Text(
+                              'Today, ${_formatDate(DateTime.now())}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade800,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                             const SizedBox(width: 4),
-                            Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey.shade700),
+                            Icon(
+                              Icons.keyboard_arrow_down,
+                              size: 16,
+                              color: Colors.grey.shade700,
+                            ),
                           ],
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Dashboard Data
                   dashboardAsync.when(
-                    loading: () => const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
-                    error: (err, stack) => Center(child: Text('Error: $err')),
+                    loading: () => const Padding(
+                      padding: EdgeInsets.all(40),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                    error: (err, stack) =>
+                        Center(child: Text(friendlyErrorMessage(err))),
                     data: (dash) {
                       final overview = dash['overview'] ?? {};
                       return Column(
@@ -279,7 +399,7 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                             ],
                           ),
                           const SizedBox(height: 24),
-                          
+
                           // Quick Actions Row
                           Container(
                             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -287,7 +407,11 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
-                                BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
                               ],
                             ),
                             child: Row(
@@ -315,35 +439,61 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(12),
                                     boxShadow: [
-                                      BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.03,
+                                        ),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
                                     ],
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           const Expanded(
                                             child: Text(
                                               'Students Overview',
-                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
                                           const SizedBox(width: 4),
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
                                             decoration: BoxDecoration(
-                                              border: Border.all(color: Colors.grey.shade300),
-                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: Colors.grey.shade300,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
                                             ),
                                             child: Row(
                                               children: [
-                                                const Text('This Week', style: TextStyle(fontSize: 10)),
+                                                const Text(
+                                                  'This Week',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                  ),
+                                                ),
                                                 const SizedBox(width: 4),
-                                                Icon(Icons.keyboard_arrow_down, size: 12, color: Colors.grey.shade700),
+                                                Icon(
+                                                  Icons.keyboard_arrow_down,
+                                                  size: 12,
+                                                  color: Colors.grey.shade700,
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -352,14 +502,31 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                                       const SizedBox(height: 24),
                                       SizedBox(
                                         height: 120,
-                                        child: _buildStudentLineChart(dash['studentChart'] as List<dynamic>? ?? []),
+                                        child: _buildStudentLineChart(
+                                          dash['studentChart']
+                                                  as List<dynamic>? ??
+                                              [],
+                                        ),
                                       ),
                                       const SizedBox(height: 16),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Text('Total Students', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                                          Text('${overview['totalStudents'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                          Text(
+                                            'Total Students',
+                                            style: TextStyle(
+                                              color: Colors.grey.shade600,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${overview['totalStudents'] ?? 0}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ],
@@ -375,30 +542,42 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(12),
                                     boxShadow: [
-                                      BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.03,
+                                        ),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
                                     ],
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           const Expanded(
                                             child: Text(
                                               'Fees Overview',
-                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-
                                         ],
                                       ),
                                       const SizedBox(height: 16),
                                       SizedBox(
                                         height: 100,
-                                        child: _buildFeesPieChart(dash['feesChart'] ?? {}),
+                                        child: _buildFeesPieChart(
+                                          dash['feesChart'] ?? {},
+                                        ),
                                       ),
                                       const SizedBox(height: 16),
                                       _buildFeeLegend(dash['feesChart'] ?? {}),
@@ -409,22 +588,40 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                             ],
                           ),
                           const SizedBox(height: 24),
-                          
+
                           // Recent Activity
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Recent Activity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              const Text(
+                                'Recent Activity',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
                               Row(
                                 children: [
-                                  const Text('View All', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                  Icon(Icons.arrow_forward, size: 14, color: AppColors.textPrimary),
+                                  const Text(
+                                    'View All',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.arrow_forward,
+                                    size: 14,
+                                    color: AppColors.textPrimary,
+                                  ),
                                 ],
                               ),
                             ],
                           ),
                           const SizedBox(height: 12),
-                          _buildRecentActivityList(dash['recentActivity'] as List<dynamic>? ?? []),
+                          _buildRecentActivityList(
+                            dash['recentActivity'] as List<dynamic>? ?? [],
+                          ),
                         ],
                       );
                     },
@@ -448,14 +645,18 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
   }) {
     int g = growth is num ? growth.toInt() : 0;
     bool isPositive = g >= 0;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -475,7 +676,11 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -485,7 +690,11 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
           const SizedBox(height: 12),
           Text(
             value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Color(0xFF1F2E27)),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
+              color: Color(0xFF1F2E27),
+            ),
           ),
           const SizedBox(height: 8),
           Opacity(
@@ -522,14 +731,23 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
       children: [
         Icon(icon, color: const Color(0xFF1F2E27), size: 24),
         const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF1F2E27))),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1F2E27),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildStudentLineChart(List<dynamic> chartData) {
     if (chartData.isEmpty) {
-      return const Center(child: Text('No Data', style: TextStyle(fontSize: 10)));
+      return const Center(
+        child: Text('No Data', style: TextStyle(fontSize: 10)),
+      );
     }
 
     List<FlSpot> spots = [];
@@ -545,12 +763,17 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
           show: true,
           drawVerticalLine: false,
           horizontalInterval: 1,
-          getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+          getDrawingHorizontalLine: (value) =>
+              FlLine(color: Colors.grey.shade200, strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
           show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -560,7 +783,13 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                 if (value.toInt() >= 0 && value.toInt() < days.length) {
                   return Padding(
                     padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(days[value.toInt()], style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                    child: Text(
+                      days[value.toInt()],
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 10,
+                      ),
+                    ),
                   );
                 }
                 return const Text('');
@@ -573,7 +802,10 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
               interval: 1,
               reservedSize: 20,
               getTitlesWidget: (value, meta) {
-                return Text(value.toInt().toString(), style: TextStyle(color: Colors.grey.shade500, fontSize: 10));
+                return Text(
+                  value.toInt().toString(),
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+                );
               },
             ),
           ),
@@ -604,9 +836,11 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
     double collected = (feesData['collected'] ?? 0).toDouble();
     double pending = (feesData['pending'] ?? 0).toDouble();
     double total = collected + pending;
-    
+
     if (total == 0) {
-      return const Center(child: Text('No Data', style: TextStyle(fontSize: 10)));
+      return const Center(
+        child: Text('No Data', style: TextStyle(fontSize: 10)),
+      );
     }
 
     return Stack(
@@ -635,8 +869,14 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Total', style: TextStyle(fontSize: 10, color: Colors.grey)),
-            Text('₹${total.toInt()}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            const Text(
+              'Total',
+              style: TextStyle(fontSize: 10, color: Colors.grey),
+            ),
+            Text(
+              '₹${total.toInt()}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
           ],
         ),
       ],
@@ -653,18 +893,35 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
 
     return Column(
       children: [
-        _buildLegendRow(Colors.green, 'Collected', '₹${collected.toInt()}', '$collPct%'),
+        _buildLegendRow(
+          Colors.green,
+          'Collected',
+          '₹${collected.toInt()}',
+          '$collPct%',
+        ),
         const SizedBox(height: 8),
-        _buildLegendRow(Colors.red, 'Pending', '₹${pending.toInt()}', '$pendPct%'),
+        _buildLegendRow(
+          Colors.red,
+          'Pending',
+          '₹${pending.toInt()}',
+          '$pendPct%',
+        ),
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            const Text('View Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Color(0xFF1F2E27))),
+            const Text(
+              'View Details',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 10,
+                color: Color(0xFF1F2E27),
+              ),
+            ),
             const SizedBox(width: 4),
             const Icon(Icons.arrow_forward, size: 10, color: Color(0xFF1F2E27)),
           ],
-        )
+        ),
       ],
     );
   }
@@ -672,13 +929,26 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
   Widget _buildLegendRow(Color color, String label, String amount, String pct) {
     return Row(
       children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 6),
-        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+        Text(
+          label,
+          style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+        ),
         const Spacer(),
-        Text(amount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+        Text(
+          amount,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+        ),
         const SizedBox(width: 4),
-        Text('($pct)', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+        Text(
+          '($pct)',
+          style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+        ),
       ],
     );
   }
@@ -687,17 +957,24 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
     if (activities.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: const Center(child: Text('No recent activity')),
       );
     }
-    
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -707,7 +984,7 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
           Color iconColor = Colors.blue;
           Color iconBg = Colors.blue.shade50;
           String text = 'Action performed';
-          
+
           if (action.contains('student')) {
             icon = Icons.person_add;
             iconColor = Colors.teal;
@@ -719,8 +996,10 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
             iconBg = Colors.amber.shade50;
             text = 'Payment received';
           }
-          
-          final dateStr = act['createdAt'] != null ? _formatDate(DateTime.tryParse(act['createdAt'])) : 'N/A';
+
+          final dateStr = act['createdAt'] != null
+              ? _formatDate(DateTime.tryParse(act['createdAt']))
+              : 'N/A';
 
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -728,7 +1007,10 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   child: Icon(icon, color: iconColor, size: 20),
                 ),
                 const SizedBox(width: 12),
@@ -736,12 +1018,24 @@ class _TenantDetailsScreenState extends ConsumerState<TenantDetailsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      Text(
+                        text,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(dateStr, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                      Text(
+                        dateStr,
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 10,
+                        ),
+                      ),
                     ],
                   ),
-                )
+                ),
               ],
             ),
           );

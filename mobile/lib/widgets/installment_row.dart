@@ -64,7 +64,11 @@ class InstallmentRow extends StatelessWidget {
               ),
               child: Text(
                 '$index',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             )
           else
@@ -76,11 +80,16 @@ class InstallmentRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  dueDate != null ? 'Due: ${_formatDate(dueDate!)}' : 'No due date',
+                  dueDate != null
+                      ? 'Due: ${_formatDate(dueDate!)}'
+                      : 'No due date',
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],
@@ -91,7 +100,10 @@ class InstallmentRow extends StatelessWidget {
             children: [
               Text(
                 '₹$amount',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
               const SizedBox(height: 2),
               Text(

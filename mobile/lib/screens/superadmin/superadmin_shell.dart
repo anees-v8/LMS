@@ -21,19 +21,47 @@ class SuperAdminShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppShell(
       items: [
-        const NavItem(icon: Icons.analytics, label: 'Analytics', screen: AnalyticsScreen()),
-        const NavItem(icon: Icons.business, label: 'Tenants', screen: TenantsScreen()),
-        const NavItem(icon: Icons.card_membership, label: 'Plans', screen: PlansScreen()),
-        const NavItem(icon: Icons.receipt_long, label: 'Subscriptions', screen: SubscriptionsScreen()),
+        const NavItem(
+          icon: Icons.analytics,
+          label: 'Analytics',
+          screen: AnalyticsScreen(),
+        ),
+        const NavItem(
+          icon: Icons.business,
+          label: 'Tenants',
+          screen: TenantsScreen(),
+        ),
+        const NavItem(
+          icon: Icons.card_membership,
+          label: 'Plans',
+          screen: PlansScreen(),
+        ),
+        const NavItem(
+          icon: Icons.receipt_long,
+          label: 'Subscriptions',
+          screen: SubscriptionsScreen(),
+        ),
         NavItem(
           icon: Icons.more_horiz,
           label: 'More',
           iconWidget: const _MoreIconWithUnreadBadge(),
           screen: const MoreMenuScreen(
             items: [
-              MoreMenuItem(icon: Icons.person, label: 'Profile', destination: SuperAdminProfileScreen()),
-              MoreMenuItem(icon: Icons.inbox, label: 'Leads', destination: LeadsScreen()),
-              MoreMenuItem(icon: Icons.campaign, label: 'Send Announcement', destination: BroadcastAdminsScreen()),
+              MoreMenuItem(
+                icon: Icons.person,
+                label: 'Profile',
+                destination: SuperAdminProfileScreen(),
+              ),
+              MoreMenuItem(
+                icon: Icons.inbox,
+                label: 'Leads',
+                destination: LeadsScreen(),
+              ),
+              MoreMenuItem(
+                icon: Icons.campaign,
+                label: 'Send Announcement',
+                destination: BroadcastAdminsScreen(),
+              ),
             ],
           ),
         ),

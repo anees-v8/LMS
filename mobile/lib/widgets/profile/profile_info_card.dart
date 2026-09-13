@@ -5,25 +5,43 @@ class ProfileInfoRowData {
   final IconData icon;
   final String label;
   final String value;
-  const ProfileInfoRowData({required this.icon, required this.label, required this.value});
+  const ProfileInfoRowData({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 }
 
 /// White "Personal Details" card — shared shell, rows supplied per role.
 class ProfileInfoCard extends StatelessWidget {
   final List<ProfileInfoRowData> rows;
   final String title;
-  const ProfileInfoCard({super.key, required this.rows, this.title = 'Personal Details'});
+  const ProfileInfoCard({
+    super.key,
+    required this.rows,
+    this.title = 'Personal Details',
+  });
 
   @override
   Widget build(BuildContext context) {
     if (rows.isEmpty) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primaryDark)),
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: AppColors.primaryDark,
+            ),
+          ),
           const SizedBox(height: 12),
           for (var i = 0; i < rows.length; i++) ...[
             if (i > 0) const Divider(height: 20),
@@ -49,8 +67,17 @@ class _InfoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(data.label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-              Text(data.value, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
+              Text(
+                data.label,
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+              Text(
+                data.value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryDark,
+                ),
+              ),
             ],
           ),
         ),

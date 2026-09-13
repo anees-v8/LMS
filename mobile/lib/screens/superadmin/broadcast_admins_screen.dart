@@ -59,7 +59,7 @@ class _BroadcastAdminsScreenState extends ConsumerState<BroadcastAdminsScreen> {
     } catch (e) {
       setState(() {
         _sending = false;
-        _error = '$e';
+        _error = friendlyErrorMessage(e);
       });
     }
   }

@@ -6,7 +6,6 @@ import '../management/admin_profile_screen.dart';
 import '../management/teachers_screen.dart';
 import '../management/batches_screen.dart';
 import '../management/subjects_screen.dart';
-import '../academics/timetable_screen.dart';
 import '../fees/fees_management_screen.dart';
 import '../reports/reports_screen.dart';
 import '../notifications/admin_notifications_screen.dart';
@@ -28,23 +27,62 @@ class CoachingAdminShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppShell(
       items: [
-        const NavItem(icon: Icons.dashboard, label: 'Dashboard', screen: DashboardScreen()),
-        const NavItem(icon: Icons.people, label: 'Students', screen: StudentsScreen()),
-        const NavItem(icon: Icons.payment, label: 'Fees', screen: FeesManagementScreen()),
-        const NavItem(icon: Icons.assessment, label: 'Reports', screen: ReportsScreen()),
+        const NavItem(
+          icon: Icons.dashboard,
+          label: 'Dashboard',
+          screen: DashboardScreen(),
+        ),
+        const NavItem(
+          icon: Icons.people,
+          label: 'Students',
+          screen: StudentsScreen(),
+        ),
+        const NavItem(
+          icon: Icons.payment,
+          label: 'Fees',
+          screen: FeesManagementScreen(),
+        ),
+        const NavItem(
+          icon: Icons.assessment,
+          label: 'Reports',
+          screen: ReportsScreen(),
+        ),
         NavItem(
           icon: Icons.more_horiz,
           label: 'More',
           iconWidget: const _MoreIconWithUnreadBadge(),
           screen: const MoreMenuScreen(
             items: [
-              MoreMenuItem(icon: Icons.person, label: 'Profile', destination: AdminProfileScreen()),
-              MoreMenuItem(icon: Icons.notifications, label: 'Notifications', destination: AdminNotificationsScreen()),
-              MoreMenuItem(icon: Icons.campaign, label: 'Send Announcement', destination: BroadcastStudentsScreen()),
-              MoreMenuItem(icon: Icons.badge, label: 'Teachers', destination: TeachersScreen()),
-              MoreMenuItem(icon: Icons.class_, label: 'Batches', destination: BatchesScreen()),
-              MoreMenuItem(icon: Icons.book, label: 'Subjects', destination: SubjectsScreen()),
-              MoreMenuItem(icon: Icons.schedule, label: 'Timetable', destination: TimetableScreen()),
+              MoreMenuItem(
+                icon: Icons.person,
+                label: 'Profile',
+                destination: AdminProfileScreen(),
+              ),
+              MoreMenuItem(
+                icon: Icons.notifications,
+                label: 'Notifications',
+                destination: AdminNotificationsScreen(),
+              ),
+              MoreMenuItem(
+                icon: Icons.campaign,
+                label: 'Send Announcement',
+                destination: BroadcastStudentsScreen(),
+              ),
+              MoreMenuItem(
+                icon: Icons.badge,
+                label: 'Teachers',
+                destination: TeachersScreen(),
+              ),
+              MoreMenuItem(
+                icon: Icons.class_,
+                label: 'Batches',
+                destination: BatchesScreen(),
+              ),
+              MoreMenuItem(
+                icon: Icons.book,
+                label: 'Subjects',
+                destination: SubjectsScreen(),
+              ),
               MoreMenuItem(
                 icon: Icons.payment,
                 label: 'Subscription & Billing',

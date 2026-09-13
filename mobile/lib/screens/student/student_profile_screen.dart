@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/student_providers.dart';
+import '../../services/api_service.dart';
 import '../../widgets/profile/profile_header.dart';
 import '../../widgets/profile/profile_info_card.dart';
 import '../../widgets/profile/profile_menu_list.dart';
@@ -19,13 +20,21 @@ class StudentProfileScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load profile: $e', style: const TextStyle(color: Colors.grey))),
+        error: (e, _) => Center(
+          child: Text(
+            friendlyErrorMessage(e),
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ),
         data: (profile) {
           final studentName = profile['fullName'] as String? ?? 'Student';
           final phone = profile['phone'] as String? ?? 'Not provided';
           final batch = profile['batchName'] as String? ?? 'No batch';
-          final rollNoStr = profile['rollNo'] != null ? 'Roll No: ${profile['rollNo']}' : 'No Roll No';
-          final parentPhone = profile['parentPhone'] as String? ?? 'Not provided';
+          final rollNoStr = profile['rollNo'] != null
+              ? 'Roll No: ${profile['rollNo']}'
+              : 'No Roll No';
+          final parentPhone =
+              profile['parentPhone'] as String? ?? 'Not provided';
 
           final attendancePct = profile['attendancePct'] as int? ?? 0;
           final testsGiven = profile['testsGiven'] as int? ?? 0;
@@ -41,7 +50,10 @@ class StudentProfileScreen extends ConsumerWidget {
                   stats: [
                     ProfileStat(label: 'Attendance', value: '$attendancePct%'),
                     ProfileStat(label: 'Tests Given', value: '$testsGiven'),
-                    ProfileStat(label: 'Avg Score', value: avgScore != null ? '$avgScore%' : '--'),
+                    ProfileStat(
+                      label: 'Avg Score',
+                      value: avgScore != null ? '$avgScore%' : '--',
+                    ),
                   ],
                 ),
               ),
@@ -51,8 +63,16 @@ class StudentProfileScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: ProfileInfoCard(
                     rows: [
-                      ProfileInfoRowData(icon: Icons.phone_rounded, label: 'Phone', value: phone),
-                      ProfileInfoRowData(icon: Icons.family_restroom_rounded, label: 'Parent Contact', value: parentPhone),
+                      ProfileInfoRowData(
+                        icon: Icons.phone_rounded,
+                        label: 'Phone',
+                        value: phone,
+                      ),
+                      ProfileInfoRowData(
+                        icon: Icons.family_restroom_rounded,
+                        label: 'Parent Contact',
+                        value: parentPhone,
+                      ),
                     ],
                   ),
                 ),
@@ -155,23 +175,42 @@ class _AttendanceSheet extends ConsumerWidget {
       maxChildSize: 0.9,
       minChildSize: 0.4,
       builder: (_, controller) => Container(
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
         child: Column(
           children: [
             const SizedBox(height: 8),
-            Container(width: 36, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('My Attendance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+              child: Text(
+                'My Attendance',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryDark,
+                ),
+              ),
             ),
             const Divider(height: 1),
             Expanded(
               child: attendanceAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error: $e')),
+                error: (e, _) => Center(child: Text(friendlyErrorMessage(e))),
                 data: (monthly) {
                   if (monthly.isEmpty) {
-                    return const Center(child: Text('No attendance data available.'));
+                    return const Center(
+                      child: Text('No attendance data available.'),
+                    );
                   }
                   return ListView(
                     controller: controller,
@@ -180,29 +219,63 @@ class _AttendanceSheet extends ConsumerWidget {
                       final monthName = m['month'] as String;
                       final total = m['total'] as int;
                       final present = m['present'] as int;
-                      final pct = total > 0 ? (present / total * 100).toInt() : 0;
-                      final color = pct >= 75 ? AppColors.success : pct >= 50 ? Colors.orange : AppColors.error;
+                      final pct = total > 0
+                          ? (present / total * 100).toInt()
+                          : 0;
+                      final color = pct >= 75
+                          ? AppColors.success
+                          : pct >= 50
+                          ? Colors.orange
+                          : AppColors.error;
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         child: Row(
                           children: [
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(monthName.trim(), style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+                                  Text(
+                                    monthName.trim(),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primaryDark,
+                                    ),
+                                  ),
                                   const SizedBox(height: 4),
-                                  Text('Present: $present / $total days', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                  Text(
+                                    'Present: $present / $total days',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                              child: Text('$pct%', style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$pct%',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: color,
+                                  fontSize: 14,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -232,23 +305,42 @@ class _PerformanceSheet extends ConsumerWidget {
       maxChildSize: 0.9,
       minChildSize: 0.4,
       builder: (_, controller) => Container(
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
         child: Column(
           children: [
             const SizedBox(height: 8),
-            Container(width: 36, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('Performance Analytics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+              child: Text(
+                'Performance Analytics',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryDark,
+                ),
+              ),
             ),
             const Divider(height: 1),
             Expanded(
               child: performanceAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error: $e')),
+                error: (e, _) => Center(child: Text(friendlyErrorMessage(e))),
                 data: (subjects) {
                   if (subjects.isEmpty) {
-                    return const Center(child: Text('No performance data available.'));
+                    return const Center(
+                      child: Text('No performance data available.'),
+                    );
                   }
                   return ListView(
                     controller: controller,
@@ -258,26 +350,41 @@ class _PerformanceSheet extends ConsumerWidget {
                       final score = s['obtainedMarks'] as int;
                       final max = s['totalMarks'] as int;
                       final pct = max > 0 ? score / max : 0.0;
-                      final color = pct >= 0.75 ? AppColors.success : pct >= 0.5 ? Colors.orange : AppColors.error;
+                      final color = pct >= 0.75
+                          ? AppColors.success
+                          : pct >= 0.5
+                          ? Colors.orange
+                          : AppColors.error;
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         child: Row(
                           children: [
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(subjectName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+                                  Text(
+                                    subjectName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primaryDark,
+                                    ),
+                                  ),
                                   const SizedBox(height: 8),
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(6),
                                     child: LinearProgressIndicator(
                                       value: pct,
                                       backgroundColor: Colors.grey.shade200,
-                                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        color,
+                                      ),
                                       minHeight: 7,
                                     ),
                                   ),
@@ -285,7 +392,14 @@ class _PerformanceSheet extends ConsumerWidget {
                               ),
                             ),
                             const SizedBox(width: 14),
-                            Text('$score/$max', style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14)),
+                            Text(
+                              '$score/$max',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                                fontSize: 14,
+                              ),
+                            ),
                           ],
                         ),
                       );
@@ -314,25 +428,43 @@ class _FeesSheet extends ConsumerWidget {
       maxChildSize: 0.9,
       minChildSize: 0.4,
       builder: (_, controller) => Container(
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
         child: Column(
           children: [
             const SizedBox(height: 8),
-            Container(width: 36, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('Fee Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+              child: Text(
+                'Fee Details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryDark,
+                ),
+              ),
             ),
             const Divider(height: 1),
             Expanded(
               child: feesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error: $e')),
+                error: (e, _) => Center(child: Text(friendlyErrorMessage(e))),
                 data: (feesData) {
                   final total = feesData['total'] as int? ?? 0;
                   final paid = feesData['paid'] as int? ?? 0;
                   final pending = feesData['pending'] as int? ?? 0;
-                  final payments = (feesData['payments'] as List<dynamic>?) ?? [];
+                  final payments =
+                      (feesData['payments'] as List<dynamic>?) ?? [];
 
                   return ListView(
                     controller: controller,
@@ -341,22 +473,67 @@ class _FeesSheet extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [Color(0xFF1F2E27), Color(0xFF2E6656)]),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF1F2E27), Color(0xFF2E6656)],
+                          ),
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: Row(
                           children: [
                             Expanded(
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text('Total Fees', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
-                                Text('₹$total', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
-                              ]),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Total Fees',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  Text(
+                                    '₹$total',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 22,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                              Text('Paid', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
-                              Text('₹$paid', style: const TextStyle(color: Color(0xFFA87D26), fontWeight: FontWeight.bold, fontSize: 16)),
-                              Text('Pending: ₹$pending', style: TextStyle(color: AppColors.error.withValues(alpha: 0.85), fontSize: 12, fontWeight: FontWeight.w600)),
-                            ]),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Paid',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                Text(
+                                  '₹$paid',
+                                  style: const TextStyle(
+                                    color: Color(0xFFA87D26),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Text(
+                                  'Pending: ₹$pending',
+                                  style: TextStyle(
+                                    color: AppColors.error.withValues(
+                                      alpha: 0.85,
+                                    ),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -367,45 +544,91 @@ class _FeesSheet extends ConsumerWidget {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFA87D26),
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
-                          child: const Text('Pay Pending Amount', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'Pay Pending Amount',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                       const SizedBox(height: 20),
-                      const Text('Payment History', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark, fontSize: 14)),
+                      const Text(
+                        'Payment History',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryDark,
+                          fontSize: 14,
+                        ),
+                      ),
                       const SizedBox(height: 10),
                       if (payments.isEmpty) ...[
                         const Padding(
                           padding: EdgeInsets.all(16.0),
-                          child: Center(child: Text('No payment history found', style: TextStyle(color: Colors.grey))),
-                        )
+                          child: Center(
+                            child: Text(
+                              'No payment history found',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ),
+                        ),
                       ] else ...[
                         ...payments.map((p) {
                           final pDateStr = p['paidOn']?.toString() ?? '';
-                          final pDate = DateTime.tryParse(pDateStr) ?? DateTime.now();
-                          final formattedDate = '${pDate.day} ${_getMonth(pDate.month)} ${pDate.year}';
+                          final pDate =
+                              DateTime.tryParse(pDateStr) ?? DateTime.now();
+                          final formattedDate =
+                              '${pDate.day} ${_getMonth(pDate.month)} ${pDate.year}';
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 10),
                             padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                             child: Row(
                               children: [
-                                const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+                                const Icon(
+                                  Icons.check_circle_rounded,
+                                  color: AppColors.success,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Text(p['receiptNo']?.toString() ?? 'Receipt', style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
+                                      Text(
+                                        p['receiptNo']?.toString() ?? 'Receipt',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primaryDark,
+                                        ),
+                                      ),
                                       const SizedBox(height: 4),
-                                      Text(formattedDate, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                      Text(
+                                        formattedDate,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
-                                Text('₹${p['amount']}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.success, fontSize: 15)),
+                                Text(
+                                  '₹${p['amount']}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.success,
+                                    fontSize: 15,
+                                  ),
+                                ),
                               ],
                             ),
                           );
@@ -423,7 +646,20 @@ class _FeesSheet extends ConsumerWidget {
   }
 
   String _getMonth(int m) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     if (m >= 1 && m <= 12) return months[m - 1];
     return '';
   }

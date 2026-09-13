@@ -6,11 +6,12 @@ import '../../providers/auth_provider.dart';
 import '../../theme/app_colors.dart';
 import '../management/students_screen.dart';
 import '../management/teachers_screen.dart';
+import '../management/batches_screen.dart';
 import '../fees/fees_management_screen.dart';
 import '../reports/reports_screen.dart';
-import '../academics/timetable_screen.dart';
 import '../notifications/admin_notifications_screen.dart';
 import '../../providers/management_providers.dart';
+import '../../services/api_service.dart';
 import '../../widgets/app_shell.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -137,7 +138,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       resizeToAvoidBottomInset: false,
       body: dashboardAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        error: (err, stack) => Center(child: Text(friendlyErrorMessage(err))),
         data: (dash) {
           final sub = dash['subscription'];
           final overview = dash['overview'] ?? {};
@@ -726,7 +727,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => const TimetableScreen(),
+                                      builder: (_) => const BatchesScreen(),
                                     ),
                                   );
                                 },

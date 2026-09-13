@@ -18,10 +18,10 @@ async function seed(): Promise<void> {
     await withTransaction(async (client: PoolClient) => {
       // Clean slate for repeatable seeding
       await client.query(`
-        TRUNCATE test_results, tests, attendance, timetable, batch_enrollments,
-                 fee_payments, fee_structures, content, live_classes, notifications,
-                 students, subjects, batches, subscriptions, users, tenants, leads,
-                 audit_log
+        TRUNCATE test_results, tests, attendance, batch_schedule, teacher_assignments,
+                 batch_enrollments, fee_payments, fee_dues, content, live_classes,
+                 notifications, students, subjects, batches, subscriptions, users,
+                 tenants, leads, audit_log
         RESTART IDENTITY CASCADE;
       `);
 
@@ -105,16 +105,18 @@ async function seed(): Promise<void> {
         )
       ).rows[0].id;
 
-      // ---- Batches ----
+      // ---- Batches (fee template set directly on the batch now) ----
       const apexBatch = (
         await client.query<{ id: number }>(
-          `INSERT INTO batches (tenant_id, name, grade) VALUES ($1,'JEE 2026 Morning','Class 11') RETURNING id`,
+          `INSERT INTO batches (tenant_id, name, grade, fee_amount, billing_cycle)
+         VALUES ($1,'JEE 2026 Morning','Class 11',5000,'monthly') RETURNING id`,
           [apex]
         )
       ).rows[0].id;
       const pioBatch = (
         await client.query<{ id: number }>(
-          `INSERT INTO batches (tenant_id, name, grade) VALUES ($1,'NEET 2026 Evening','Class 12') RETURNING id`,
+          `INSERT INTO batches (tenant_id, name, grade, fee_amount, billing_cycle)
+         VALUES ($1,'NEET 2026 Evening','Class 12',6000,'monthly') RETURNING id`,
           [pioneer]
         )
       ).rows[0].id;
@@ -145,31 +147,43 @@ async function seed(): Promise<void> {
         [pioneer, pioBatch, pioStudent]
       );
 
-      // ---- Timetable (today for Apex teacher) ----
+      // ---- Batch schedule (today, recurring weekly template) ----
       const dow = new Date().getDay();
       await client.query(
-        `INSERT INTO timetable (tenant_id, batch_id, subject_id, teacher_id, day_of_week, start_time, end_time)
-         VALUES ($1,$2,$3,$4,$5,'10:00','11:00')`,
-        [apex, apexBatch, apexPhysics, apexTeacher, dow]
+        `INSERT INTO batch_schedule (tenant_id, batch_id, subject_id, day_of_week, start_time, end_time)
+         VALUES ($1,$2,$3,$4,'10:00','11:00')`,
+        [apex, apexBatch, apexPhysics, dow]
       );
       await client.query(
-        `INSERT INTO timetable (tenant_id, batch_id, subject_id, teacher_id, day_of_week, start_time, end_time)
-         VALUES ($1,$2,$3,$4,$5,'18:00','19:00')`,
-        [pioneer, pioBatch, pioMath, pioTeacher, dow]
+        `INSERT INTO batch_schedule (tenant_id, batch_id, subject_id, day_of_week, start_time, end_time)
+         VALUES ($1,$2,$3,$4,'18:00','19:00')`,
+        [pioneer, pioBatch, pioMath, dow]
       );
 
-      // ---- Fee structure + a partial payment (Apex) ----
-      const apexFee = (
+      // ---- Teacher assignments (replaces the old implicit timetable link) ----
+      await client.query(
+        `INSERT INTO teacher_assignments (tenant_id, teacher_user_id, batch_id, subject_id)
+         VALUES ($1,$2,$3,$4)`,
+        [apex, apexTeacher, apexBatch, apexPhysics]
+      );
+      await client.query(
+        `INSERT INTO teacher_assignments (tenant_id, teacher_user_id, batch_id, subject_id)
+         VALUES ($1,$2,$3,$4)`,
+        [pioneer, pioTeacher, pioBatch, pioMath]
+      );
+
+      // ---- Fee due (auto-generated equivalent) + a partial payment (Apex) ----
+      const apexFeeDue = (
         await client.query<{ id: number }>(
-          `INSERT INTO fee_structures (tenant_id, batch_id, title, amount, due_date)
-         VALUES ($1,$2,'Term 1 Fee',5000, now() + interval '10 days') RETURNING id`,
-          [apex, apexBatch]
+          `INSERT INTO fee_dues (tenant_id, student_id, batch_id, title, amount, due_date, period_index)
+         VALUES ($1,$2,$3,'Monthly Fee — Term 1',5000, now() + interval '10 days', 1) RETURNING id`,
+          [apex, apexStudent, apexBatch]
         )
       ).rows[0].id;
       await client.query(
-        `INSERT INTO fee_payments (tenant_id, student_id, fee_structure_id, amount_paid, method, receipt_no)
+        `INSERT INTO fee_payments (tenant_id, student_id, fee_due_id, amount_paid, method, receipt_no)
          VALUES ($1,$2,$3,2000,'upi','RCPT-APEX-0001')`,
-        [apex, apexStudent, apexFee]
+        [apex, apexStudent, apexFeeDue]
       );
 
       // ---- Chapter + Content (VOD) ----

@@ -78,7 +78,11 @@ class FeeAnalyticCard extends StatelessWidget {
                   Row(
                     children: [
                       if (subtitleIcon != null) ...[
-                        Icon(subtitleIcon, size: 12, color: subtitleColor ?? const Color(0xFF6B7280)),
+                        Icon(
+                          subtitleIcon,
+                          size: 12,
+                          color: subtitleColor ?? const Color(0xFF6B7280),
+                        ),
                         const SizedBox(width: 4),
                       ],
                       Text(
@@ -91,7 +95,7 @@ class FeeAnalyticCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                ]
+                ],
               ],
             ),
           ),

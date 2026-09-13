@@ -11,6 +11,7 @@ import '../../services/api_service.dart';
 class QuizEditorScreen extends ConsumerStatefulWidget {
   final int testId;
   final String testTitle;
+
   /// When true, the Add Question sheet opens automatically on first frame —
   /// used right after creating a quiz so the teacher lands straight in the
   /// question form instead of having to tap into the (still-empty) quiz.
@@ -42,7 +43,9 @@ class _QuizEditorScreenState extends ConsumerState<QuizEditorScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (ctx) => _AddQuestionSheet(
         ref: ref,
         testId: widget.testId,
@@ -58,7 +61,10 @@ class _QuizEditorScreenState extends ConsumerState<QuizEditorScreen> {
         title: const Text('Delete Question'),
         content: const Text('Are you sure you want to delete this question?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -73,7 +79,12 @@ class _QuizEditorScreenState extends ConsumerState<QuizEditorScreen> {
       ref.invalidate(testQuestionsProvider(widget.testId));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(friendlyErrorMessage(e)),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
@@ -85,31 +96,44 @@ class _QuizEditorScreenState extends ConsumerState<QuizEditorScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(widget.testTitle, style: const TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text(
+          widget.testTitle,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
         backgroundColor: AppColors.primaryDark,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: questionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        error: (err, stack) => Center(child: Text(friendlyErrorMessage(err))),
         data: (questions) {
           if (questions.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.quiz_outlined, size: 64, color: Colors.grey.shade300),
+                  Icon(
+                    Icons.quiz_outlined,
+                    size: 64,
+                    color: Colors.grey.shade300,
+                  ),
                   const SizedBox(height: 16),
-                  const Text('No questions added yet.', style: TextStyle(color: Colors.grey)),
+                  const Text(
+                    'No questions added yet.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                   const SizedBox(height: 8),
-                  const Text('Tap + to add your first question.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const Text(
+                    'Tap + to add your first question.',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
                 ],
               ),
             );
           }
 
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 160),
             itemCount: questions.length,
             separatorBuilder: (_, __) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
@@ -131,14 +155,39 @@ class _QuizEditorScreenState extends ConsumerState<QuizEditorScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          width: 28, height: 28,
+                          width: 28,
+                          height: 28,
                           alignment: Alignment.center,
-                          decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
-                          child: Text('${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 13)),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${index + 1}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                              fontSize: 13,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 10),
-                        Expanded(child: Text(q['questionText'] ?? '', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
-                        Text('[${q['marks']} M]', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        Expanded(
+                          child: Text(
+                            q['questionText'] ?? '',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '[${q['marks']} M]',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
                       ],
                     ),
                     // Question image preview
@@ -153,8 +202,16 @@ class _QuizEditorScreenState extends ConsumerState<QuizEditorScreen> {
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Container(
                               height: 40,
-                              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-                              child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  color: Colors.grey,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -165,37 +222,66 @@ class _QuizEditorScreenState extends ConsumerState<QuizEditorScreen> {
                       final optImg = opt['imageUrl']?.toString();
                       return Container(
                         margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
-                          color: isCorrect ? Colors.green.shade50 : Colors.grey.shade50,
+                          color: isCorrect
+                              ? Colors.green.shade50
+                              : Colors.grey.shade50,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: isCorrect ? Colors.green : Colors.grey.shade300),
+                          border: Border.all(
+                            color: isCorrect
+                                ? Colors.green
+                                : Colors.grey.shade300,
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Icon(isCorrect ? Icons.check_circle : Icons.radio_button_unchecked, size: 16, color: isCorrect ? Colors.green : Colors.grey),
+                                Icon(
+                                  isCorrect
+                                      ? Icons.check_circle
+                                      : Icons.radio_button_unchecked,
+                                  size: 16,
+                                  color: isCorrect ? Colors.green : Colors.grey,
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    opt['optionText'] ?? (optImg != null && optImg.isNotEmpty ? '[Image option]' : ''),
-                                    style: TextStyle(color: isCorrect ? Colors.green.shade700 : Colors.black87),
+                                    opt['optionText'] ??
+                                        (optImg != null && optImg.isNotEmpty
+                                            ? '[Image option]'
+                                            : ''),
+                                    style: TextStyle(
+                                      color: isCorrect
+                                          ? Colors.green.shade700
+                                          : Colors.black87,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                             if (optImg != null && optImg.isNotEmpty)
                               Padding(
-                                padding: const EdgeInsets.only(top: 6, left: 24),
+                                padding: const EdgeInsets.only(
+                                  top: 6,
+                                  left: 24,
+                                ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(6),
                                   child: Image.network(
                                     optImg,
                                     height: 60,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey, size: 20),
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.broken_image,
+                                      color: Colors.grey,
+                                      size: 20,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -208,15 +294,30 @@ class _QuizEditorScreenState extends ConsumerState<QuizEditorScreen> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton.icon(
-                          onPressed: () => _showAddQuestionModal(existingQuestion: q),
-                          icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
-                          label: const Text('Edit', style: TextStyle(color: AppColors.primary)),
+                          onPressed: () =>
+                              _showAddQuestionModal(existingQuestion: q),
+                          icon: const Icon(
+                            Icons.edit_outlined,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                          label: const Text(
+                            'Edit',
+                            style: TextStyle(color: AppColors.primary),
+                          ),
                         ),
                         const SizedBox(width: 4),
                         TextButton.icon(
                           onPressed: () => _deleteQuestion(q['id'] as int),
-                          icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-                          label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            size: 16,
+                            color: Colors.red,
+                          ),
+                          label: const Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.red),
+                          ),
                         ),
                       ],
                     ),
@@ -231,7 +332,10 @@ class _QuizEditorScreenState extends ConsumerState<QuizEditorScreen> {
         onPressed: () => _showAddQuestionModal(),
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add Question', style: TextStyle(color: Colors.white)),
+        label: const Text(
+          'Add Question',
+          style: TextStyle(color: Colors.white),
+        ),
       ),
     );
   }
@@ -244,14 +348,23 @@ class _OptionEntry {
   final TextEditingController textCtrl;
   String? imageUrl;
   bool isCorrect;
-  _OptionEntry({this.id, required this.textCtrl, this.imageUrl, required this.isCorrect});
+  _OptionEntry({
+    this.id,
+    required this.textCtrl,
+    this.imageUrl,
+    required this.isCorrect,
+  });
 }
 
 class _AddQuestionSheet extends StatefulWidget {
   final WidgetRef ref;
   final int testId;
   final Map<String, dynamic>? existingQuestion;
-  const _AddQuestionSheet({required this.ref, required this.testId, this.existingQuestion});
+  const _AddQuestionSheet({
+    required this.ref,
+    required this.testId,
+    this.existingQuestion,
+  });
 
   @override
   State<_AddQuestionSheet> createState() => _AddQuestionSheetState();
@@ -275,13 +388,15 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
     _questionImageUrl = q?['imageUrl'] as String?;
     _options = _isEditing
         ? ((q!['options'] as List<dynamic>?) ?? [])
-            .map((o) => _OptionEntry(
+              .map(
+                (o) => _OptionEntry(
                   id: o['id'] as int?,
                   textCtrl: TextEditingController(text: o['optionText'] ?? ''),
                   imageUrl: o['imageUrl'] as String?,
                   isCorrect: o['isCorrect'] == true,
-                ))
-            .toList()
+                ),
+              )
+              .toList()
         : [
             _OptionEntry(textCtrl: TextEditingController(), isCorrect: true),
             _OptionEntry(textCtrl: TextEditingController(), isCorrect: false),
@@ -321,14 +436,20 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
 
   Future<void> _save() async {
     if (_textCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Question text is required')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Question text is required')),
+      );
       return;
     }
     final hasInvalidOption = _options.any(
-      (o) => o.textCtrl.text.trim().isEmpty && (o.imageUrl == null || o.imageUrl!.isEmpty),
+      (o) =>
+          o.textCtrl.text.trim().isEmpty &&
+          (o.imageUrl == null || o.imageUrl!.isEmpty),
     );
     if (hasInvalidOption) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Each option must have text or an image')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Each option must have text or an image')),
+      );
       return;
     }
 
@@ -337,21 +458,26 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
       final api = widget.ref.read(apiServiceProvider);
       final payload = {
         'questionText': _textCtrl.text.trim(),
-        if (_questionImageUrl != null && _questionImageUrl!.isNotEmpty) 'imageUrl': _questionImageUrl,
+        if (_questionImageUrl != null && _questionImageUrl!.isNotEmpty)
+          'imageUrl': _questionImageUrl,
         'marks': int.tryParse(_marksCtrl.text) ?? 1,
         'options': _options.map((o) {
           final text = o.textCtrl.text.trim();
           return {
             if (o.id != null) 'id': o.id,
             if (text.isNotEmpty) 'optionText': text,
-            if (o.imageUrl != null && o.imageUrl!.isNotEmpty) 'imageUrl': o.imageUrl,
+            if (o.imageUrl != null && o.imageUrl!.isNotEmpty)
+              'imageUrl': o.imageUrl,
             'isCorrect': o.isCorrect,
           };
         }).toList(),
       };
 
       if (_isEditing) {
-        await api.put('/teacher/questions/${widget.existingQuestion!['id']}', payload);
+        await api.put(
+          '/teacher/questions/${widget.existingQuestion!['id']}',
+          payload,
+        );
       } else {
         await api.post('/teacher/tests/${widget.testId}/questions', payload);
       }
@@ -360,7 +486,10 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
       if (!_isEditing && _saveAndAddAnother) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Question added'), duration: Duration(seconds: 1)),
+            const SnackBar(
+              content: Text('Question added'),
+              duration: Duration(seconds: 1),
+            ),
           );
           _resetForNextQuestion();
         }
@@ -369,7 +498,12 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(friendlyErrorMessage(e)),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -379,27 +513,54 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 16,
+        right: 16,
+        top: 16,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Drag handle — consistent with every other bottom sheet in the app.
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                height: 4,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   _isEditing ? 'Edit Question' : 'Add Question',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryDark,
+                  ),
                 ),
-                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
               ],
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _textCtrl,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Question Text *', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Question Text *',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 12),
             _ImagePickerField(
@@ -411,12 +572,21 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
             TextField(
               controller: _marksCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Marks', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Marks',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 16),
-            const Text('Options', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const Text(
+              'Options',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
             const SizedBox(height: 4),
-            const Text('Select the radio button next to the correct answer', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Text(
+              'Select the radio button next to the correct answer',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             const SizedBox(height: 10),
             ...List.generate(_options.length, (i) {
               final o = _options[i];
@@ -443,13 +613,19 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
                         decoration: InputDecoration(
                           hintText: 'Option ${i + 1}',
                           border: const OutlineInputBorder(),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
                       ),
                     ),
                     if (_options.length > 2)
                       IconButton(
-                        icon: const Icon(Icons.remove_circle, color: Colors.red),
+                        icon: const Icon(
+                          Icons.remove_circle,
+                          color: Colors.red,
+                        ),
                         onPressed: () => setState(() {
                           o.textCtrl.dispose();
                           _options.removeAt(i);
@@ -462,7 +638,12 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
             if (_options.length < 5)
               TextButton.icon(
                 onPressed: () => setState(
-                  () => _options.add(_OptionEntry(textCtrl: TextEditingController(), isCorrect: false)),
+                  () => _options.add(
+                    _OptionEntry(
+                      textCtrl: TextEditingController(),
+                      isCorrect: false,
+                    ),
+                  ),
                 ),
                 icon: const Icon(Icons.add),
                 label: const Text('Add Option'),
@@ -470,7 +651,8 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
             const SizedBox(height: 12),
             if (!_isEditing)
               InkWell(
-                onTap: () => setState(() => _saveAndAddAnother = !_saveAndAddAnother),
+                onTap: () =>
+                    setState(() => _saveAndAddAnother = !_saveAndAddAnother),
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -479,12 +661,17 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
                       Checkbox(
                         value: _saveAndAddAnother,
                         activeColor: AppColors.primary,
-                        onChanged: (val) => setState(() => _saveAndAddAnother = val ?? true),
+                        onChanged: (val) =>
+                            setState(() => _saveAndAddAnother = val ?? true),
                       ),
                       const Expanded(
                         child: Text(
                           'Save & add another question',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.primaryDark),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.primaryDark,
+                          ),
                         ),
                       ),
                     ],
@@ -496,14 +683,26 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: _isSaving ? null : _save,
                 child: _isSaving
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
                     : Text(
                         _isEditing
                             ? 'Update Question'
-                            : (_saveAndAddAnother ? 'Save & Add Next' : 'Save Question'),
+                            : (_saveAndAddAnother
+                                  ? 'Save & Add Next'
+                                  : 'Save Question'),
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
               ),
@@ -569,7 +768,9 @@ class _ImagePickerFieldState extends State<_ImagePickerField> {
         throw Exception('Cloudinary is not configured on the server.');
       }
 
-      final uri = Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/auto/upload');
+      final uri = Uri.parse(
+        'https://api.cloudinary.com/v1_1/$cloudName/auto/upload',
+      );
       final req = http.MultipartRequest('POST', uri)
         ..fields['api_key'] = apiKey.toString()
         ..fields['timestamp'] = sig['timestamp'].toString()
@@ -578,7 +779,14 @@ class _ImagePickerFieldState extends State<_ImagePickerField> {
 
       final file = File(picked.path!);
       final length = await file.length();
-      req.files.add(http.MultipartFile('file', file.openRead(), length, filename: picked.name));
+      req.files.add(
+        http.MultipartFile(
+          'file',
+          file.openRead(),
+          length,
+          filename: picked.name,
+        ),
+      );
 
       final streamed = await req.send();
       final res = await http.Response.fromStream(streamed);
@@ -590,7 +798,7 @@ class _ImagePickerFieldState extends State<_ImagePickerField> {
         throw Exception('Upload failed (${res.statusCode})');
       }
     } catch (e) {
-      setState(() => _error = 'Upload failed: $e');
+      setState(() => _error = 'Upload failed: ${friendlyErrorMessage(e)}');
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -602,8 +810,15 @@ class _ImagePickerFieldState extends State<_ImagePickerField> {
       return Container(
         height: _ImagePickerField._previewHeight,
         alignment: Alignment.center,
-        decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-        child: const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
       );
     }
 
@@ -631,7 +846,10 @@ class _ImagePickerFieldState extends State<_ImagePickerField> {
               onTap: () => widget.onChanged(null),
               child: Container(
                 padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
                 child: const Icon(Icons.close, color: Colors.white, size: 16),
               ),
             ),
@@ -654,16 +872,26 @@ class _ImagePickerFieldState extends State<_ImagePickerField> {
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.add_photo_alternate_outlined, size: 18, color: AppColors.primary),
+                  const Icon(
+                    Icons.add_photo_alternate_outlined,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Add Image (optional)',
-                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 13),
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -673,7 +901,10 @@ class _ImagePickerFieldState extends State<_ImagePickerField> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 11)),
+            child: Text(
+              _error!,
+              style: const TextStyle(color: AppColors.error, fontSize: 11),
+            ),
           ),
       ],
     );

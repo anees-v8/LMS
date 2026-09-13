@@ -1,6 +1,7 @@
 import { query } from '../db';
 import ApiError from '../utils/ApiError';
 import { buildWaUrl, doubtMessage } from './whatsapp.service';
+import { istDayOfWeek } from '../utils/istDate';
 
 /** Resolve the students.id for a logged-in student user. */
 async function getStudentId(tenantId: number, userId: number): Promise<number> {
@@ -41,7 +42,7 @@ export interface LiveClassItem {
 export interface TimetableItem {
   id: number;
   subject: string;
-  teacherName: string;
+  teacherName: string | null;
   startTime: string;
   endTime: string;
 }
@@ -95,12 +96,12 @@ export async function dashboard(tenantId: number, userId: number): Promise<Stude
 
   const fees = (
     await query<{ pending: number }>(
-      `SELECT
-       COALESCE((SELECT sum(f.amount) FROM fee_structures f
-                  WHERE f.tenant_id=$1 AND f.batch_id = ANY($2::int[])),0)::int
-       - COALESCE((SELECT sum(amount_paid) FROM fee_payments WHERE tenant_id=$1 AND student_id=$3),0)::int
-         AS pending`,
-      [tenantId, safeBatches, studentId]
+      `SELECT GREATEST(0,
+       COALESCE((SELECT sum(fd.amount) FROM fee_dues fd
+                  WHERE fd.tenant_id=$1 AND fd.student_id=$2),0)::int
+       - COALESCE((SELECT sum(amount_paid) FROM fee_payments WHERE tenant_id=$1 AND student_id=$2),0)::int
+       )::int AS pending`,
+      [tenantId, studentId]
     )
   ).rows[0];
 
@@ -129,18 +130,22 @@ export async function dashboard(tenantId: number, userId: number): Promise<Stude
   ).rows[0];
   const attendancePct = attRow.total > 0 ? Math.round((attRow.present / attRow.total) * 100) : 0;
 
-  // Today's timetable
-  const dow = new Date().getDay(); // 0=Sun..6=Sat
+  // Today's schedule (IST — the server may run in UTC, see istDate.ts).
+  // LEFT JOINs because a schedule slot may not have a teacher assigned yet
+  // (unlike the old timetable row, which always had a required teacher_id) —
+  // such a slot should still show up, just with a null teacherName.
+  const dow = istDayOfWeek();
   const todaySchedule = (
     await query<TimetableItem>(
-      `SELECT t.id, s.name AS subject, u.full_name AS "teacherName",
-              to_char(t.start_time,'HH12:MI AM') AS "startTime",
-              to_char(t.end_time,'HH12:MI AM') AS "endTime"
-       FROM timetable t
-       JOIN subjects s ON s.id = t.subject_id
-       JOIN users u ON u.id = t.teacher_id
-       WHERE t.tenant_id=$1 AND t.batch_id = ANY($2::int[]) AND t.day_of_week=$3
-       ORDER BY t.start_time`,
+      `SELECT bs.id, sub.name AS subject, u.full_name AS "teacherName",
+              to_char(bs.start_time,'HH12:MI AM') AS "startTime",
+              to_char(bs.end_time,'HH12:MI AM') AS "endTime"
+       FROM batch_schedule bs
+       JOIN subjects sub ON sub.id = bs.subject_id
+       LEFT JOIN teacher_assignments ta ON ta.batch_id = bs.batch_id AND ta.subject_id = bs.subject_id AND ta.tenant_id = bs.tenant_id
+       LEFT JOIN users u ON u.id = ta.teacher_user_id
+       WHERE bs.tenant_id=$1 AND bs.batch_id = ANY($2::int[]) AND bs.day_of_week=$3
+       ORDER BY bs.start_time`,
       [tenantId, safeBatches, dow]
     )
   ).rows;
@@ -299,16 +304,14 @@ export interface StudentFees {
 
 export async function fees(tenantId: number, userId: number): Promise<StudentFees> {
   const studentId = await getStudentId(tenantId, userId);
-  const batchIds = await enrolledBatchIds(tenantId, studentId);
-  const safeBatches = batchIds.length ? batchIds : [-1];
 
   const totals = (
     await query<{ total: number; paid: number }>(
       `SELECT
-       COALESCE((SELECT sum(f.amount) FROM fee_structures f
-                  WHERE f.tenant_id=$1 AND f.batch_id = ANY($2::int[])),0)::int AS total,
-       COALESCE((SELECT sum(amount_paid) FROM fee_payments WHERE tenant_id=$1 AND student_id=$3),0)::int AS paid`,
-      [tenantId, safeBatches, studentId]
+       COALESCE((SELECT sum(fd.amount) FROM fee_dues fd
+                  WHERE fd.tenant_id=$1 AND fd.student_id=$2),0)::int AS total,
+       COALESCE((SELECT sum(amount_paid) FROM fee_payments WHERE tenant_id=$1 AND student_id=$2),0)::int AS paid`,
+      [tenantId, studentId]
     )
   ).rows[0];
 
@@ -320,7 +323,7 @@ export async function fees(tenantId: number, userId: number): Promise<StudentFee
     )
   ).rows;
 
-  return { total: totals.total, paid: totals.paid, pending: totals.total - totals.paid, payments };
+  return { total: totals.total, paid: totals.paid, pending: Math.max(0, totals.total - totals.paid), payments };
 }
 
 export interface Receipt {

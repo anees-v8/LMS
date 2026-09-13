@@ -44,9 +44,17 @@ class TeacherProfileScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ProfileInfoCard(
                 rows: [
-                  ProfileInfoRowData(icon: Icons.phone_rounded, label: 'Phone', value: phone),
+                  ProfileInfoRowData(
+                    icon: Icons.phone_rounded,
+                    label: 'Phone',
+                    value: phone,
+                  ),
                   if (email != null && email.isNotEmpty)
-                    ProfileInfoRowData(icon: Icons.email_rounded, label: 'Email', value: email),
+                    ProfileInfoRowData(
+                      icon: Icons.email_rounded,
+                      label: 'Email',
+                      value: email,
+                    ),
                 ],
               ),
             ),
@@ -64,7 +72,10 @@ class TeacherProfileScreen extends ConsumerWidget {
                     label: 'Mark Attendance',
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const TeacherMarkAttendanceSelectBatchScreen()),
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const TeacherMarkAttendanceSelectBatchScreen(),
+                      ),
                     ),
                   ),
                   ProfileMenuItemData(
@@ -74,7 +85,9 @@ class TeacherProfileScreen extends ConsumerWidget {
                     label: 'Upload Material',
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const TeacherSubjectsScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const TeacherSubjectsScreen(),
+                      ),
                     ),
                   ),
                   ProfileMenuItemData(
@@ -84,7 +97,9 @@ class TeacherProfileScreen extends ConsumerWidget {
                     label: 'Manage Tests',
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const TeacherManageTestsScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const TeacherManageTestsScreen(),
+                      ),
                     ),
                   ),
                   ProfileMenuItemData(
@@ -94,7 +109,9 @@ class TeacherProfileScreen extends ConsumerWidget {
                     label: 'Student Reports',
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const TeacherStudentReportsScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const TeacherStudentReportsScreen(),
+                      ),
                     ),
                   ),
                 ],

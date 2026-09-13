@@ -3,7 +3,9 @@ import '../services/api_service.dart';
 
 // ─── Student Dashboard (single endpoint returns everything) ──────────────────
 
-final studentDashboardProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final studentDashboardProvider = FutureProvider<Map<String, dynamic>>((
+  ref,
+) async {
   final api = ref.read(apiServiceProvider);
   final data = await api.get('/student/dashboard');
   return data as Map<String, dynamic>;
@@ -16,15 +18,22 @@ final studentSubjectsProvider = FutureProvider<List<dynamic>>((ref) async {
   return await api.get('/student/subjects') as List<dynamic>;
 });
 
-final studentChaptersProvider = FutureProvider.family<List<dynamic>, int>((ref, subjectId) async {
+final studentChaptersProvider = FutureProvider.family<List<dynamic>, int>((
+  ref,
+  subjectId,
+) async {
   final api = ref.read(apiServiceProvider);
-  return await api.get('/student/subjects/$subjectId/chapters') as List<dynamic>;
+  return await api.get('/student/subjects/$subjectId/chapters')
+      as List<dynamic>;
 });
 
-final studentChapterContentProvider = FutureProvider.family<List<dynamic>, int>((ref, chapterId) async {
-  final api = ref.read(apiServiceProvider);
-  return await api.get('/student/chapters/$chapterId/content') as List<dynamic>;
-});
+final studentChapterContentProvider = FutureProvider.family<List<dynamic>, int>(
+  (ref, chapterId) async {
+    final api = ref.read(apiServiceProvider);
+    return await api.get('/student/chapters/$chapterId/content')
+        as List<dynamic>;
+  },
+);
 
 // ─── Today's Live Classes ────────────────────────────────────────────────────
 
@@ -56,7 +65,9 @@ final studentNotificationsProvider = FutureProvider<List<dynamic>>((ref) async {
 
 final studentUnreadNotificationCountProvider = FutureProvider<int>((ref) async {
   final api = ref.read(apiServiceProvider);
-  final response = await api.get('/student/notifications/unread-count') as Map<String, dynamic>;
+  final response =
+      await api.get('/student/notifications/unread-count')
+          as Map<String, dynamic>;
   return response['count'] as int? ?? 0;
 });
 
@@ -72,7 +83,9 @@ final studentTestsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 
 // ─── Profile ─────────────────────────────────────────────────────────────────
 
-final studentProfileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final studentProfileProvider = FutureProvider<Map<String, dynamic>>((
+  ref,
+) async {
   final api = ref.read(apiServiceProvider);
   return await api.get('/student/profile') as Map<String, dynamic>;
 });
@@ -85,8 +98,12 @@ final studentAttendanceProvider = FutureProvider<List<dynamic>>((ref) async {
 /// Scans a teacher's QR attendance code. Returns
 /// `{alreadyMarked, status, batchId, date}` — throws [ApiException] (via
 /// [ApiService]) with a clear message for an expired/invalid code.
-Future<Map<String, dynamic>> scanAttendanceQr(ApiService api, String token) async {
-  return await api.post('/student/attendance/qr-scan', {'token': token}) as Map<String, dynamic>;
+Future<Map<String, dynamic>> scanAttendanceQr(
+  ApiService api,
+  String token,
+) async {
+  return await api.post('/student/attendance/qr-scan', {'token': token})
+      as Map<String, dynamic>;
 }
 
 final studentPerformanceProvider = FutureProvider<List<dynamic>>((ref) async {

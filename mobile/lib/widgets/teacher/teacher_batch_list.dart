@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/teacher_providers.dart';
+import '../../services/api_service.dart';
 import '../../screens/management/teacher_batch_details_screen.dart';
 
 class TeacherBatchList extends ConsumerWidget {
@@ -19,40 +20,68 @@ class TeacherBatchList extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('My Assigned Batches', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+              const Text(
+                'My Assigned Batches',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryDark,
+                ),
+              ),
               TextButton(
                 onPressed: () {
-                  ref.read(teacherShellTabIndexProvider.notifier).setTab(2); // Batches Tab
+                  ref
+                      .read(teacherShellTabIndexProvider.notifier)
+                      .setTab(2); // Batches Tab
                 },
-                child: const Text('View All', style: TextStyle(color: AppColors.primary, fontSize: 12)),
+                child: const Text(
+                  'View All',
+                  style: TextStyle(color: AppColors.primary, fontSize: 12),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          
+
           batchesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Text('Error: $err'),
+            error: (err, stack) => Text(friendlyErrorMessage(err)),
             data: (batches) {
               if (batches.isEmpty) {
                 return Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                  child: const Center(child: Text('No assigned batches yet', style: TextStyle(color: Colors.grey))),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'No assigned batches yet',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
                 );
               }
               return Column(
-                children: batches.map((b) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _buildBatchCard(
-                    context: context,
-                    id: b['id'],
-                    name: b['name'] ?? 'Unknown Batch',
-                    students: int.tryParse(b['studentCount']?.toString() ?? '0') ?? 0,
-                    progress: b['progress'] ?? 0,
-                  ),
-                )).toList(),
+                children: batches
+                    .map(
+                      (b) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildBatchCard(
+                          context: context,
+                          id: b['id'],
+                          name: b['name'] ?? 'Unknown Batch',
+                          students:
+                              int.tryParse(
+                                b['studentCount']?.toString() ?? '0',
+                              ) ??
+                              0,
+                          progress: b['progress'] ?? 0,
+                        ),
+                      ),
+                    )
+                    .toList(),
               );
             },
           ),
@@ -73,7 +102,8 @@ class TeacherBatchList extends ConsumerWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => TeacherBatchDetailsScreen(batchId: id, batchName: name),
+            builder: (_) =>
+                TeacherBatchDetailsScreen(batchId: id, batchName: name),
           ),
         );
       },
@@ -100,17 +130,40 @@ class TeacherBatchList extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primaryDark)),
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Icon(Icons.person, size: 14, color: Colors.grey.shade600),
                       const SizedBox(width: 4),
-                      Text('$students Students', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                      Text(
+                        '$students Students',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
                       const SizedBox(width: 12),
-                      Icon(Icons.timeline, size: 14, color: Colors.grey.shade600),
+                      Icon(
+                        Icons.timeline,
+                        size: 14,
+                        color: Colors.grey.shade600,
+                      ),
                       const SizedBox(width: 4),
-                      Text('$progress% Progress', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                      Text(
+                        '$progress% Progress',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
                 ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/management_providers.dart';
+import '../../services/api_service.dart';
 import 'student_details_screen.dart';
 
 class BatchStudentsScreen extends ConsumerStatefulWidget {
@@ -85,7 +86,8 @@ class _BatchStudentsScreenState extends ConsumerState<BatchStudentsScreen> {
                 child: studentsAsync.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text('Error: $err')),
+                  error: (err, stack) =>
+                      Center(child: Text(friendlyErrorMessage(err))),
                   data: (students) {
                     final filteredStudents = students.where((s) {
                       final name = (s['fullName']?.toString() ?? '')

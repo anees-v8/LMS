@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../theme/app_colors.dart';
+import '../services/api_service.dart';
 
 /// Renders a `NotificationItem[]` list (`{id, title, body, isRead,
 /// createdAt}`) with a mark-read affordance on unread rows. Shared by every
@@ -68,17 +69,16 @@ class NotificationsListView extends StatelessWidget {
     final desc = notification['body']?.toString() ?? '';
 
     return Container(
-      color: isRead ? Colors.transparent : AppColors.info.withValues(alpha: 0.03),
+      color: isRead
+          ? Colors.transparent
+          : AppColors.info.withValues(alpha: 0.03),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         leading: Stack(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: bgColor,
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
               child: Icon(iconData, color: iconColor, size: 24),
             ),
             if (!isRead)
@@ -129,16 +129,23 @@ class NotificationsListView extends StatelessWidget {
   Widget build(BuildContext context) {
     return notificationsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Center(child: Text('Error: $err')),
+      error: (err, stack) => Center(child: Text(friendlyErrorMessage(err))),
       data: (notifications) {
         if (notifications.isEmpty) {
           return const Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey),
+                Icon(
+                  Icons.notifications_off_outlined,
+                  size: 64,
+                  color: Colors.grey,
+                ),
                 SizedBox(height: 16),
-                Text('No new notifications', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                Text(
+                  'No new notifications',
+                  style: TextStyle(fontSize: 18, color: Colors.grey),
+                ),
               ],
             ),
           );

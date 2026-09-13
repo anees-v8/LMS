@@ -8,6 +8,7 @@ import { createMeetEvent, deleteMeetEvent } from './googleMeet.service';
 import * as https from 'https';
 import { randomBytes } from 'crypto';
 import logger from '../utils/logger';
+import { istDayOfWeek, istDateString } from '../utils/istDate';
 
 /**
  * Fetches a URL's HTML, following up to `maxRedirects` 3xx redirects —
@@ -60,7 +61,7 @@ function fetchHtml(url: string, maxRedirects = 5, timeoutMs = 5000): Promise<str
 
 /** Today's classes for this teacher (by current day_of_week). */
 export interface ScheduleClass {
-  timetableId: number;
+  batchScheduleId: number;
   batch: string;
   subject: string | null;
   startTime: string;
@@ -72,23 +73,25 @@ export async function todaySchedule(
   tenantId: number,
   teacherId: number
 ): Promise<{ day: number; count: number; classes: ScheduleClass[] }> {
-  const dow = new Date().getDay();
+  const dow = istDayOfWeek();
+  const today = istDateString();
   const { rows } = await query<ScheduleClass>(
-    `SELECT tt.id AS "timetableId", b.name AS batch, sub.name AS subject,
-            tt.start_time AS "startTime", tt.end_time AS "endTime",
-            tt.batch_id AS "batchId",
+    `SELECT bs.id AS "batchScheduleId", b.name AS batch, sub.name AS subject,
+            bs.start_time AS "startTime", bs.end_time AS "endTime",
+            bs.batch_id AS "batchId",
             EXISTS(
               SELECT 1 FROM attendance a
-              WHERE a.batch_id = tt.batch_id
-                AND a.timetable_id = tt.id
-                AND a.date = CURRENT_DATE
+              WHERE a.batch_id = bs.batch_id
+                AND a.batch_schedule_id = bs.id
+                AND a.date = $4::date
             ) AS "isAttendanceMarked"
-       FROM timetable tt
-       JOIN batches b ON b.id = tt.batch_id
-       LEFT JOIN subjects sub ON sub.id = tt.subject_id
-      WHERE tt.tenant_id=$1 AND tt.teacher_id=$2 AND tt.day_of_week=$3
-      ORDER BY tt.start_time`,
-    [tenantId, teacherId, dow]
+       FROM teacher_assignments ta
+       JOIN batch_schedule bs ON bs.batch_id = ta.batch_id AND bs.subject_id = ta.subject_id
+       JOIN batches b ON b.id = bs.batch_id
+       LEFT JOIN subjects sub ON sub.id = bs.subject_id
+      WHERE ta.tenant_id=$1 AND ta.teacher_user_id=$2 AND bs.day_of_week=$3
+      ORDER BY bs.start_time`,
+    [tenantId, teacherId, dow, today]
   );
   return { day: dow, count: rows.length, classes: rows };
 }
@@ -101,14 +104,14 @@ export interface MyBatch {
 }
 
 export async function myBatches(tenantId: number, teacherId: number): Promise<MyBatch[]> {
-  // Find distinct batches assigned to this teacher in timetable
+  // Find distinct batches assigned to this teacher via teacher_assignments
   const { rows } = await query<MyBatch>(
     `SELECT b.id, b.name,
             (SELECT COUNT(*) FROM batch_enrollments be WHERE be.batch_id = b.id) AS "studentCount",
             0 AS progress
        FROM batches b
       WHERE b.tenant_id = $1
-        AND b.id IN (SELECT DISTINCT batch_id FROM timetable WHERE tenant_id = $1 AND teacher_id = $2)
+        AND b.id IN (SELECT DISTINCT batch_id FROM teacher_assignments WHERE tenant_id = $1 AND teacher_user_id = $2)
       ORDER BY b.name`,
     [tenantId, teacherId]
   );
@@ -161,7 +164,7 @@ export interface AttendanceRecord {
 
 export interface MarkAttendanceInput {
   batchId: number;
-  timetableId?: number;
+  batchScheduleId?: number;
   date: string;
   records: AttendanceRecord[];
 }
@@ -179,7 +182,7 @@ export interface AbsentReminder {
 export async function markAttendance(
   tenantId: number,
   teacherId: number,
-  { batchId, timetableId, date, records }: MarkAttendanceInput
+  { batchId, batchScheduleId, date, records }: MarkAttendanceInput
 ): Promise<{ saved: number; absentReminders: AbsentReminder[] }> {
   const b = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
   if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH');
@@ -192,11 +195,11 @@ export async function markAttendance(
   await withTransaction(async (client) => {
     for (const r of records) {
       await client.query(
-        `INSERT INTO attendance (tenant_id, timetable_id, batch_id, student_id, date, status, marked_by)
+        `INSERT INTO attendance (tenant_id, batch_schedule_id, batch_id, student_id, date, status, marked_by)
          VALUES ($1,$2,$3,$4,$5,$6,$7)
          ON CONFLICT (student_id, date, batch_id)
-         DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, timetable_id = EXCLUDED.timetable_id`,
-        [tenantId, timetableId || null, batchId, r.studentId, date, r.status, teacherId]
+         DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, batch_schedule_id = EXCLUDED.batch_schedule_id`,
+        [tenantId, batchScheduleId || null, batchId, r.studentId, date, r.status, teacherId]
       );
 
       if (r.status === 'absent') {
@@ -225,7 +228,7 @@ export async function markAttendance(
 
 export interface QrSessionInput {
   batchId: number;
-  timetableId?: number;
+  batchScheduleId?: number;
   validForMinutes: number;
 }
 
@@ -240,7 +243,7 @@ export interface QrSession {
 export async function createQrAttendanceSession(
   tenantId: number,
   teacherId: number,
-  { batchId, timetableId, validForMinutes }: QrSessionInput
+  { batchId, batchScheduleId, validForMinutes }: QrSessionInput
 ): Promise<QrSession> {
   const b = await query<{ name: string }>(`SELECT name FROM batches WHERE id=$1 AND tenant_id=$2`, [
     batchId,
@@ -253,10 +256,10 @@ export async function createQrAttendanceSession(
   const token = randomBytes(24).toString('hex');
 
   const { rows } = await query<QrSession>(
-    `INSERT INTO attendance_sessions (tenant_id, batch_id, timetable_id, created_by, token, date, expires_at)
+    `INSERT INTO attendance_sessions (tenant_id, batch_id, batch_schedule_id, created_by, token, date, expires_at)
      VALUES ($1,$2,$3,$4,$5, CURRENT_DATE, now() + ($6 || ' minutes')::interval)
      RETURNING id, token, batch_id AS "batchId", date, expires_at AS "expiresAt"`,
-    [tenantId, batchId, timetableId || null, teacherId, token, validForMinutes]
+    [tenantId, batchId, batchScheduleId || null, teacherId, token, validForMinutes]
   );
   const session = rows[0];
 
@@ -610,13 +613,13 @@ export async function doubtLink(
  * Same academics/attendance/fees report the coaching_admin sees
  * (admin.service.getStudentDetails) — reused as-is rather than
  * duplicated, scoped by an ownership check: a teacher can only pull a
- * report for a student in one of their own timetabled batches.
+ * report for a student in one of their own assigned batches.
  */
 export async function getStudentDetails(tenantId: number, teacherId: number, studentId: number) {
   const owns = await query(
     `SELECT 1 FROM batch_enrollments be
-       JOIN timetable t ON t.batch_id = be.batch_id AND t.tenant_id = be.tenant_id
-      WHERE be.student_id = $1 AND be.tenant_id = $2 AND t.teacher_id = $3
+       JOIN teacher_assignments ta ON ta.batch_id = be.batch_id AND ta.tenant_id = be.tenant_id
+      WHERE be.student_id = $1 AND be.tenant_id = $2 AND ta.teacher_user_id = $3
       LIMIT 1`,
     [studentId, tenantId, teacherId]
   );

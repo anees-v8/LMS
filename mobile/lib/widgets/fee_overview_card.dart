@@ -23,7 +23,7 @@ class FeeOverviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pctPaid = total > 0 ? (paid / total) : 0.0;
-    
+
     // Calculate days left
     String daysLeftText = '';
     if (nextDueDate != null) {
@@ -124,7 +124,11 @@ class FeeOverviewCard extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.account_balance_wallet, color: AppColors.primaryDark, size: 24),
+                          const Icon(
+                            Icons.account_balance_wallet,
+                            color: AppColors.primaryDark,
+                            size: 24,
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             '₹$pending',
@@ -152,8 +156,12 @@ class FeeOverviewCard extends StatelessWidget {
                 child: _buildInfoCard(
                   Icons.calendar_today_outlined,
                   'Last Payment',
-                  lastPaymentDate != null ? _formatDate(lastPaymentDate!) : 'N/A',
-                  subtitle: lastPaymentAmount != null ? '₹$lastPaymentAmount' : null,
+                  lastPaymentDate != null
+                      ? _formatDate(lastPaymentDate!)
+                      : 'N/A',
+                  subtitle: lastPaymentAmount != null
+                      ? '₹$lastPaymentAmount'
+                      : null,
                 ),
               ),
               const SizedBox(width: 12),
@@ -176,10 +184,7 @@ class FeeOverviewCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(color: Colors.grey, fontSize: 12),
-        ),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
         const SizedBox(height: 4),
         Text(
           value,
@@ -193,7 +198,13 @@ class FeeOverviewCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoCard(IconData icon, String title, String value, {String? subtitle, String? pill}) {
+  Widget _buildInfoCard(
+    IconData icon,
+    String title,
+    String value, {
+    String? subtitle,
+    String? pill,
+  }) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -210,9 +221,18 @@ class FeeOverviewCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                ),
                 const SizedBox(height: 2),
-                Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(subtitle, style: const TextStyle(fontSize: 12)),
@@ -220,14 +240,21 @@ class FeeOverviewCard extends StatelessWidget {
                 if (pill != null) ...[
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.orange.shade50,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       pill,
-                      style: TextStyle(color: Colors.orange.shade800, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.orange.shade800,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],

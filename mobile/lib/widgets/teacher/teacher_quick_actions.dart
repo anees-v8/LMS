@@ -9,7 +9,13 @@ import '../../screens/management/teacher_student_reports_screen.dart';
 class TeacherQuickActions extends StatelessWidget {
   const TeacherQuickActions({super.key});
 
-  Widget _buildActionCard(BuildContext context, String title, IconData icon, Color color, Widget destination) {
+  Widget _buildActionCard(
+    BuildContext context,
+    String title,
+    IconData icon,
+    Color color,
+    Widget destination,
+  ) {
     return InkWell(
       onTap: () {
         Navigator.push(context, MaterialPageRoute(builder: (_) => destination));
@@ -22,7 +28,11 @@ class TeacherQuickActions extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2)),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
           ],
         ),
         child: Column(
@@ -40,7 +50,11 @@ class TeacherQuickActions extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.primaryDark),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: AppColors.primaryDark,
+              ),
             ),
           ],
         ),
@@ -55,7 +69,14 @@ class TeacherQuickActions extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Quick Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+          const Text(
+            'Quick Actions',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primaryDark,
+            ),
+          ),
           const SizedBox(height: 16),
           GridView.count(
             crossAxisCount: 2,
@@ -67,29 +88,29 @@ class TeacherQuickActions extends StatelessWidget {
             children: [
               _buildActionCard(
                 context,
-                'Mark\nAttendance', 
-                Icons.how_to_reg, 
+                'Mark\nAttendance',
+                Icons.how_to_reg,
                 AppColors.primary,
                 const TeacherMarkAttendanceSelectBatchScreen(),
               ),
               _buildActionCard(
                 context,
-                'Upload\nMaterial', 
-                Icons.upload_file, 
+                'Upload\nMaterial',
+                Icons.upload_file,
                 Colors.orange,
                 const TeacherSubjectsScreen(),
               ),
               _buildActionCard(
                 context,
-                'Manage\nTests', 
-                Icons.quiz, 
+                'Manage\nTests',
+                Icons.quiz,
                 Colors.purple,
                 const TeacherManageTestsScreen(),
               ),
               _buildActionCard(
                 context,
-                'Student\nReports', 
-                Icons.bar_chart, 
+                'Student\nReports',
+                Icons.bar_chart,
                 Colors.green,
                 const TeacherStudentReportsScreen(),
               ),

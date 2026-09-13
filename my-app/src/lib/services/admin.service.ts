@@ -8,6 +8,8 @@ import { buildWaUrl, feeReminderMessage } from './whatsapp.service';
 import { getTenantDashboard } from './superadmin.service';
 import * as notificationCenter from './notificationCenter.service';
 import logger from '../utils/logger';
+import { nowInIst } from '../utils/istDate';
+import type { PoolClient } from 'pg';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -105,6 +107,10 @@ export async function updateTeacher(
   if (fullName !== undefined) { userUpdates.push(`full_name=$${ui++}`); userValues.push(fullName); }
   if (phone !== undefined) { userUpdates.push(`phone=$${ui++}`); userValues.push(phone); }
   if (email !== undefined) { userUpdates.push(`email=$${ui++}`); userValues.push(email); }
+  // Keep login access in sync with the teacher's status: 'inactive' must
+  // actually block login (users.is_active is what auth.service checks),
+  // not just change a display badge. 'active'/'on_leave' both keep login.
+  if (status !== undefined) { userUpdates.push(`is_active=$${ui++}`); userValues.push(status !== 'inactive'); }
   if (userUpdates.length) {
     await query(`UPDATE users SET ${userUpdates.join(', ')} WHERE id=$1 AND tenant_id=$2`, userValues);
   }
@@ -131,11 +137,28 @@ export async function updateTeacher(
   return rows[0] as any;
 }
 
+/**
+ * "Removes" a teacher. This is a soft-delete, not a hard DELETE: a teacher
+ * almost always has historical records pointing at their user id (timetable
+ * entries, marked attendance, uploaded content, live classes), and several
+ * of those foreign keys (e.g. timetable.teacher_id) are NOT NULL with no
+ * cascade — a hard delete fails with a Postgres FK-violation (23503) the
+ * moment any such record exists. Deactivating instead blocks login (same
+ * is_active flag auth.service checks) and marks them Inactive in the
+ * teacher list (same status a coaching_admin can also set manually and
+ * reverse later), while keeping every historical record intact.
+ */
 export async function deleteTeacher(tenantId: number, actorUserId: number, id: number): Promise<void> {
-  const { rowCount } = await query(
-    `DELETE FROM users WHERE id=$1 AND tenant_id=$2 AND role='teacher'`,
-    [id, tenantId]
-  );
+  const { rowCount } = await withTransaction(async (client) => {
+    const res = await client.query(
+      `UPDATE users SET is_active=false WHERE id=$1 AND tenant_id=$2 AND role='teacher'`,
+      [id, tenantId]
+    );
+    if (res.rowCount) {
+      await client.query(`UPDATE teachers SET status='inactive' WHERE user_id=$1`, [id]);
+    }
+    return res;
+  });
   if (!rowCount) throw ApiError.notFound('TEACHER_NOT_FOUND');
   await writeAudit({ tenantId, actorUserId, action: 'teacher_deleted', entity: 'user', entityId: id });
 }
@@ -180,11 +203,11 @@ export async function listStudents(tenantId: number, batchId: number | null): Pr
         WHERE fp.tenant_id = $1
         GROUP BY fp.student_id
       ),
-      batch_fees AS (
-        SELECT fs.batch_id, COALESCE(SUM(fs.amount), 0) AS total_due
-        FROM fee_structures fs
-        WHERE fs.tenant_id = $1
-        GROUP BY fs.batch_id
+      student_dues AS (
+        SELECT fd.student_id, COALESCE(SUM(fd.amount), 0) AS total_due
+        FROM fee_dues fd
+        WHERE fd.tenant_id = $1
+        GROUP BY fd.student_id
       )
       SELECT s.id,
              u.full_name AS "fullName",
@@ -194,7 +217,7 @@ export async function listStudents(tenantId: number, batchId: number | null): Pr
              s.parent_phone AS "parentPhone",
              u.phone,
              b.name AS "batchName",
-             (COALESCE(bf.total_due, 0) - COALESCE(sf.total_paid, 0)) AS "pendingFees",
+             GREATEST(0, COALESCE(sd.total_due, 0) - COALESCE(sf.total_paid, 0)) AS "pendingFees",
              CASE
                WHEN sa.total_days > 0 THEN ROUND((sa.present_days::numeric / sa.total_days::numeric) * 100)
                ELSE 0
@@ -205,7 +228,7 @@ export async function listStudents(tenantId: number, batchId: number | null): Pr
       LEFT JOIN batches b ON b.id = be.batch_id
       LEFT JOIN student_attendance sa ON sa.student_id = s.id
       LEFT JOIN student_fees sf ON sf.student_id = s.id
-      LEFT JOIN batch_fees bf ON bf.batch_id = b.id
+      LEFT JOIN student_dues sd ON sd.student_id = s.id
       WHERE s.tenant_id = $1 ${join}
       ORDER BY u.full_name
     `,
@@ -228,16 +251,138 @@ export interface CreateStudentInput {
   grade?: string;
   rollNo?: string;
   batchId: number;
+  /** Total fee amount for this student, overriding the batch's default fee_amount
+   *  (split by the batch's billing_cycle the same way). Null clears an existing
+   *  override back to "use batch default"; undefined leaves it untouched. */
+  feeOverrideAmount?: number | null;
+}
+
+/**
+ * Auto-generates the next roll number for a tenant, e.g. "A-101" -> "A-102".
+ * Format: {first letter of the institute's name}-{tenantId}{2-digit sequence
+ * within that tenant, starting at 01} — matches the scheme already in use
+ * (Apex Academy -> A-101, A-102; Pioneer Classes -> P-201). Locks the
+ * tenant's existing roll numbers for the duration of the transaction (must
+ * be called inside one) so two concurrent "auto generate" creations in the
+ * same tenant can't both compute the same next number.
+ */
+async function nextAutoRollNo(client: PoolClient, tenantId: number): Promise<string> {
+  const tenantRow = await client.query<{ name: string }>(`SELECT name FROM tenants WHERE id=$1`, [tenantId]);
+  const prefix = (tenantRow.rows[0]?.name?.trim()[0] || 'S').toUpperCase();
+
+  // Lock this tenant's roll-number rows so a concurrent auto-generate request
+  // for the same tenant can't read the same "current max" before either has
+  // committed its INSERT.
+  const existing = await client.query<{ rollNo: string }>(
+    `SELECT roll_no AS "rollNo" FROM students WHERE tenant_id=$1 AND roll_no LIKE $2 FOR UPDATE`,
+    [tenantId, `${prefix}-${tenantId}%`]
+  );
+
+  let maxSeq = 0;
+  const seqPattern = new RegExp(`^${prefix}-${tenantId}(\\d{2,})$`);
+  for (const row of existing.rows) {
+    const match = row.rollNo?.match(seqPattern);
+    if (match) maxSeq = Math.max(maxSeq, parseInt(match[1], 10));
+  }
+
+  const nextSeq = String(maxSeq + 1).padStart(2, '0');
+  return `${prefix}-${tenantId}${nextSeq}`;
+}
+
+const CYCLE_PERIODS: Record<'monthly' | 'quarterly' | 'yearly', number> = {
+  monthly: 12,
+  quarterly: 4,
+  yearly: 1,
+};
+
+/**
+ * Generates a student's fee-due schedule from their batch's fee template
+ * (fee_amount/billing_cycle), or the student's own fee_override_amount if
+ * set (a total, split the same way as the batch default — e.g. a
+ * scholarship student's override still gets divided into 12 monthly rows
+ * the same as everyone else, just with a smaller total). A no-op if the
+ * batch has no fee configured yet. Due-dates are spaced by the cycle
+ * (month/quarter/year) starting from the tenant's configured fee_due_day
+ * in the current period, so every student in a tenant bills on the same
+ * day of the month regardless of enrollment date. Must run inside the
+ * same transaction as the batch_enrollments insert that creates this
+ * enrollment.
+ */
+async function generateFeeDues(
+  client: PoolClient,
+  tenantId: number,
+  studentId: number,
+  batchId: number
+): Promise<void> {
+  const batchRow = await client.query<{ feeAmount: number | null; billingCycle: 'monthly' | 'quarterly' | 'yearly' | null }>(
+    `SELECT fee_amount AS "feeAmount", billing_cycle AS "billingCycle" FROM batches WHERE id=$1`,
+    [batchId]
+  );
+  const { feeAmount, billingCycle } = batchRow.rows[0] || {};
+  if (!feeAmount || !billingCycle) return; // batch has no fee configured yet
+
+  const overrideRow = await client.query<{ feeOverrideAmount: number | null }>(
+    `SELECT fee_override_amount AS "feeOverrideAmount" FROM students WHERE id=$1`,
+    [studentId]
+  );
+  const total = overrideRow.rows[0]?.feeOverrideAmount ?? feeAmount;
+
+  const tenantRow = await client.query<{ feeDueDay: number }>(
+    `SELECT fee_due_day AS "feeDueDay" FROM tenants WHERE id=$1`,
+    [tenantId]
+  );
+  const dueDay = tenantRow.rows[0]?.feeDueDay ?? 5;
+
+  const periods = CYCLE_PERIODS[billingCycle];
+  const perPeriod = Math.floor(total / periods);
+  const remainder = total - perPeriod * periods;
+  const cycleMonths = billingCycle === 'monthly' ? 1 : billingCycle === 'quarterly' ? 3 : 12;
+
+  const cycleLabel = billingCycle === 'monthly' ? 'Monthly' : billingCycle === 'quarterly' ? 'Quarterly' : 'Yearly';
+
+  // Built entirely with Date.UTC + UTC getters, never .toISOString() on a
+  // locally-constructed Date — that silently shifts to the previous day
+  // once the server/dev-machine's own timezone is ahead of UTC (e.g. IST).
+  // See istDate.ts for the same pitfall in day-of-week math. Date.UTC
+  // correctly rolls month overflow (e.g. month=13) into the next year, so
+  // no manual year-carrying is needed anywhere below.
+  const now = nowInIst();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+
+  const dueDateStr = (year: number, month: number, day: number): string => {
+    const d = new Date(Date.UTC(year, month, day));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  };
+
+  // First due-date: this period's due-day if it hasn't passed yet, else next period's.
+  const dueHasPassedThisPeriod = Date.UTC(y, m, dueDay) < Date.UTC(y, m, now.getUTCDate());
+  const firstDueMonth = dueHasPassedThisPeriod ? m + cycleMonths : m;
+
+  for (let i = 0; i < periods; i++) {
+    const amount = i === periods - 1 ? perPeriod + remainder : perPeriod;
+    const dueDate = dueDateStr(y, firstDueMonth + i * cycleMonths, dueDay);
+    await client.query(
+      `INSERT INTO fee_dues (tenant_id, student_id, batch_id, title, amount, due_date, period_index)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [tenantId, studentId, batchId, `${cycleLabel} Fee — Period ${i + 1}`, amount, dueDate, i + 1]
+    );
+  }
 }
 
 export async function createStudent(tenantId: number, actorUserId: number, input: CreateStudentInput) {
-  const { fullName, phone, password, parentName, parentPhone, grade, rollNo, batchId } = input;
+  const { fullName, phone, password, parentName, parentPhone, grade, rollNo, batchId, feeOverrideAmount } = input;
   const hash = await bcrypt.hash(password, 10);
 
   return withTransaction(async (client) => {
-    // Verify batch belongs to tenant before creating anything.
-    const b = await client.query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
+    // Verify batch belongs to tenant and is still active before creating anything.
+    const b = await client.query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2 AND is_active = true`, [batchId, tenantId]);
     if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH', 'Batch not found for this tenant');
+
+    // A missing rollNo means the admin checked "Auto generate roll number"
+    // on the client — that checkbox previously did nothing server-side and
+    // just left roll_no NULL. Generate a real one now.
+    const finalRollNo = rollNo || (await nextAutoRollNo(client, tenantId));
 
     const user = (
       await client.query<{ id: number }>(
@@ -249,10 +394,10 @@ export async function createStudent(tenantId: number, actorUserId: number, input
 
     const student = (
       await client.query<{ id: number; rollNo: string | null; parentPhone: string; grade: string | null }>(
-        `INSERT INTO students (tenant_id, user_id, roll_no, parent_name, parent_phone, grade)
-       VALUES ($1,$2,$3,$4,$5,$6)
+        `INSERT INTO students (tenant_id, user_id, roll_no, parent_name, parent_phone, grade, fee_override_amount)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
        RETURNING id, roll_no AS "rollNo", parent_phone AS "parentPhone", grade`,
-        [tenantId, user.id, rollNo || null, parentName || null, parentPhone, grade || null]
+        [tenantId, user.id, finalRollNo, parentName || null, parentPhone, grade || null, feeOverrideAmount ?? null]
       )
     ).rows[0];
 
@@ -260,6 +405,8 @@ export async function createStudent(tenantId: number, actorUserId: number, input
       `INSERT INTO batch_enrollments (tenant_id, batch_id, student_id) VALUES ($1,$2,$3)`,
       [tenantId, batchId, student.id]
     );
+
+    await generateFeeDues(client, tenantId, student.id, batchId);
 
     await writeAudit(
       {
@@ -356,7 +503,7 @@ export async function importStudents(
 }
 
 export async function updateStudent(tenantId: number, actorUserId: number, id: number, input: Partial<CreateStudentInput>) {
-  const { fullName, phone, password, parentName, parentPhone, grade, rollNo, batchId } = input;
+  const { fullName, phone, password, parentName, parentPhone, grade, rollNo, batchId, feeOverrideAmount } = input;
 
   return withTransaction(async (client) => {
     // get user_id for student
@@ -377,7 +524,7 @@ export async function updateStudent(tenantId: number, actorUserId: number, id: n
       }
     }
 
-    if (parentName !== undefined || parentPhone !== undefined || grade !== undefined || rollNo !== undefined) {
+    if (parentName !== undefined || parentPhone !== undefined || grade !== undefined || rollNo !== undefined || feeOverrideAmount !== undefined) {
       const updates = [];
       const values = [];
       let idx = 1;
@@ -385,6 +532,9 @@ export async function updateStudent(tenantId: number, actorUserId: number, id: n
       if (parentPhone !== undefined) { updates.push(`parent_phone=$${idx++}`); values.push(parentPhone); }
       if (grade !== undefined) { updates.push(`grade=$${idx++}`); values.push(grade || null); }
       if (rollNo !== undefined) { updates.push(`roll_no=$${idx++}`); values.push(rollNo || null); }
+      // Only affects fee_dues generated AFTER this change (a future re-enrollment) —
+      // never retroactively regenerates dues already created for this student.
+      if (feeOverrideAmount !== undefined) { updates.push(`fee_override_amount=$${idx++}`); values.push(feeOverrideAmount); }
       if (updates.length > 0) {
         values.push(id, tenantId);
         await client.query(`UPDATE students SET ${updates.join(', ')} WHERE id=$${idx++} AND tenant_id=$${idx}`, values);
@@ -392,7 +542,7 @@ export async function updateStudent(tenantId: number, actorUserId: number, id: n
     }
 
     if (batchId) {
-      const b = await client.query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
+      const b = await client.query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2 AND is_active = true`, [batchId, tenantId]);
       if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH', 'Batch not found for this tenant');
 
       const be = await client.query(`SELECT 1 FROM batch_enrollments WHERE student_id=$1 AND tenant_id=$2`, [id, tenantId]);
@@ -401,6 +551,9 @@ export async function updateStudent(tenantId: number, actorUserId: number, id: n
       } else {
         await client.query(`INSERT INTO batch_enrollments (tenant_id, batch_id, student_id) VALUES ($1,$2,$3)`, [tenantId, batchId, id]);
       }
+      // Deliberately does NOT call generateFeeDues here: switching an
+      // existing student's batch must never silently create a second,
+      // overlapping due-schedule on top of whatever they already owe.
     }
 
     await writeAudit({ tenantId, actorUserId, action: 'student_updated', entity: 'student', entityId: id }, client);
@@ -408,15 +561,45 @@ export async function updateStudent(tenantId: number, actorUserId: number, id: n
   });
 }
 
-export async function deleteStudent(tenantId: number, actorUserId: number, id: number): Promise<void> {
-  // Deleting the user cascades to students + enrollments.
+/**
+ * Removes a student. `users.id -> students` cascades on delete, and
+ * `batch_enrollments` cascades from `students` too, but `attendance`,
+ * `fee_payments`, and `test_results` all reference students.id as NOT NULL
+ * with NO cascade — so a hard DELETE on a student with any attendance, fee
+ * payment, or test result history fails with a Postgres FK-violation
+ * (23503), exactly like the teacher-delete bug this mirrors. A student with
+ * none of that history (brand new, never attended/paid/tested) is
+ * hard-deleted; otherwise the account is deactivated (same `users.is_active`
+ * flag suspend already uses) so the history stays intact and the student
+ * can no longer log in.
+ */
+export async function deleteStudent(tenantId: number, actorUserId: number, id: number): Promise<{ softDeleted: boolean }> {
   const { rows } = await query<{ user_id: number }>(
     `SELECT user_id FROM students WHERE id=$1 AND tenant_id=$2`,
     [id, tenantId]
   );
   if (!rows[0]) throw ApiError.notFound('STUDENT_NOT_FOUND');
-  await query(`DELETE FROM users WHERE id=$1 AND tenant_id=$2`, [rows[0].user_id, tenantId]);
-  await writeAudit({ tenantId, actorUserId, action: 'student_deleted', entity: 'student', entityId: id });
+  const userId = rows[0].user_id;
+
+  const { rows: depRows } = await query<{ has_dependents: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM attendance WHERE student_id=$1
+       UNION ALL SELECT 1 FROM fee_payments WHERE student_id=$1
+       UNION ALL SELECT 1 FROM test_results WHERE student_id=$1
+     ) AS has_dependents`,
+    [id]
+  );
+  const hasDependents = depRows[0]?.has_dependents ?? false;
+
+  if (!hasDependents) {
+    await query(`DELETE FROM users WHERE id=$1 AND tenant_id=$2`, [userId, tenantId]);
+    await writeAudit({ tenantId, actorUserId, action: 'student_deleted', entity: 'student', entityId: id });
+    return { softDeleted: false };
+  }
+
+  await query(`UPDATE users SET is_active=false WHERE id=$1 AND tenant_id=$2`, [userId, tenantId]);
+  await writeAudit({ tenantId, actorUserId, action: 'student_deactivated', entity: 'student', entityId: id });
+  return { softDeleted: true };
 }
 
 export async function suspendStudent(tenantId: number, actorUserId: number, id: number): Promise<{ isSuspended: boolean }> {
@@ -508,29 +691,30 @@ export async function getStudentDetails(tenantId: number, id: number) {
        fp.amount_paid AS "amount",
        fp.method,
        fp.receipt_no AS "receiptNo",
-       COALESCE(fs.title, 'Payment') AS "desc"
+       COALESCE(fd.title, 'Payment') AS "desc"
      FROM fee_payments fp
-     LEFT JOIN fee_structures fs ON fs.id = fp.fee_structure_id
+     LEFT JOIN fee_dues fd ON fd.id = fp.fee_due_id
      WHERE fp.student_id = $1 AND fp.tenant_id = $2
      ORDER BY fp.paid_on DESC`,
     [id, tenantId]
   );
 
-  // Fees: Overview & Installments
-  const { rows: feeStructures } = await query(
-    `SELECT fs.id, fs.title, fs.amount, fs.due_date AS "dueDate"
-     FROM fee_structures fs
-     JOIN batch_enrollments be ON be.batch_id = fs.batch_id
-     WHERE be.student_id = $1 AND fs.tenant_id = $2
-     ORDER BY fs.due_date ASC NULLS LAST, fs.id ASC`,
+  // Fees: Overview & Installments — now per-student (fee_dues), not a
+  // batch-shared list, so amounts already reflect this student's own
+  // override/history instead of a proxy shared with every batch-mate.
+  const { rows: feeDues } = await query(
+    `SELECT fd.id, fd.title, fd.amount, fd.due_date AS "dueDate"
+     FROM fee_dues fd
+     WHERE fd.student_id = $1 AND fd.tenant_id = $2
+     ORDER BY fd.due_date ASC NULLS LAST, fd.period_index ASC`,
     [id, tenantId]
   );
 
   const totalPaid = feeHistory.reduce((acc, curr) => acc + Number(curr.amount), 0);
-  const totalFees = feeStructures.reduce((acc, curr) => acc + Number(curr.amount), 0);
+  const totalFees = feeDues.reduce((acc, curr) => acc + Number(curr.amount), 0);
 
   let remainingPaid = totalPaid;
-  const installments = feeStructures.map((fs, idx) => {
+  const installments = feeDues.map((fs, idx) => {
     let status = 'Upcoming';
     let amountPaidForThis = 0;
 
@@ -615,17 +799,20 @@ export interface BatchItem {
   studentCount: number;
   subjectIds: number[];
   subjectNames: string[];
+  feeAmount: number | null;
+  billingCycle: 'monthly' | 'quarterly' | 'yearly' | null;
 }
 
 export async function listBatches(tenantId: number): Promise<BatchItem[]> {
   const { rows } = await query<BatchItem>(
     `SELECT b.id, b.name, b.grade, b.subject_ids AS "subjectIds",
+            b.fee_amount AS "feeAmount", b.billing_cycle AS "billingCycle",
             (SELECT count(*)::int FROM batch_enrollments be WHERE be.batch_id=b.id) AS "studentCount",
             COALESCE(
               (SELECT array_agg(s.name ORDER BY s.name) FROM subjects s WHERE s.id = ANY(b.subject_ids)),
               ARRAY[]::text[]
             ) AS "subjectNames"
-       FROM batches b WHERE b.tenant_id=$1 ORDER BY b.created_at DESC`,
+       FROM batches b WHERE b.tenant_id=$1 AND b.is_active = true ORDER BY b.created_at DESC`,
     [tenantId]
   );
   return rows;
@@ -633,7 +820,13 @@ export async function listBatches(tenantId: number): Promise<BatchItem[]> {
 
 export async function createBatch(
   tenantId: number,
-  { name, grade, subjectIds }: { name: string; grade?: string; subjectIds?: number[] }
+  { name, grade, subjectIds, feeAmount, billingCycle }: {
+    name: string;
+    grade?: string;
+    subjectIds?: number[];
+    feeAmount?: number;
+    billingCycle?: 'monthly' | 'quarterly' | 'yearly';
+  }
 ): Promise<BatchItem> {
   const ids = subjectIds ?? [];
   if (ids.length) {
@@ -644,12 +837,96 @@ export async function createBatch(
     if (owned.rows[0].count !== ids.length) throw ApiError.badRequest('INVALID_SUBJECT');
   }
 
-  const { rows } = await query<{ id: number; name: string; grade: string | null; subjectIds: number[] }>(
-    `INSERT INTO batches (tenant_id, name, grade, subject_ids) VALUES ($1,$2,$3,$4::int[])
-     RETURNING id, name, grade, subject_ids AS "subjectIds"`,
-    [tenantId, name, grade || null, ids]
+  const { rows } = await query<{ id: number; name: string; grade: string | null; subjectIds: number[]; feeAmount: number | null; billingCycle: 'monthly' | 'quarterly' | 'yearly' | null }>(
+    `INSERT INTO batches (tenant_id, name, grade, subject_ids, fee_amount, billing_cycle) VALUES ($1,$2,$3,$4::int[],$5,$6)
+     RETURNING id, name, grade, subject_ids AS "subjectIds", fee_amount AS "feeAmount", billing_cycle AS "billingCycle"`,
+    [tenantId, name, grade || null, ids, feeAmount ?? null, billingCycle ?? null]
   );
   return { ...rows[0], studentCount: 0, subjectNames: [] };
+}
+
+export async function updateBatch(
+  tenantId: number,
+  id: number,
+  actorUserId: number,
+  { name, grade, subjectIds, feeAmount, billingCycle }: {
+    name?: string;
+    grade?: string;
+    subjectIds?: number[];
+    feeAmount?: number | null;
+    billingCycle?: 'monthly' | 'quarterly' | 'yearly' | null;
+  }
+): Promise<BatchItem> {
+  const exists = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2 AND is_active = true`, [id, tenantId]);
+  if (!exists.rowCount) throw ApiError.notFound('BATCH_NOT_FOUND');
+
+  if (subjectIds !== undefined && subjectIds.length) {
+    const owned = await query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM subjects WHERE tenant_id=$1 AND id = ANY($2::int[])`,
+      [tenantId, subjectIds]
+    );
+    if (owned.rows[0].count !== subjectIds.length) throw ApiError.badRequest('INVALID_SUBJECT');
+  }
+
+  const setClauses: string[] = [];
+  const values: unknown[] = [id, tenantId];
+  let idx = 3;
+  if (name !== undefined) { setClauses.push(`name=$${idx++}`); values.push(name); }
+  if (grade !== undefined) { setClauses.push(`grade=$${idx++}`); values.push(grade || null); }
+  if (subjectIds !== undefined) { setClauses.push(`subject_ids=$${idx++}::int[]`); values.push(subjectIds); }
+  // fee_amount/billing_cycle are a pair (DB requires both-or-neither) — only
+  // touched when the caller actually sends one of them, and always written
+  // together so an update can never leave one set without the other.
+  // This never touches fee_dues already generated for existing students —
+  // only NEW enrollments read the batch's fee template going forward.
+  if (feeAmount !== undefined || billingCycle !== undefined) {
+    setClauses.push(`fee_amount=$${idx++}`); values.push(feeAmount ?? null);
+    setClauses.push(`billing_cycle=$${idx++}`); values.push(billingCycle ?? null);
+  }
+
+  if (setClauses.length) {
+    await query(`UPDATE batches SET ${setClauses.join(', ')} WHERE id=$1 AND tenant_id=$2`, values);
+  }
+
+  await writeAudit({ tenantId, actorUserId, action: 'batch_updated', entity: 'batch', entityId: id });
+
+  return listBatches(tenantId).then((batches) => {
+    const updated = batches.find((b) => b.id === id);
+    if (!updated) throw ApiError.notFound('BATCH_NOT_FOUND');
+    return updated;
+  });
+}
+
+/**
+ * Removes a batch. A batch with zero enrolled students is hard-deleted —
+ * nothing references it, so this is always safe. A batch with students (and
+ * therefore likely attendance/fee/timetable history — several of those
+ * foreign keys are NOT NULL with no cascade, so a hard delete would fail
+ * with a Postgres FK-violation) is soft-deleted instead: it's marked
+ * inactive and disappears from the active batch list, while every
+ * historical record tied to it stays intact. The mobile app is expected to
+ * warn the admin and get explicit confirmation before calling this when the
+ * batch has students — this function itself doesn't re-confirm, it just
+ * picks the safe deletion strategy for whichever state the batch is in.
+ */
+export async function deleteBatch(tenantId: number, id: number, actorUserId: number): Promise<{ softDeleted: boolean }> {
+  const { rows } = await query<{ studentCount: number }>(
+    `SELECT count(*)::int AS "studentCount" FROM batch_enrollments WHERE batch_id=$1`,
+    [id]
+  );
+  const studentCount = rows[0]?.studentCount ?? 0;
+
+  if (studentCount === 0) {
+    const { rowCount } = await query(`DELETE FROM batches WHERE id=$1 AND tenant_id=$2`, [id, tenantId]);
+    if (!rowCount) throw ApiError.notFound('BATCH_NOT_FOUND');
+    await writeAudit({ tenantId, actorUserId, action: 'batch_deleted', entity: 'batch', entityId: id });
+    return { softDeleted: false };
+  }
+
+  const { rowCount } = await query(`UPDATE batches SET is_active=false WHERE id=$1 AND tenant_id=$2`, [id, tenantId]);
+  if (!rowCount) throw ApiError.notFound('BATCH_NOT_FOUND');
+  await writeAudit({ tenantId, actorUserId, action: 'batch_deactivated', entity: 'batch', entityId: id, meta: { studentCount } });
+  return { softDeleted: true };
 }
 
 /* ─────────────── Subjects ─────────────── */
@@ -702,93 +979,288 @@ export async function deleteSubject(tenantId: number, subjectId: number): Promis
   if (rowCount === 0) throw new Error('Subject not found or unauthorized');
 }
 
-/* ─────────────── Timetable (teacher allocation) ─────────────── */
-export interface TimetableItem {
+/* ─────────────── Batch Schedule (weekly recurring template) ─────────────── */
+export interface BatchScheduleItem {
   id: number;
+  batchId: number;
+  subjectId: number;
+  subject: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
-  batch: string;
-  subject: string | null;
-  teacher: string;
-  batchId: number;
-  teacherId: number;
-  subjectId: number | null;
 }
 
-export async function listTimetable(
+export async function getBatchSchedule(tenantId: number, batchId: number): Promise<BatchScheduleItem[]> {
+  const { rows } = await query<BatchScheduleItem>(
+    `SELECT bs.id, bs.batch_id AS "batchId", bs.subject_id AS "subjectId", sub.name AS subject,
+            bs.day_of_week AS "dayOfWeek", bs.start_time AS "startTime", bs.end_time AS "endTime"
+       FROM batch_schedule bs
+       JOIN subjects sub ON sub.id = bs.subject_id
+      WHERE bs.tenant_id = $1 AND bs.batch_id = $2
+      ORDER BY bs.day_of_week, bs.start_time`,
+    [tenantId, batchId]
+  );
+  return rows;
+}
+
+export interface SetBatchScheduleEntry {
+  subjectId: number;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+}
+
+/**
+ * Two schedule slots (each given as {dayOfWeek, startTime, endTime}) overlap
+ * if they fall on the same day and their time ranges intersect. Shared here
+ * so setBatchSchedule and assignTeacherToBatch use identical clash logic.
+ */
+function slotsOverlap(
+  a: { dayOfWeek: number; startTime: string; endTime: string },
+  b: { dayOfWeek: number; startTime: string; endTime: string }
+): boolean {
+  return a.dayOfWeek === b.dayOfWeek && a.startTime < b.endTime && b.startTime < a.endTime;
+}
+
+/**
+ * Fully replaces a batch's weekly schedule template. Since a batch's
+ * schedule is one cohesive timetable (not a list of independent rows to
+ * add one at a time), edits are all-or-nothing: the existing set is wiped
+ * and the new set inserted in the same transaction. Before committing, every
+ * teacher already assigned to this batch is re-checked against the NEW
+ * schedule for clashes with their OTHER assignments — otherwise editing a
+ * batch's schedule after teachers are already assigned could silently
+ * create a double-booking with no validation at all.
+ */
+export async function setBatchSchedule(
   tenantId: number,
-  day?: string | number | null
-): Promise<TimetableItem[]> {
+  batchId: number,
+  entries: SetBatchScheduleEntry[]
+): Promise<BatchScheduleItem[]> {
+  return withTransaction(async (client) => {
+    const batchRow = await client.query<{ subjectIds: number[] }>(
+      `SELECT subject_ids AS "subjectIds" FROM batches WHERE id=$1 AND tenant_id=$2 AND is_active = true`,
+      [batchId, tenantId]
+    );
+    if (!batchRow.rowCount) throw ApiError.notFound('BATCH_NOT_FOUND');
+    const batchSubjectIds = new Set(batchRow.rows[0].subjectIds);
+
+    for (const e of entries) {
+      if (!batchSubjectIds.has(e.subjectId)) {
+        throw ApiError.badRequest('INVALID_SUBJECT', 'Subject is not part of this batch');
+      }
+    }
+
+    // Re-check clashes for every teacher already assigned to this batch,
+    // against the schedule as it WOULD be after this edit.
+    const assigned = await client.query<{ teacherUserId: number; subjectId: number }>(
+      `SELECT teacher_user_id AS "teacherUserId", subject_id AS "subjectId"
+         FROM teacher_assignments WHERE tenant_id=$1 AND batch_id=$2`,
+      [tenantId, batchId]
+    );
+    if (assigned.rowCount) {
+      for (const a of assigned.rows) {
+        const newSlotsForThisAssignment = entries.filter((e) => e.subjectId === a.subjectId);
+        if (!newSlotsForThisAssignment.length) continue;
+
+        const otherAssignments = await client.query<{
+          batchId: number;
+          subjectId: number;
+          dayOfWeek: number;
+          startTime: string;
+          endTime: string;
+          batchName: string;
+        }>(
+          `SELECT ta.batch_id AS "batchId", ta.subject_id AS "subjectId",
+                  bs.day_of_week AS "dayOfWeek", bs.start_time AS "startTime", bs.end_time AS "endTime",
+                  b.name AS "batchName"
+             FROM teacher_assignments ta
+             JOIN batch_schedule bs ON bs.batch_id = ta.batch_id AND bs.subject_id = ta.subject_id
+             JOIN batches b ON b.id = ta.batch_id
+            WHERE ta.tenant_id=$1 AND ta.teacher_user_id=$2 AND ta.batch_id != $3`,
+          [tenantId, a.teacherUserId, batchId]
+        );
+
+        for (const newSlot of newSlotsForThisAssignment) {
+          const clash = otherAssignments.rows.find((o) => slotsOverlap(newSlot, o));
+          if (clash) {
+            throw ApiError.conflict(
+              'TEACHER_SCHEDULE_CLASH',
+              `This schedule change clashes with an existing assignment in "${clash.batchName}" on ${DAY_NAMES[clash.dayOfWeek]} ${clash.startTime}-${clash.endTime}`
+            );
+          }
+        }
+      }
+    }
+
+    await client.query(`DELETE FROM batch_schedule WHERE tenant_id=$1 AND batch_id=$2`, [tenantId, batchId]);
+    for (const e of entries) {
+      await client.query(
+        `INSERT INTO batch_schedule (tenant_id, batch_id, subject_id, day_of_week, start_time, end_time)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [tenantId, batchId, e.subjectId, e.dayOfWeek, e.startTime, e.endTime]
+      );
+    }
+
+    return client.query<BatchScheduleItem>(
+      `SELECT bs.id, bs.batch_id AS "batchId", bs.subject_id AS "subjectId", sub.name AS subject,
+              bs.day_of_week AS "dayOfWeek", bs.start_time AS "startTime", bs.end_time AS "endTime"
+         FROM batch_schedule bs
+         JOIN subjects sub ON sub.id = bs.subject_id
+        WHERE bs.tenant_id = $1 AND bs.batch_id = $2
+        ORDER BY bs.day_of_week, bs.start_time`,
+      [tenantId, batchId]
+    ).then((r) => r.rows);
+  });
+}
+
+/* ─────────────── Teacher Assignments ─────────────── */
+export interface TeacherAssignmentItem {
+  id: number;
+  teacherUserId: number;
+  teacherName: string;
+  batchId: number;
+  batchName: string;
+  subjectId: number;
+  subjectName: string;
+}
+
+export async function listTeacherAssignments(
+  tenantId: number,
+  filters: { teacherUserId?: number; batchId?: number }
+): Promise<TeacherAssignmentItem[]> {
   const params: unknown[] = [tenantId];
-  let where = '';
-  if (day !== undefined && day !== null && day !== '') {
-    params.push(Number(day));
-    where = `AND tt.day_of_week = $2`;
-  }
-  const { rows } = await query<TimetableItem>(
-    `SELECT tt.id, tt.day_of_week AS "dayOfWeek", tt.start_time AS "startTime",
-            tt.end_time AS "endTime",
-            b.name AS batch, sub.name AS subject, u.full_name AS teacher,
-            tt.batch_id AS "batchId", tt.teacher_id AS "teacherId", tt.subject_id AS "subjectId"
-       FROM timetable tt
-       JOIN batches b ON b.id = tt.batch_id
-       LEFT JOIN subjects sub ON sub.id = tt.subject_id
-       JOIN users u ON u.id = tt.teacher_id
-      WHERE tt.tenant_id = $1 ${where}
-      ORDER BY tt.day_of_week, tt.start_time`,
+  const where: string[] = [];
+  if (filters.teacherUserId) { params.push(filters.teacherUserId); where.push(`ta.teacher_user_id = $${params.length}`); }
+  if (filters.batchId) { params.push(filters.batchId); where.push(`ta.batch_id = $${params.length}`); }
+
+  const { rows } = await query<TeacherAssignmentItem>(
+    `SELECT ta.id, ta.teacher_user_id AS "teacherUserId", u.full_name AS "teacherName",
+            ta.batch_id AS "batchId", b.name AS "batchName",
+            ta.subject_id AS "subjectId", sub.name AS "subjectName"
+       FROM teacher_assignments ta
+       JOIN users u ON u.id = ta.teacher_user_id
+       JOIN batches b ON b.id = ta.batch_id
+       JOIN subjects sub ON sub.id = ta.subject_id
+      WHERE ta.tenant_id = $1 ${where.length ? 'AND ' + where.join(' AND ') : ''}
+      ORDER BY u.full_name, b.name`,
     params
   );
   return rows;
 }
 
-export interface CreateTimetableInput {
-  batchId: number;
-  subjectId?: number;
-  teacherId: number;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
+/**
+ * Assigns a teacher to teach a specific subject within a batch. The
+ * teacher's schedule for this assignment is derived entirely from the
+ * batch's own batch_schedule rows for that subject — nothing is copied.
+ * Hard-blocks (rejects, does not just warn) if any of those slots overlap
+ * a day/time the teacher is already covering via a different assignment,
+ * so a teacher can never end up double-booked.
+ */
+export async function assignTeacherToBatch(
+  tenantId: number,
+  actorUserId: number,
+  { teacherUserId, batchId, subjectId }: { teacherUserId: number; batchId: number; subjectId: number }
+): Promise<TeacherAssignmentItem> {
+  return withTransaction(async (client) => {
+    const checks = await client.query<{ teacher_ok: number | null; batch_ok: number | null; subject_ok: number | null }>(
+      `SELECT
+         (SELECT 1 FROM users WHERE id=$2 AND tenant_id=$1 AND role='teacher') AS teacher_ok,
+         (SELECT 1 FROM batches WHERE id=$3 AND tenant_id=$1 AND is_active = true) AS batch_ok,
+         (SELECT 1 FROM subjects WHERE id=$4 AND tenant_id=$1) AS subject_ok`,
+      [tenantId, teacherUserId, batchId, subjectId]
+    );
+    if (!checks.rows[0].teacher_ok) throw ApiError.badRequest('INVALID_TEACHER');
+    if (!checks.rows[0].batch_ok) throw ApiError.badRequest('INVALID_BATCH');
+    if (!checks.rows[0].subject_ok) throw ApiError.badRequest('INVALID_SUBJECT');
+
+    const dup = await client.query(
+      `SELECT 1 FROM teacher_assignments WHERE tenant_id=$1 AND teacher_user_id=$2 AND batch_id=$3 AND subject_id=$4`,
+      [tenantId, teacherUserId, batchId, subjectId]
+    );
+    if (dup.rowCount) throw ApiError.conflict('ALREADY_ASSIGNED', 'Teacher is already assigned to this batch and subject');
+
+    const newSlots = await client.query<{ dayOfWeek: number; startTime: string; endTime: string }>(
+      `SELECT day_of_week AS "dayOfWeek", start_time AS "startTime", end_time AS "endTime"
+         FROM batch_schedule WHERE tenant_id=$1 AND batch_id=$2 AND subject_id=$3`,
+      [tenantId, batchId, subjectId]
+    );
+
+    if (newSlots.rowCount) {
+      const otherAssignments = await client.query<{
+        dayOfWeek: number; startTime: string; endTime: string; batchName: string;
+      }>(
+        `SELECT bs.day_of_week AS "dayOfWeek", bs.start_time AS "startTime", bs.end_time AS "endTime", b.name AS "batchName"
+           FROM teacher_assignments ta
+           JOIN batch_schedule bs ON bs.batch_id = ta.batch_id AND bs.subject_id = ta.subject_id
+           JOIN batches b ON b.id = ta.batch_id
+          WHERE ta.tenant_id=$1 AND ta.teacher_user_id=$2`,
+        [tenantId, teacherUserId]
+      );
+
+      for (const newSlot of newSlots.rows) {
+        const clash = otherAssignments.rows.find((o) => slotsOverlap(newSlot, o));
+        if (clash) {
+          throw ApiError.conflict(
+            'TEACHER_SCHEDULE_CLASH',
+            `Teacher already has a class in "${clash.batchName}" on ${DAY_NAMES[clash.dayOfWeek]} ${clash.startTime}-${clash.endTime}`
+          );
+        }
+      }
+    }
+
+    const { rows } = await client.query<{ id: number }>(
+      `INSERT INTO teacher_assignments (tenant_id, teacher_user_id, batch_id, subject_id)
+       VALUES ($1,$2,$3,$4) RETURNING id`,
+      [tenantId, teacherUserId, batchId, subjectId]
+    );
+    const assignmentId = rows[0].id;
+
+    await writeAudit(
+      { tenantId, actorUserId, action: 'teacher_assigned', entity: 'teacher_assignment', entityId: assignmentId, meta: { teacherUserId, batchId, subjectId } },
+      client
+    );
+
+    const { rows: batchRow } = await client.query<{ name: string }>(`SELECT name FROM batches WHERE id=$1`, [batchId]);
+    after(() =>
+      notificationCenter
+        .sendNotification({
+          userIds: [teacherUserId],
+          tenantId,
+          title: 'New class assigned',
+          body: `You've been assigned to teach in ${batchRow[0]?.name ?? 'a batch'}.`,
+          type: 'schedule_update',
+          entityId: assignmentId,
+        })
+        .catch((err) => logger.error('Schedule-update notify failed', { error: err instanceof Error ? err.message : String(err) }))
+    );
+
+    // Read back via the SAME client/transaction — the module-level query()
+    // pool would run on a different connection and not see this uncommitted
+    // INSERT yet, incorrectly appearing as "not found".
+    const { rows: createdRows } = await client.query<TeacherAssignmentItem>(
+      `SELECT ta.id, ta.teacher_user_id AS "teacherUserId", u.full_name AS "teacherName",
+              ta.batch_id AS "batchId", b.name AS "batchName",
+              ta.subject_id AS "subjectId", sub.name AS "subjectName"
+         FROM teacher_assignments ta
+         JOIN users u ON u.id = ta.teacher_user_id
+         JOIN batches b ON b.id = ta.batch_id
+         JOIN subjects sub ON sub.id = ta.subject_id
+        WHERE ta.id = $1`,
+      [assignmentId]
+    );
+    if (!createdRows[0]) throw ApiError.notFound('ASSIGNMENT_NOT_FOUND');
+    return createdRows[0];
+  });
 }
 
-export async function createTimetableEntry(tenantId: number, input: CreateTimetableInput) {
-  const { batchId, subjectId, teacherId, dayOfWeek, startTime, endTime } = input;
-  // Ownership checks
-  const checks = await query<{ batch_ok: number | null; teacher_ok: number | null; subject_ok: number | null }>(
-    `SELECT
-       (SELECT 1 FROM batches WHERE id=$2 AND tenant_id=$1) AS batch_ok,
-       (SELECT 1 FROM users WHERE id=$3 AND tenant_id=$1 AND role='teacher') AS teacher_ok,
-       (SELECT 1 FROM subjects WHERE id=$4 AND tenant_id=$1) AS subject_ok`,
-    [tenantId, batchId, teacherId, subjectId ?? null]
+export async function removeTeacherAssignment(tenantId: number, actorUserId: number, id: number): Promise<void> {
+  const { rowCount } = await query(
+    `DELETE FROM teacher_assignments WHERE id=$1 AND tenant_id=$2`,
+    [id, tenantId]
   );
-  if (!checks.rows[0].batch_ok) throw ApiError.badRequest('INVALID_BATCH');
-  if (!checks.rows[0].teacher_ok) throw ApiError.badRequest('INVALID_TEACHER');
-  if (subjectId != null && !checks.rows[0].subject_ok) throw ApiError.badRequest('INVALID_SUBJECT');
-
-  const { rows } = await query(
-    `INSERT INTO timetable (tenant_id, batch_id, subject_id, teacher_id, day_of_week, start_time, end_time)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
-     RETURNING id, batch_id AS "batchId", teacher_id AS "teacherId", day_of_week AS "dayOfWeek",
-               start_time AS "startTime", end_time AS "endTime"`,
-    [tenantId, batchId, subjectId || null, teacherId, dayOfWeek, startTime, endTime]
-  );
-  const entry = rows[0];
-
-  const { rows: batchRow } = await query<{ name: string }>(`SELECT name FROM batches WHERE id = $1`, [batchId]);
-  after(() =>
-    notificationCenter
-      .sendNotification({
-        userIds: [teacherId],
-        tenantId,
-        title: 'New class assigned',
-        body: `You've been assigned ${batchRow[0]?.name ?? 'a batch'} — ${DAY_NAMES[dayOfWeek] ?? ''} ${startTime}–${endTime}.`,
-        type: 'timetable_update',
-        entityId: entry.id,
-      })
-      .catch((err) => logger.error('Timetable-update notify failed', { error: err instanceof Error ? err.message : String(err) }))
-  );
-
-  return entry;
+  if (!rowCount) throw ApiError.notFound('ASSIGNMENT_NOT_FOUND');
+  await writeAudit({ tenantId, actorUserId, action: 'teacher_assignment_removed', entity: 'teacher_assignment', entityId: id });
 }
 
 /* ─────────────── Fees ─────────────── */
@@ -806,30 +1278,29 @@ export interface FeeRow {
 export type FeeStatusFilter = 'pending' | 'paid' | 'overdue';
 
 export async function listFees(tenantId: number, status?: FeeStatusFilter | null): Promise<FeeRow[]> {
-  // Per-student totals: sum of applicable fee structures minus payments.
-  // `pending` is a computed column, so the status filter has to be applied in
-  // an outer query rather than the WHERE clause of the aggregation itself.
+  // Per-student totals now come straight from fee_dues (already resolved
+  // per-student amounts, override-aware) instead of a batch-shared
+  // fee_structures proxy. `pending` is a computed column, so the status
+  // filter has to be applied in an outer query rather than the WHERE
+  // clause of the aggregation itself.
   const { rows } = await query<FeeRow>(
     `SELECT * FROM (
        SELECT s.id AS "studentId", u.full_name AS name,
-              COALESCE(fs.total,0)::int AS total,
+              COALESCE(fd.total,0)::int AS total,
               COALESCE(fp.paid,0)::int AS paid,
-              (COALESCE(fs.total,0) - COALESCE(fp.paid,0))::int AS pending,
+              GREATEST(0, COALESCE(fd.total,0) - COALESCE(fp.paid,0))::int AS pending,
               s.parent_name AS "parentName", s.parent_phone AS "parentPhone",
               (
                 SELECT bool_or(f.due_date < CURRENT_DATE)
-                FROM batch_enrollments be2
-                JOIN fee_structures f ON f.batch_id = be2.batch_id AND f.tenant_id = $1
-                WHERE be2.student_id = s.id
+                FROM fee_dues f
+                WHERE f.student_id = s.id AND f.tenant_id = $1
               ) AS has_overdue
          FROM students s
          JOIN users u ON u.id = s.user_id
          LEFT JOIN (
-           SELECT be.student_id, sum(f.amount) AS total
-             FROM batch_enrollments be
-             JOIN fee_structures f ON f.batch_id = be.batch_id AND f.tenant_id = $1
-            GROUP BY be.student_id
-         ) fs ON fs.student_id = s.id
+           SELECT student_id, sum(amount) AS total
+             FROM fee_dues WHERE tenant_id = $1 GROUP BY student_id
+         ) fd ON fd.student_id = s.id
          LEFT JOIN (
            SELECT student_id, sum(amount_paid) AS paid
              FROM fee_payments WHERE tenant_id = $1 GROUP BY student_id
@@ -902,41 +1373,9 @@ export async function getFeeAnalytics(tenantId: number) {
   };
 }
 
-export interface CreateFeeStructureInput {
-  batchId?: number;
-  title: string;
-  amount: number;
-  dueDate?: string;
-}
-
-export async function createFeeStructure(
-  tenantId: number,
-  actorUserId: number,
-  { batchId, title, amount, dueDate }: CreateFeeStructureInput
-) {
-  if (batchId) {
-    const b = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
-    if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH');
-  }
-  const { rows } = await query(
-    `INSERT INTO fee_structures (tenant_id, batch_id, title, amount, due_date)
-     VALUES ($1,$2,$3,$4,$5) RETURNING id, title, amount, due_date AS "dueDate", batch_id AS "batchId"`,
-    [tenantId, batchId || null, title, amount, dueDate || null]
-  );
-  await writeAudit({
-    tenantId,
-    actorUserId,
-    action: 'fee_structure_created',
-    entity: 'fee_structure',
-    entityId: rows[0].id,
-    meta: { title, amount, batchId },
-  });
-  return rows[0];
-}
-
 export interface RecordPaymentInput {
   studentId: number;
-  feeStructureId?: number;
+  feeDueId?: number;
   amountPaid: number;
   method?: 'cash' | 'upi' | 'card';
 }
@@ -947,7 +1386,7 @@ const PG_UNIQUE_VIOLATION = '23505';
 export async function recordPayment(
   tenantId: number,
   actorUserId: number,
-  { studentId, feeStructureId, amountPaid, method }: RecordPaymentInput
+  { studentId, feeDueId, amountPaid, method }: RecordPaymentInput
 ) {
   const s = await query<{ user_id: number }>(`SELECT user_id FROM students WHERE id=$1 AND tenant_id=$2`, [
     studentId,
@@ -962,10 +1401,10 @@ export async function recordPayment(
     const receiptNo = generateReceiptNo(tenantId);
     try {
       const { rows } = await query(
-        `INSERT INTO fee_payments (tenant_id, student_id, fee_structure_id, amount_paid, method, receipt_no)
+        `INSERT INTO fee_payments (tenant_id, student_id, fee_due_id, amount_paid, method, receipt_no)
          VALUES ($1,$2,$3,$4,$5,$6)
          RETURNING id, amount_paid AS "amountPaid", method, receipt_no AS "receiptNo", paid_on AS "paidOn"`,
-        [tenantId, studentId, feeStructureId || null, amountPaid, method || 'cash', receiptNo]
+        [tenantId, studentId, feeDueId || null, amountPaid, method || 'cash', receiptNo]
       );
       await writeAudit({
         tenantId,
@@ -1015,16 +1454,14 @@ export async function feeReminderLink(
   }>(
     `SELECT u.full_name AS "studentName", s.parent_name AS "parentName", s.parent_phone AS "parentPhone",
             t.name AS "instituteName",
-            (COALESCE(fs.total,0) - COALESCE(fp.paid,0))::int AS pending
+            GREATEST(0, COALESCE(fd.total,0) - COALESCE(fp.paid,0))::int AS pending
        FROM students s
        JOIN users u ON u.id = s.user_id
        JOIN tenants t ON t.id = s.tenant_id
        LEFT JOIN (
-         SELECT be.student_id, sum(f.amount) AS total
-           FROM batch_enrollments be
-           JOIN fee_structures f ON f.batch_id = be.batch_id AND f.tenant_id=$1
-          GROUP BY be.student_id
-       ) fs ON fs.student_id = s.id
+         SELECT student_id, sum(amount) AS total
+           FROM fee_dues WHERE tenant_id=$1 GROUP BY student_id
+       ) fd ON fd.student_id = s.id
        LEFT JOIN (
          SELECT student_id, sum(amount_paid) AS paid FROM fee_payments WHERE tenant_id=$1 GROUP BY student_id
        ) fp ON fp.student_id = s.id

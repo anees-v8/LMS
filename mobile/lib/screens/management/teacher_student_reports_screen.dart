@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/teacher_providers.dart';
+import '../../services/api_service.dart';
+import '../../widgets/custom_dropdown.dart';
 import 'student_report_screen.dart';
 
 class TeacherStudentReportsScreen extends ConsumerStatefulWidget {
   const TeacherStudentReportsScreen({super.key});
 
   @override
-  ConsumerState<TeacherStudentReportsScreen> createState() => _TeacherStudentReportsScreenState();
+  ConsumerState<TeacherStudentReportsScreen> createState() =>
+      _TeacherStudentReportsScreenState();
 }
 
-class _TeacherStudentReportsScreenState extends ConsumerState<TeacherStudentReportsScreen> {
+class _TeacherStudentReportsScreenState
+    extends ConsumerState<TeacherStudentReportsScreen> {
   int? _selectedBatchId;
 
   @override
@@ -21,7 +25,14 @@ class _TeacherStudentReportsScreenState extends ConsumerState<TeacherStudentRepo
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Student Reports', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Student Reports',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: AppColors.primaryDark,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -32,10 +43,10 @@ class _TeacherStudentReportsScreenState extends ConsumerState<TeacherStudentRepo
             color: Colors.white,
             child: batchesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('Error: $e'),
+              error: (e, _) => Text(friendlyErrorMessage(e)),
               data: (batches) {
                 if (batches.isEmpty) return const Text('No batches assigned');
-                
+
                 // Set initial selection
                 if (_selectedBatchId == null && batches.isNotEmpty) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -43,17 +54,14 @@ class _TeacherStudentReportsScreenState extends ConsumerState<TeacherStudentRepo
                   });
                 }
 
-                return DropdownButtonFormField<int>(
+                return CustomDropdown<int?>(
+                  label: 'Batch',
+                  hint: 'Select Batch',
                   value: _selectedBatchId,
-                  decoration: InputDecoration(
-                    labelText: 'Select Batch',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  ),
-                  items: batches.map<DropdownMenuItem<int>>((b) {
-                    return DropdownMenuItem<int>(
+                  options: batches.map<DropdownOption<int?>>((b) {
+                    return DropdownOption<int?>(
                       value: b['id'],
-                      child: Text(b['name']),
+                      label: b['name'],
                     );
                   }).toList(),
                   onChanged: (val) {
@@ -64,9 +72,9 @@ class _TeacherStudentReportsScreenState extends ConsumerState<TeacherStudentRepo
             ),
           ),
           Expanded(
-            child: _selectedBatchId == null 
-              ? const Center(child: Text('Please select a batch'))
-              : _buildStudentList(context, ref, _selectedBatchId!),
+            child: _selectedBatchId == null
+                ? const Center(child: Text('Please select a batch'))
+                : _buildStudentList(context, ref, _selectedBatchId!),
           ),
         ],
       ),
@@ -78,9 +86,10 @@ class _TeacherStudentReportsScreenState extends ConsumerState<TeacherStudentRepo
 
     return studentsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text('Error: $err')),
+      error: (err, _) => Center(child: Text(friendlyErrorMessage(err))),
       data: (students) {
-        if (students.isEmpty) return const Center(child: Text('No students in this batch.'));
+        if (students.isEmpty)
+          return const Center(child: Text('No students in this batch.'));
 
         return ListView.separated(
           padding: const EdgeInsets.all(16),
@@ -96,8 +105,14 @@ class _TeacherStudentReportsScreenState extends ConsumerState<TeacherStudentRepo
                   MaterialPageRoute(
                     builder: (_) => Consumer(
                       builder: (context, ref, _) => StudentReportScreen(
-                        student: {'id': studentId, 'fullName': s['name'], 'rollNo': s['rollNo']},
-                        detailsAsync: ref.watch(teacherStudentDetailsProvider(studentId)),
+                        student: {
+                          'id': studentId,
+                          'fullName': s['name'],
+                          'rollNo': s['rollNo'],
+                        },
+                        detailsAsync: ref.watch(
+                          teacherStudentDetailsProvider(studentId),
+                        ),
                       ),
                     ),
                   ),
@@ -117,7 +132,10 @@ class _TeacherStudentReportsScreenState extends ConsumerState<TeacherStudentRepo
                       backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                       child: Text(
                         (s['name'] ?? '?')[0].toUpperCase(),
-                        style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -125,19 +143,41 @@ class _TeacherStudentReportsScreenState extends ConsumerState<TeacherStudentRepo
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(s['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text(s['email'] ?? '', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                          Text(
+                            s['name'] ?? 'Unknown',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            s['email'] ?? '',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text('View Report', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold)),
-                    )
+                      child: const Text(
+                        'View Report',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -147,5 +187,4 @@ class _TeacherStudentReportsScreenState extends ConsumerState<TeacherStudentRepo
       },
     );
   }
-
 }

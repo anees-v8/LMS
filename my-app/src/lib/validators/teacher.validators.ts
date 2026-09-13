@@ -5,7 +5,7 @@ export const idParamSchema = z.object({ id: z.coerce.number().int().positive() }
 export const markAttendanceSchema = z
   .object({
     batchId: z.coerce.number().int().positive(),
-    timetableId: z.coerce.number().int().positive().optional(),
+    batchScheduleId: z.coerce.number().int().positive().optional(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD'),
     records: z
       .array(
@@ -23,7 +23,7 @@ export const markAttendanceSchema = z
 export const createQrSessionSchema = z
   .object({
     batchId: z.coerce.number().int().positive(),
-    timetableId: z.coerce.number().int().positive().optional(),
+    batchScheduleId: z.coerce.number().int().positive().optional(),
     validForMinutes: z.coerce.number().int().min(1).max(120),
   })
   .strict();

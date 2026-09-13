@@ -63,7 +63,10 @@ class PaymentHistoryRow extends StatelessWidget {
               children: [
                 Text(
                   _formatDate(date),
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(

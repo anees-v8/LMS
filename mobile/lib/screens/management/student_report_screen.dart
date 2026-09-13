@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/api_service.dart';
 
 class StudentReportScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> student;
@@ -783,7 +784,7 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
           child: Text(
-            'Failed to load report: $err',
+            friendlyErrorMessage(err),
             style: const TextStyle(color: Colors.grey),
           ),
         ),

@@ -9,7 +9,12 @@ class NavItem {
   final Widget screen;
   final Widget? iconWidget;
 
-  const NavItem({required this.icon, required this.label, required this.screen, this.iconWidget});
+  const NavItem({
+    required this.icon,
+    required this.label,
+    required this.screen,
+    this.iconWidget,
+  });
 }
 
 /// Generic bottom-navigation shell used by every role (Super Admin, Coaching
@@ -48,7 +53,12 @@ class AppShellState extends State<AppShell> {
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
         items: widget.items
-            .map((e) => BottomNavigationBarItem(icon: e.iconWidget ?? Icon(e.icon), label: e.label))
+            .map(
+              (e) => BottomNavigationBarItem(
+                icon: e.iconWidget ?? Icon(e.icon),
+                label: e.label,
+              ),
+            )
             .toList(),
       ),
     );

@@ -28,8 +28,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const user = requireAuth(req, 'coaching_admin');
     const { id } = validateBody(idParamSchema, await params);
-    await svc.deleteStudent(requireTenantId(user), user.userId, id);
-    return NextResponse.json({ success: true });
+    const result = await svc.deleteStudent(requireTenantId(user), user.userId, id);
+    return NextResponse.json(result);
   } catch (err) {
     return handleApiError(err);
   }

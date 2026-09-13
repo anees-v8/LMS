@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/superadmin_providers.dart';
+import '../../services/api_service.dart';
 
 /// Super Admin's "Subscriptions" tab. `SubscriptionListItem`:
 /// {tenantId, name, status, plan, amount, trialEndsAt, nextBillingDate}.
@@ -111,7 +112,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                         loading: () =>
                             const Center(child: CircularProgressIndicator()),
                         error: (err, stack) =>
-                            Center(child: Text('Error: $err')),
+                            Center(child: Text(friendlyErrorMessage(err))),
                         data: (subs) {
                           if (subs.isEmpty) {
                             return const Center(

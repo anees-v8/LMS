@@ -4,6 +4,7 @@ import '../../providers/superadmin_providers.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
+import '../../widgets/custom_dropdown.dart';
 import '../../widgets/analytics_top_card.dart';
 import '../../theme/app_colors.dart';
 import 'tenant_details_screen.dart';
@@ -84,7 +85,8 @@ class _TenantsScreenState extends ConsumerState<TenantsScreen> {
                 child: tenantsAsync.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text('Error: $err')),
+                  error: (err, stack) =>
+                      Center(child: Text(friendlyErrorMessage(err))),
                   data: (tenants) {
                     final filteredTenants = tenants.where((t) {
                       if (_selectedFilter == 'All') return true;
@@ -237,7 +239,12 @@ class _TenantsScreenState extends ConsumerState<TenantsScreen> {
                                   onRefresh: () async =>
                                       ref.invalidate(tenantsProvider),
                                   child: ListView.builder(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      16,
+                                      16,
+                                      160,
+                                    ),
                                     itemCount: filteredTenants.length,
                                     itemBuilder: (context, index) {
                                       final tenant =
@@ -311,7 +318,10 @@ class _TenantsScreenState extends ConsumerState<TenantsScreen> {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(friendlyErrorMessage(e)),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -712,7 +722,7 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
     } catch (e) {
       setState(() {
         _saving = false;
-        _error = '$e';
+        _error = friendlyErrorMessage(e);
       });
     }
   }
@@ -735,6 +745,18 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Drag handle — consistent with every other bottom sheet in the app.
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  height: 4,
+                  width: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -849,6 +871,7 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
               _saving
                   ? const Center(child: CircularProgressIndicator())
                   : SizedBox(
+                      width: double.infinity,
                       height: 52,
                       child: CustomButton(
                         text: 'Add Institute',
@@ -907,7 +930,7 @@ class _AssignPlanBottomSheetState
     } catch (e) {
       setState(() {
         _saving = false;
-        _error = '$e';
+        _error = friendlyErrorMessage(e);
       });
     }
   }
@@ -935,6 +958,18 @@ class _AssignPlanBottomSheetState
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Drag handle — consistent with every other bottom sheet in the app.
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  height: 4,
+                  width: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -961,7 +996,7 @@ class _AssignPlanBottomSheetState
                   child: LinearProgressIndicator(),
                 ),
                 error: (err, stack) => Text(
-                  '$err',
+                  friendlyErrorMessage(err),
                   style: const TextStyle(color: Colors.red, fontSize: 12),
                 ),
                 data: (detail) => Padding(
@@ -972,20 +1007,11 @@ class _AssignPlanBottomSheetState
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'Plan',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1F2E27),
-                ),
-              ),
               const SizedBox(height: 8),
               plansAsync.when(
                 loading: () => const LinearProgressIndicator(),
                 error: (err, stack) => Text(
-                  '$err',
+                  friendlyErrorMessage(err),
                   style: const TextStyle(color: Colors.red, fontSize: 12),
                 ),
                 data: (plans) {
@@ -993,23 +1019,15 @@ class _AssignPlanBottomSheetState
                       .cast<Map<String, dynamic>>()
                       .where((p) => p['isActive'] == true)
                       .toList();
-                  return DropdownButtonFormField<int>(
-                    initialValue: _planId,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                    ),
-                    hint: const Text('Choose plan'),
-                    items: active
+                  return CustomDropdown<int?>(
+                    label: 'Plan',
+                    hint: 'Choose plan',
+                    value: _planId,
+                    options: active
                         .map(
-                          (p) => DropdownMenuItem<int>(
+                          (p) => DropdownOption<int?>(
                             value: p['id'] as int,
-                            child: Text(p['name']?.toString() ?? ''),
+                            label: p['name']?.toString() ?? '',
                           ),
                         )
                         .toList(),
@@ -1071,33 +1089,14 @@ class _AssignPlanBottomSheetState
               ),
               if (_billingMode == 'per_student') ...[
                 const SizedBox(height: 16),
-                const Text(
-                  'Billing Cycle',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1F2E27),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _billingCycle,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
-                    DropdownMenuItem(
-                      value: 'quarterly',
-                      child: Text('Quarterly'),
-                    ),
-                    DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
+                CustomDropdown<String>(
+                  label: 'Billing Cycle',
+                  hint: 'Select a billing cycle',
+                  value: _billingCycle,
+                  options: const [
+                    DropdownOption(value: 'monthly', label: 'Monthly'),
+                    DropdownOption(value: 'quarterly', label: 'Quarterly'),
+                    DropdownOption(value: 'yearly', label: 'Yearly'),
                   ],
                   onChanged: (v) =>
                       setState(() => _billingCycle = v ?? 'monthly'),
@@ -1136,6 +1135,7 @@ class _AssignPlanBottomSheetState
               _saving
                   ? const Center(child: CircularProgressIndicator())
                   : SizedBox(
+                      width: double.infinity,
                       height: 52,
                       child: CustomButton(
                         text: 'Assign Plan',

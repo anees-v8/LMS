@@ -69,7 +69,7 @@ class SubjectsScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
       }
     }
   }
@@ -131,14 +131,15 @@ class SubjectsScreen extends ConsumerWidget {
                 child: subjectsAsync.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text('Error: $err')),
+                  error: (err, stack) =>
+                      Center(child: Text(friendlyErrorMessage(err))),
                   data: (subjects) {
                     if (subjects.isEmpty)
                       return const Center(child: Text('No subjects found.'));
                     return RefreshIndicator(
                       onRefresh: () async => ref.invalidate(subjectsProvider),
                       child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 160),
                         itemCount: subjects.length,
                         itemBuilder: (context, index) {
                           final subject =
@@ -313,7 +314,7 @@ class _AddSubjectBottomSheetState
     } catch (e) {
       setState(() {
         _saving = false;
-        _error = '$e';
+        _error = friendlyErrorMessage(e);
       });
     }
   }
@@ -321,6 +322,9 @@ class _AddSubjectBottomSheetState
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
@@ -328,13 +332,24 @@ class _AddSubjectBottomSheetState
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle — consistent with every other bottom sheet in the app.
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              height: 4,
+              width: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
@@ -351,58 +366,73 @@ class _AddSubjectBottomSheetState
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            CustomTextField(
-              label: 'Subject Name',
-              hint: 'e.g. Mathematics',
-              controller: _name,
-              prefixIcon: Icons.menu_book,
-            ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Total Chapters (Optional)',
-              hint: 'e.g. 12',
-              controller: _totalChapters,
-              prefixIcon: Icons.format_list_numbered,
-              keyboardType: TextInputType.number,
-            ),
-            const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: Text(
-                'Planned number of chapters — used to show progress like "8 of 12 chapters done".',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: Colors.red,
-                      size: 20,
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CustomTextField(
+                    label: 'Subject Name',
+                    hint: 'e.g. Mathematics',
+                    controller: _name,
+                    prefixIcon: Icons.menu_book,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Total Chapters (Optional)',
+                    hint: 'e.g. 12',
+                    controller: _totalChapters,
+                    prefixIcon: Icons.format_list_numbered,
+                    keyboardType: TextInputType.number,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Planned number of chapters — used to show progress like "8 of 12 chapters done".',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red, fontSize: 13),
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
-            ],
-            const SizedBox(height: 32),
-            _saving
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: _saving
                 ? const Center(child: CircularProgressIndicator())
                 : SizedBox(
+                    width: double.infinity,
                     height: 52,
                     child: CustomButton(
                       text: widget.subject != null
@@ -411,8 +441,8 @@ class _AddSubjectBottomSheetState
                       onPressed: _saving ? () {} : () => _submit(),
                     ),
                   ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

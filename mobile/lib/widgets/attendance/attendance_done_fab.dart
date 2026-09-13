@@ -35,7 +35,11 @@ class AttendanceDoneFab extends StatelessWidget {
                 color: const Color(0xFFA87D26),
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
-                  BoxShadow(color: const Color(0xFFA87D26).withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 8)),
+                  BoxShadow(
+                    color: const Color(0xFFA87D26).withValues(alpha: 0.35),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
                 ],
               ),
               child: Row(
@@ -45,7 +49,11 @@ class AttendanceDoneFab extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     'Done ($markedCount/$totalCount)',
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),

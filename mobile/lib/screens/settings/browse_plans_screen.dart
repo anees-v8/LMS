@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/payment_providers.dart';
+import '../../services/api_service.dart';
 
 /// Human-readable labels for the backend's feature-key strings
 /// (plan_catalog.features), so the comparison list reads naturally.
@@ -92,7 +93,7 @@ class _BrowsePlansScreenState extends ConsumerState<BrowsePlansScreen> {
                       const Center(child: CircularProgressIndicator()),
                   error: (err, _) => Center(
                     child: Text(
-                      'Failed to load plans: $err',
+                      friendlyErrorMessage(err),
                       style: const TextStyle(color: Colors.grey),
                     ),
                   ),

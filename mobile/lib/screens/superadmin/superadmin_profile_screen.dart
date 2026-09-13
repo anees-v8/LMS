@@ -25,10 +25,7 @@ class SuperAdminProfileScreen extends ConsumerWidget {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: ProfileHeader(
-              name: fullName,
-              subtitleLine1: 'Super Admin',
-            ),
+            child: ProfileHeader(name: fullName, subtitleLine1: 'Super Admin'),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
           SliverToBoxAdapter(
@@ -36,9 +33,17 @@ class SuperAdminProfileScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ProfileInfoCard(
                 rows: [
-                  ProfileInfoRowData(icon: Icons.phone_rounded, label: 'Phone', value: phone),
+                  ProfileInfoRowData(
+                    icon: Icons.phone_rounded,
+                    label: 'Phone',
+                    value: phone,
+                  ),
                   if (email != null && email.isNotEmpty)
-                    ProfileInfoRowData(icon: Icons.email_rounded, label: 'Email', value: email),
+                    ProfileInfoRowData(
+                      icon: Icons.email_rounded,
+                      label: 'Email',
+                      value: email,
+                    ),
                 ],
               ),
             ),

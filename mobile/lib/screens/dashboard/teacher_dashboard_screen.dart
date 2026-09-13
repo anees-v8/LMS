@@ -20,8 +20,9 @@ class TeacherDashboardScreen extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final fullName = authState.fullName ?? 'Teacher';
     final instituteName = authState.instituteName ?? 'Campus';
-    
-    final unreadCount = ref.watch(teacherUnreadNotificationCountProvider).asData?.value ?? 0;
+
+    final unreadCount =
+        ref.watch(teacherUnreadNotificationCountProvider).asData?.value ?? 0;
     final scheduleAsync = ref.watch(todayScheduleProvider);
     final classesToday = scheduleAsync.maybeWhen(
       data: (data) {
@@ -34,20 +35,36 @@ class TeacherDashboardScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(instituteName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(
+          instituteName,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
         backgroundColor: AppColors.primaryDark,
         elevation: 0,
         actions: [
           IconButton(
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const TeacherNotificationsScreen()))
-                  .then((_) => ref.invalidate(teacherUnreadNotificationCountProvider));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const TeacherNotificationsScreen(),
+                ),
+              ).then(
+                (_) => ref.invalidate(teacherUnreadNotificationCountProvider),
+              );
             },
             icon: Badge(
               isLabelVisible: unreadCount > 0,
               label: Text('$unreadCount'),
               backgroundColor: Colors.redAccent,
-              child: const Icon(Icons.notifications_none_outlined, color: Colors.white),
+              child: const Icon(
+                Icons.notifications_none_outlined,
+                color: Colors.white,
+              ),
             ),
           ),
         ],
@@ -57,15 +74,18 @@ class TeacherDashboardScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TeacherWelcomeHeader(teacherName: fullName, classesToday: classesToday),
+              TeacherWelcomeHeader(
+                teacherName: fullName,
+                classesToday: classesToday,
+              ),
               const SizedBox(height: 24),
-              
+
               const TeacherQuickActions(),
               const SizedBox(height: 32),
-              
+
               const TeacherScheduleList(),
               const SizedBox(height: 32),
-              
+
               const TeacherBatchList(),
               const SizedBox(height: 48), // Bottom padding
             ],

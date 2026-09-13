@@ -25,18 +25,41 @@ class TeacherWelcomeHeader extends StatelessWidget {
         children: [
           Text(
             '👋 $greeting,\n$teacherName!',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryDark, height: 1.2),
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primaryDark,
+              height: 1.2,
+            ),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              const Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey),
+              const Icon(
+                Icons.calendar_today_outlined,
+                size: 16,
+                color: Colors.grey,
+              ),
               const SizedBox(width: 8),
-              Text(today, style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
+              Text(
+                today,
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+              ),
               const SizedBox(width: 16),
-              const Icon(Icons.menu_book_outlined, size: 16, color: Colors.grey),
+              const Icon(
+                Icons.menu_book_outlined,
+                size: 16,
+                color: Colors.grey,
+              ),
               const SizedBox(width: 8),
-              Text('$classesToday Classes Today', style: TextStyle(color: Colors.grey.shade700, fontSize: 14, fontWeight: FontWeight.w600)),
+              Text(
+                '$classesToday Classes Today',
+                style: TextStyle(
+                  color: Colors.grey.shade700,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ],

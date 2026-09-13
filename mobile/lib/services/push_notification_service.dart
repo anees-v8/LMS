@@ -7,9 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
 import 'api_service.dart';
 import '../main.dart' show rootProviderContainer;
-import '../providers/management_providers.dart' show notificationsProvider, unreadNotificationCountProvider;
-import '../providers/student_providers.dart' show studentNotificationsProvider, studentUnreadNotificationCountProvider;
-import '../providers/teacher_providers.dart' show teacherNotificationsProvider, teacherUnreadNotificationCountProvider;
+import '../providers/management_providers.dart'
+    show notificationsProvider, unreadNotificationCountProvider;
+import '../providers/student_providers.dart'
+    show studentNotificationsProvider, studentUnreadNotificationCountProvider;
+import '../providers/teacher_providers.dart'
+    show teacherNotificationsProvider, teacherUnreadNotificationCountProvider;
 
 // Screens
 import '../screens/superadmin/notifications_screen.dart' as superadmin;
@@ -26,12 +29,14 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 class PushNotificationService {
-  static final PushNotificationService _instance = PushNotificationService._internal();
+  static final PushNotificationService _instance =
+      PushNotificationService._internal();
   factory PushNotificationService() => _instance;
   PushNotificationService._internal();
 
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   final ApiService _api = ApiService();
 
   GlobalKey<NavigatorState>? _navigatorKey;
@@ -72,12 +77,15 @@ class PushNotificationService {
       const AndroidNotificationChannel channel = AndroidNotificationChannel(
         'high_importance_channel', // id
         'High Importance Notifications', // title
-        description: 'This channel is used for important notifications.', // description
+        description:
+            'This channel is used for important notifications.', // description
         importance: Importance.max,
       );
 
       await _localNotifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.createNotificationChannel(channel);
     }
 
@@ -88,7 +96,9 @@ class PushNotificationService {
       refreshNotificationProviders();
 
       if (message.notification != null) {
-        debugPrint('Message also contained a notification: ${message.notification}');
+        debugPrint(
+          'Message also contained a notification: ${message.notification}',
+        );
         _showForegroundNotification(message);
       }
     });
@@ -137,7 +147,8 @@ class PushNotificationService {
         android: AndroidNotificationDetails(
           'high_importance_channel',
           'High Importance Notifications',
-          channelDescription: 'This channel is used for important notifications.',
+          channelDescription:
+              'This channel is used for important notifications.',
           importance: Importance.max,
           priority: Priority.high,
           icon: '@mipmap/ic_stat_notification',
@@ -165,10 +176,10 @@ class PushNotificationService {
   Future<void> _navigateToNotifications() async {
     if (_navigatorKey?.currentState != null) {
       debugPrint("NAVIGATING TO NOTIFICATIONS PAGE");
-      
+
       final prefs = await SharedPreferences.getInstance();
       final role = prefs.getString('user_role');
-      
+
       Widget? screen;
       switch (role) {
         case 'super_admin':
@@ -184,9 +195,11 @@ class PushNotificationService {
           screen = const StudentNotificationsScreen();
           break;
       }
-      
+
       if (screen != null) {
-        _navigatorKey!.currentState!.push(MaterialPageRoute(builder: (_) => screen!));
+        _navigatorKey!.currentState!.push(
+          MaterialPageRoute(builder: (_) => screen!),
+        );
       }
     }
   }
@@ -214,10 +227,10 @@ class PushNotificationService {
     try {
       final fcmToken = await _fcm.getToken();
       if (fcmToken == null) return;
-      
+
       debugPrint("Removing FCM token from backend");
-      // Passing body inside a DELETE request might fail with our simple api_service, 
-      // but let's try. Wait, api_service delete doesn't support body. 
+      // Passing body inside a DELETE request might fail with our simple api_service,
+      // but let's try. Wait, api_service delete doesn't support body.
       // We'll update api_service.dart next.
       await _api.delete('/auth/device-token', {'token': fcmToken});
       // Optionally delete local token

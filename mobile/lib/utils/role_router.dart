@@ -22,4 +22,3 @@ Widget homeScreenForRole(String? role) {
       return const UnsupportedRoleScreen();
   }
 }
-

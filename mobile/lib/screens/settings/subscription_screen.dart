@@ -60,9 +60,11 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Verification Failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Verification failed: ${friendlyErrorMessage(e)}'),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -124,9 +126,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     } catch (e) {
       setState(() => _isProcessing = false);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error initiating payment: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not start payment: ${friendlyErrorMessage(e)}',
+            ),
+          ),
+        );
       }
     }
   }
@@ -189,7 +195,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (err, stack) =>
-                      Center(child: Text('Error loading subscription: $err')),
+                      Center(child: Text(friendlyErrorMessage(err))),
                   data: (sub) {
                     final status = sub['status'] ?? 'unknown';
                     final planName = sub['plan'] ?? 'Unknown Plan';
@@ -349,6 +355,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                             const Center(child: CircularProgressIndicator())
                           else
                             SizedBox(
+                              width: double.infinity,
                               height: 52,
                               child: CustomButton(
                                 text: ended ? 'Renew Subscription' : 'Pay Now',

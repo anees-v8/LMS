@@ -88,7 +88,8 @@ class PlansScreen extends ConsumerWidget {
                 child: plansAsync.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text('Error: $err')),
+                  error: (err, stack) =>
+                      Center(child: Text(friendlyErrorMessage(err))),
                   data: (plans) {
                     if (plans.isEmpty) {
                       return const Center(child: Text('No plans yet.'));
@@ -96,7 +97,7 @@ class PlansScreen extends ConsumerWidget {
                     return RefreshIndicator(
                       onRefresh: () async => ref.invalidate(plansProvider),
                       child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 160),
                         itemCount: plans.length,
                         itemBuilder: (context, index) {
                           final plan = plans[index] as Map<String, dynamic>;
@@ -294,7 +295,10 @@ class PlansScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(friendlyErrorMessage(e)),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -425,7 +429,7 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
     } catch (e) {
       setState(() {
         _saving = false;
-        _error = '$e';
+        _error = friendlyErrorMessage(e);
       });
     }
   }
@@ -448,6 +452,18 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Drag handle — consistent with every other bottom sheet in the app.
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  height: 4,
+                  width: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -614,6 +630,7 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
               _saving
                   ? const Center(child: CircularProgressIndicator())
                   : SizedBox(
+                      width: double.infinity,
                       height: 52,
                       child: CustomButton(
                         text: _isEdit ? 'Save Changes' : 'Add Plan',

@@ -15,8 +15,8 @@ class StudentDetailsScreen extends ConsumerStatefulWidget {
   final int initialTabIndex;
 
   const StudentDetailsScreen({
-    super.key, 
-    required this.student, 
+    super.key,
+    required this.student,
     this.initialTabIndex = 0,
   });
 
@@ -33,7 +33,7 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 4, 
+      length: 4,
       vsync: this,
       initialIndex: widget.initialTabIndex,
     );
@@ -49,7 +49,7 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
   Widget build(BuildContext context) {
     final s = widget.student;
     final studentId = s['id'] as int;
-    
+
     // Fetch detailed data from backend
     final detailsAsync = ref.watch(mgmt.studentDetailsProvider(studentId));
     final details = detailsAsync.value;
@@ -60,10 +60,16 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
     final rollNo = s['rollNo']?.toString() ?? 'N/A';
     final grade = s['grade']?.toString() ?? 'N/A';
     final batchName = s['batchName']?.toString() ?? 'N/A';
-    final attendance =
-        num.tryParse(s['attendance']?.toString() ?? '0') ?? 0;
-    final pendingFees =
-        num.tryParse(s['pendingFees']?.toString() ?? '0') ?? 0;
+    final attendance = num.tryParse(s['attendance']?.toString() ?? '0') ?? 0;
+    // Prefer the freshly-computed pending amount from GET .../details (the
+    // same value the Fees tab below shows) over the value this screen was
+    // opened with, which came from the students list and can be stale the
+    // moment a payment changes it — e.g. right after recording a payment
+    // that fully (or over-) pays the student's fee.
+    final detailsPending = details?['fees']?['overview']?['pending'];
+    final pendingFees = detailsPending is num
+        ? detailsPending
+        : num.tryParse(s['pendingFees']?.toString() ?? '0') ?? 0;
 
     final tabBar = TabBar(
       controller: _tabController,
@@ -84,11 +90,14 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Student Details',
-            style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 20)),
+        title: const Text(
+          'Student Details',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
         backgroundColor: AppColors.primaryDark,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
@@ -132,11 +141,10 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                 // Tab bar is part of the SliverAppBar so it's absorbed too
                 bottom: PreferredSize(
                   // Add 3px extra so the indicator line is not clipped
-                  preferredSize: Size.fromHeight(tabBar.preferredSize.height + 3),
-                  child: Container(
-                    color: Colors.white,
-                    child: tabBar,
+                  preferredSize: Size.fromHeight(
+                    tabBar.preferredSize.height + 3,
                   ),
+                  child: Container(color: Colors.white, child: tabBar),
                 ),
               ),
             ),
@@ -214,8 +222,11 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                         color: AppColors.successLight,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.person,
-                          size: 40, color: AppColors.primaryDark),
+                      child: const Icon(
+                        Icons.person,
+                        size: 40,
+                        color: AppColors.primaryDark,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -238,16 +249,21 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                               ),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: AppColors.successLight,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Text('Active',
-                                    style: TextStyle(
-                                        color: AppColors.success,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold)),
+                                child: const Text(
+                                  'Active',
+                                  style: TextStyle(
+                                    color: AppColors.success,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -255,13 +271,17 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                           Text(
                             'Roll No: $rollNo  •  Class $grade',
                             style: TextStyle(
-                                color: Colors.grey.shade700, fontSize: 12),
+                              color: Colors.grey.shade700,
+                              fontSize: 12,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'Batch: $batchName',
                             style: TextStyle(
-                                color: Colors.grey.shade700, fontSize: 12),
+                              color: Colors.grey.shade700,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -281,12 +301,22 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
           child: Row(
             children: [
               Expanded(
-                  child: _buildMetricCard(Icons.school,
-                      '${attendance.toInt()}%', 'Attendance', Colors.green)),
+                child: _buildMetricCard(
+                  Icons.school,
+                  '${attendance.toInt()}%',
+                  'Attendance',
+                  Colors.green,
+                ),
+              ),
               const SizedBox(width: 12),
               Expanded(
-                  child: _buildMetricCard(Icons.warning_amber_rounded,
-                      '₹$pendingFees', 'Fees Pending', Colors.red)),
+                child: _buildMetricCard(
+                  Icons.warning_amber_rounded,
+                  '₹$pendingFees',
+                  'Fees Pending',
+                  Colors.red,
+                ),
+              ),
             ],
           ),
         ),
@@ -299,26 +329,35 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-
               _buildActionIcon(
                 Icons.account_balance_wallet_outlined,
                 'Add Fees',
-                onTap: () => showRecordPaymentBottomSheet(context, ref, prefillStudentId: studentId),
+                onTap: () => showRecordPaymentBottomSheet(
+                  context,
+                  ref,
+                  prefillStudentId: studentId,
+                ),
               ),
               const SizedBox(width: 8),
-              _buildActionIcon(Icons.bar_chart, 'View Reports', onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => Consumer(
-                      builder: (context, ref, _) => StudentReportScreen(
-                        student: widget.student,
-                        detailsAsync: ref.watch(mgmt.studentDetailsProvider(studentId)),
+              _buildActionIcon(
+                Icons.bar_chart,
+                'View Reports',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => Consumer(
+                        builder: (context, ref, _) => StudentReportScreen(
+                          student: widget.student,
+                          detailsAsync: ref.watch(
+                            mgmt.studentDetailsProvider(studentId),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                },
+              ),
               const SizedBox(width: 8),
               Builder(
                 builder: (context) {
@@ -328,7 +367,8 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                     'More',
                     key: key,
                     onTap: () async {
-                      final box = key.currentContext?.findRenderObject() as RenderBox?;
+                      final box =
+                          key.currentContext?.findRenderObject() as RenderBox?;
                       if (box == null) return;
                       final offset = box.localToGlobal(Offset.zero);
                       final selected = await showMenu<String>(
@@ -339,7 +379,9 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                           offset.dx + box.size.width,
                           offset.dy + box.size.height + 4,
                         ),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         color: Colors.white,
                         elevation: 8,
                         items: [
@@ -347,9 +389,16 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                             value: 'message',
                             child: Row(
                               children: [
-                                Icon(Icons.chat_outlined, size: 20, color: Colors.green.shade600),
+                                Icon(
+                                  Icons.chat_outlined,
+                                  size: 20,
+                                  color: Colors.green.shade600,
+                                ),
                                 const SizedBox(width: 12),
-                                const Text('Send Message', style: TextStyle(fontSize: 14)),
+                                const Text(
+                                  'Send Message',
+                                  style: TextStyle(fontSize: 14),
+                                ),
                               ],
                             ),
                           ),
@@ -357,9 +406,39 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                             value: 'suspend',
                             child: Row(
                               children: [
-                                Icon(Icons.block, size: 20, color: Colors.red.shade600),
+                                Icon(
+                                  Icons.block,
+                                  size: 20,
+                                  color: Colors.red.shade600,
+                                ),
                                 const SizedBox(width: 12),
-                                Text('Suspend', style: TextStyle(color: Colors.red.shade600, fontSize: 14)),
+                                Text(
+                                  'Suspend',
+                                  style: TextStyle(
+                                    color: Colors.red.shade600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  size: 20,
+                                  color: Colors.red.shade600,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Delete',
+                                  style: TextStyle(
+                                    color: Colors.red.shade600,
+                                    fontSize: 14,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -367,15 +446,21 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                       );
                       if (!mounted) return;
                       if (selected == 'message') {
-                        final rawPhone = widget.student['phone']?.toString() ?? '';
+                        final rawPhone =
+                            widget.student['phone']?.toString() ?? '';
                         // wa.me requires digits only (no +, spaces, dashes)
                         final phone = rawPhone.replaceAll(RegExp(r'\D'), '');
                         if (phone.isNotEmpty) {
                           final url = Uri.parse('https://wa.me/$phone');
-                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                          await launchUrl(
+                            url,
+                            mode: LaunchMode.externalApplication,
+                          );
                         }
                       } else if (selected == 'suspend') {
                         _confirmSuspend(context);
+                      } else if (selected == 'delete') {
+                        _confirmDelete(context);
                       }
                     },
                   );
@@ -431,10 +516,29 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
   }
 
   // ── Academics Tab ─────────────────────────────────────────────────────────
-  Widget _buildAcademicsContent(Map<String, dynamic>? details, bool isLoading, bool hasError) {
-    if (isLoading) return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
-    if (hasError) return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('Failed to load details', style: TextStyle(color: Colors.red))));
-    
+  Widget _buildAcademicsContent(
+    Map<String, dynamic>? details,
+    bool isLoading,
+    bool hasError,
+  ) {
+    if (isLoading)
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    if (hasError)
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: Text(
+            'Failed to load details',
+            style: TextStyle(color: Colors.red),
+          ),
+        ),
+      );
+
     final academics = details?['academics'] as Map<String, dynamic>?;
     final subjects = academics?['subjects'] as List<dynamic>? ?? [];
     final overallPct = academics?['overallPercentage']?.toString() ?? '0.0';
@@ -467,8 +571,10 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
             ),
           ),
           const SizedBox(height: 20),
-          const Text('Subject Performance',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const Text(
+            'Subject Performance',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
           const SizedBox(height: 12),
           if (subjects.isEmpty)
             const Padding(
@@ -476,12 +582,14 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
               child: Center(child: Text('No test results found.')),
             )
           else
-            ...subjects.map((sub) => _buildSubjectCard(
-                  name: sub['name']?.toString() ?? 'Unknown',
-                  marks: (sub['marks'] as num?)?.toInt() ?? 0,
-                  total: (sub['total'] as num?)?.toInt() ?? 0,
-                  grade: sub['grade']?.toString() ?? '-',
-                )),
+            ...subjects.map(
+              (sub) => _buildSubjectCard(
+                name: sub['name']?.toString() ?? 'Unknown',
+                marks: (sub['marks'] as num?)?.toInt() ?? 0,
+                total: (sub['total'] as num?)?.toInt() ?? 0,
+                grade: sub['grade']?.toString() ?? '-',
+              ),
+            ),
         ],
       ),
     );
@@ -493,27 +601,35 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
       children: [
         Icon(icon, color: Colors.white70, size: 20),
         const SizedBox(height: 6),
-        Text(value,
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text(label,
-            style: const TextStyle(color: Colors.white70, fontSize: 11)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 11),
+        ),
       ],
     );
   }
 
-  Widget _buildSubjectCard(
-      {required String name,
-      required int marks,
-      required int total,
-      required String grade}) {
+  Widget _buildSubjectCard({
+    required String name,
+    required int marks,
+    required int total,
+    required String grade,
+  }) {
     final pct = total > 0 ? (marks / total) : 0.0;
     final color = pct >= 0.85
         ? Colors.green
         : pct >= 0.70
-            ? Colors.orange
-            : Colors.red;
+        ? Colors.orange
+        : Colors.red;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -522,9 +638,10 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 6,
-              offset: const Offset(0, 2)),
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -533,33 +650,47 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
           Row(
             children: [
               Expanded(
-                  child: Text(name,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 13))),
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20)),
-                child: Text('$marks/$total',
-                    style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12)),
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$marks/$total',
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(20)),
-                child: Text(grade,
-                    style: const TextStyle(
-                        color: AppColors.primaryDark,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11)),
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  grade,
+                  style: const TextStyle(
+                    color: AppColors.primaryDark,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
               ),
             ],
           ),
@@ -579,9 +710,28 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
   }
 
   // ── Attendance Tab ────────────────────────────────────────────────────────
-  Widget _buildAttendanceContent(Map<String, dynamic>? details, bool isLoading, bool hasError) {
-    if (isLoading) return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
-    if (hasError) return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('Failed to load details', style: TextStyle(color: Colors.red))));
+  Widget _buildAttendanceContent(
+    Map<String, dynamic>? details,
+    bool isLoading,
+    bool hasError,
+  ) {
+    if (isLoading)
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    if (hasError)
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: Text(
+            'Failed to load details',
+            style: TextStyle(color: Colors.red),
+          ),
+        ),
+      );
 
     final attendance = details?['attendance'] as Map<String, dynamic>?;
     final totalDays = (attendance?['totalDays'] as num?)?.toInt() ?? 0;
@@ -606,9 +756,10 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2)),
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
               ],
             ),
             child: Row(
@@ -629,7 +780,9 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                         child: Text(
                           '${attPct.toInt()}%',
                           style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 18),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
                         ),
                       ),
                     ],
@@ -640,11 +793,19 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildAttStat('Present', '$presentDays days', Colors.green),
+                      _buildAttStat(
+                        'Present',
+                        '$presentDays days',
+                        Colors.green,
+                      ),
                       const SizedBox(height: 8),
                       _buildAttStat('Absent', '$absentDays days', Colors.red),
                       const SizedBox(height: 8),
-                      _buildAttStat('Total', '$totalDays days', Colors.blueGrey),
+                      _buildAttStat(
+                        'Total',
+                        '$totalDays days',
+                        Colors.blueGrey,
+                      ),
                     ],
                   ),
                 ),
@@ -652,8 +813,10 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
             ),
           ),
           const SizedBox(height: 20),
-          const Text('Monthly Breakdown',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const Text(
+            'Monthly Breakdown',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
           const SizedBox(height: 12),
           if (monthlyData.isEmpty)
             const Padding(
@@ -661,11 +824,13 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
               child: Center(child: Text('No attendance records found.')),
             )
           else
-            ...monthlyData.map((m) => _buildMonthRow(
-                  month: m['month']?.toString() ?? '',
-                  present: (m['present'] as num?)?.toInt() ?? 0,
-                  total: (m['total'] as num?)?.toInt() ?? 0,
-                )),
+            ...monthlyData.map(
+              (m) => _buildMonthRow(
+                month: m['month']?.toString() ?? '',
+                present: (m['present'] as num?)?.toInt() ?? 0,
+                total: (m['total'] as num?)?.toInt() ?? 0,
+              ),
+            ),
         ],
       ),
     );
@@ -674,20 +839,30 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
   Widget _buildAttStat(String label, String value, Color color) {
     return Row(
       children: [
-        Container(width: 10, height: 10,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 8),
-        Text(label,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+        ),
         const Spacer(),
-        Text(value,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+        ),
       ],
     );
   }
 
-  Widget _buildMonthRow(
-      {required String month, required int present, required int total}) {
+  Widget _buildMonthRow({
+    required String month,
+    required int present,
+    required int total,
+  }) {
     final pct = total > 0 ? (present / total) : 0.0;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -697,20 +872,24 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 4,
-              offset: const Offset(0, 1)),
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
         ],
       ),
       child: Row(
         children: [
           Expanded(
-              child: Text(month,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w500, fontSize: 13))),
-          Text('$present/$total days',
-              style:
-                  TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+            child: Text(
+              month,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+            ),
+          ),
+          Text(
+            '$present/$total days',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          ),
           const SizedBox(width: 12),
           SizedBox(
             width: 60,
@@ -730,9 +909,29 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
   }
 
   // ── Fees Tab ──────────────────────────────────────────────────────────────
-  Widget _buildFeesContent(Map<String, dynamic> s, Map<String, dynamic>? details, bool isLoading, bool hasError) {
-    if (isLoading) return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
-    if (hasError) return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('Failed to load details', style: TextStyle(color: Colors.red))));
+  Widget _buildFeesContent(
+    Map<String, dynamic> s,
+    Map<String, dynamic>? details,
+    bool isLoading,
+    bool hasError,
+  ) {
+    if (isLoading)
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    if (hasError)
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: Text(
+            'Failed to load details',
+            style: TextStyle(color: Colors.red),
+          ),
+        ),
+      );
 
     final feesData = details?['fees'] as Map<String, dynamic>?;
     final history = feesData?['history'] as List<dynamic>? ?? [];
@@ -746,7 +945,10 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Payment History', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text(
+                'Payment History',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -755,20 +957,29 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
               ],
             ),
             child: Column(
               children: [
                 if (history.isEmpty)
-                  const Padding(padding: EdgeInsets.all(20), child: Text('No payment history found.'))
+                  const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text('No payment history found.'),
+                  )
                 else
-                  ...history.map((h) => PaymentHistoryRow(
-                    date: h['date']?.toString() ?? '',
-                    amount: h['amount']?.toString() ?? '0',
-                    method: h['method']?.toString() ?? 'Cash',
-                    receiptNo: h['receiptNo']?.toString() ?? '',
-                  )),
+                  ...history.map(
+                    (h) => PaymentHistoryRow(
+                      date: h['date']?.toString() ?? '',
+                      amount: h['amount']?.toString() ?? '0',
+                      method: h['method']?.toString() ?? 'Cash',
+                      receiptNo: h['receiptNo']?.toString() ?? '',
+                    ),
+                  ),
               ],
             ),
           ),
@@ -780,7 +991,11 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
 
   // ── Reusable small widgets ────────────────────────────────────────────────
   Widget _buildMetricCard(
-      IconData icon, String value, String title, Color color) {
+    IconData icon,
+    String value,
+    String title,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -788,9 +1003,10 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 4,
-              offset: const Offset(0, 2)),
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Row(
@@ -798,8 +1014,9 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                shape: BoxShape.circle),
+              color: color.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 12),
@@ -807,13 +1024,18 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(value,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(title,
-                    style: TextStyle(
-                        color: Colors.grey.shade600, fontSize: 11)),
+                Text(
+                  title,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                ),
               ],
             ),
           ),
@@ -822,7 +1044,12 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
     );
   }
 
-  Widget _buildActionIcon(IconData icon, String label, {Key? key, VoidCallback? onTap}) {
+  Widget _buildActionIcon(
+    IconData icon,
+    String label, {
+    Key? key,
+    VoidCallback? onTap,
+  }) {
     return InkWell(
       key: key,
       onTap: onTap ?? () {},
@@ -837,7 +1064,11 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
             const SizedBox(height: 5),
             Text(
               label,
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade800, height: 1.3),
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey.shade800,
+                height: 1.3,
+              ),
               textAlign: TextAlign.center,
               maxLines: 2,
               softWrap: true,
@@ -849,7 +1080,8 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
   }
 
   void _confirmSuspend(BuildContext context) {
-    final studentName = widget.student['fullName']?.toString() ?? 'this student';
+    final studentName =
+        widget.student['fullName']?.toString() ?? 'this student';
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -874,7 +1106,9 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () async {
               Navigator.pop(ctx);
@@ -887,20 +1121,97 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(isSuspended
-                        ? '$studentName has been suspended.'
-                        : '$studentName has been unsuspended.'),
+                    content: Text(
+                      isSuspended
+                          ? '$studentName has been suspended.'
+                          : '$studentName has been unsuspended.',
+                    ),
                     backgroundColor: isSuspended ? Colors.red : Colors.green,
                   ),
                 );
               } catch (e) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                  SnackBar(
+                    content: Text(friendlyErrorMessage(e)),
+                    backgroundColor: Colors.red,
+                  ),
                 );
               }
             },
             child: const Text('Suspend'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    final studentName =
+        widget.student['fullName']?.toString() ?? 'this student';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_outline, color: Colors.red, size: 22),
+            SizedBox(width: 8),
+            Text('Delete Student', style: TextStyle(fontSize: 17)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete $studentName?\n\n'
+          'If they have no attendance, fee, or test history, their account '
+          'is removed permanently. Otherwise it is deactivated (can no '
+          'longer login) so that history stays intact.',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final studentId = widget.student['id'] as int?;
+              if (studentId == null) return;
+              try {
+                final api = ref.read(apiServiceProvider);
+                final result = await mgmt.deleteStudent(api, studentId);
+                final softDeleted = result['softDeleted'] as bool? ?? false;
+                ref.invalidate(mgmt.studentsProvider);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      softDeleted
+                          ? '$studentName has been deactivated (history preserved).'
+                          : '$studentName has been deleted.',
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                Navigator.pop(context);
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(friendlyErrorMessage(e)),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -919,9 +1230,10 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2)),
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -932,15 +1244,21 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: const BoxDecoration(
-                    color: AppColors.background,
-                    shape: BoxShape.circle),
+                  color: AppColors.background,
+                  shape: BoxShape.circle,
+                ),
                 child: Icon(icon, size: 16, color: AppColors.primary),
               ),
               const SizedBox(width: 8),
               Expanded(
-                  child: Text(title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 13))),
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -951,17 +1269,25 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                      flex: 2,
-                      child: Text(e.key,
-                          style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 11))),
+                    flex: 2,
+                    child: Text(
+                      e.key,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
                   Expanded(
-                      flex: 3,
-                      child: Text(e.value,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12))),
+                    flex: 3,
+                    child: Text(
+                      e.value,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -989,10 +1315,7 @@ class _TabPage extends StatelessWidget {
           handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
         ),
         // The actual tab content — fills remaining space, centers if small
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: child,
-        ),
+        SliverFillRemaining(hasScrollBody: false, child: child),
       ],
     );
   }

@@ -5,6 +5,7 @@ import '../../providers/management_providers.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
+import '../../widgets/assign_teacher_bottom_sheet.dart';
 
 class TeacherDetailsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> teacher;
@@ -12,7 +13,8 @@ class TeacherDetailsScreen extends ConsumerStatefulWidget {
   const TeacherDetailsScreen({super.key, required this.teacher});
 
   @override
-  ConsumerState<TeacherDetailsScreen> createState() => _TeacherDetailsScreenState();
+  ConsumerState<TeacherDetailsScreen> createState() =>
+      _TeacherDetailsScreenState();
 }
 
 class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
@@ -63,7 +65,10 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Remove Teacher', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Remove Teacher',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: Text(
           'Are you sure you want to permanently remove ${_teacher['fullName']}? This action cannot be undone.',
         ),
@@ -89,7 +94,13 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to remove teacher: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to remove teacher: ${friendlyErrorMessage(e)}',
+            ),
+          ),
+        );
       }
     }
   }
@@ -116,15 +127,24 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: color, size: 14),
           const SizedBox(width: 6),
           Text(
-            status == 'on_leave' ? 'On Leave' : status[0].toUpperCase() + status.substring(1),
-            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13),
+            status == 'on_leave'
+                ? 'On Leave'
+                : status[0].toUpperCase() + status.substring(1),
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
           ),
         ],
       ),
@@ -142,7 +162,14 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF1F2E27),
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Teacher Details', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)),
+        title: const Text(
+          'Teacher Details',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -172,12 +199,20 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
                     CircleAvatar(
                       radius: 42,
                       backgroundColor: Colors.orange.shade50,
-                      child: const Icon(Icons.person, color: Colors.orange, size: 44),
+                      child: const Icon(
+                        Icons.person,
+                        color: Colors.orange,
+                        size: 44,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       _teacher['fullName'] ?? 'Unknown Teacher',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1F2E27)),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1F2E27),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     _buildStatusBadge(status),
@@ -185,7 +220,10 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
                       const SizedBox(height: 8),
                       Text(
                         'Leave: $leaveStart → ${leaveEnd ?? '—'}',
-                        style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange.shade700,
+                        ),
                       ),
                     ],
                   ],
@@ -198,11 +236,25 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
             _buildInfoCard(
               title: 'Contact Information',
               children: [
-                _buildInfoRow(Icons.phone_outlined, 'Phone Number', _teacher['phone']?.toString() ?? 'N/A'),
+                _buildInfoRow(
+                  Icons.phone_outlined,
+                  'Phone Number',
+                  _teacher['phone']?.toString() ?? 'N/A',
+                ),
                 const Divider(height: 24),
-                _buildInfoRow(Icons.email_outlined, 'Email Address', _teacher['email']?.toString().isNotEmpty == true ? _teacher['email'] : 'No email provided'),
+                _buildInfoRow(
+                  Icons.email_outlined,
+                  'Email Address',
+                  _teacher['email']?.toString().isNotEmpty == true
+                      ? _teacher['email']
+                      : 'No email provided',
+                ),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // Batch Assignments Card
+            _buildAssignmentsCard(),
             const SizedBox(height: 16),
 
             // Status & Actions Card
@@ -219,7 +271,14 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Status & Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1F2E27))),
+                    const Text(
+                      'Status & Actions',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1F2E27),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -231,7 +290,9 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF1F2E27),
                           side: BorderSide(color: Colors.grey.shade300),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                       ),
                     ),
@@ -247,10 +308,18 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
               child: OutlinedButton.icon(
                 onPressed: _confirmRemove,
                 icon: const Icon(Icons.delete_outline, color: Colors.red),
-                label: const Text('Remove Teacher', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+                label: const Text(
+                  'Remove Teacher',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.red),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -261,7 +330,8 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
     );
   }
 
-  Widget _buildInfoCard({required String title, required List<Widget> children}) {
+  Widget _buildAssignmentsCard() {
+    final teacherId = _teacher['id'] as int;
     return Card(
       color: Colors.white,
       elevation: 0,
@@ -275,7 +345,177 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1F2E27))),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Assigned Batches',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2E27),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => showAssignTeacherBottomSheet(
+                    context,
+                    ref,
+                    teacherUserId: teacherId,
+                    teacherName: _teacher['fullName']?.toString() ?? 'Teacher',
+                  ),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Assign'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF2E6656),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Builder(
+              builder: (context) {
+                final assignmentsAsync = ref.watch(
+                  teacherAssignmentsProvider((
+                    teacherId: teacherId,
+                    batchId: null,
+                  )),
+                );
+                return assignmentsAsync.when(
+                  loading: () => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (err, stack) => Text(
+                    friendlyErrorMessage(err),
+                    style: const TextStyle(color: Colors.red, fontSize: 13),
+                  ),
+                  data: (assignments) {
+                    if (assignments.isEmpty) {
+                      return Text(
+                        'Not assigned to any batch yet.',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
+                      );
+                    }
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: assignments.map<Widget>((a) {
+                        final map = a as Map<String, dynamic>;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFF2E6656,
+                            ).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${map['batchName'] ?? 'Batch'} • ${map['subjectName'] ?? 'Subject'}',
+                                style: const TextStyle(
+                                  color: Color(0xFF2E6656),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              GestureDetector(
+                                onTap: () => _confirmRemoveAssignment(
+                                  map['id'] as int,
+                                  teacherId,
+                                ),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 14,
+                                  color: Color(0xFF2E6656),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmRemoveAssignment(int assignmentId, int teacherId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove assignment?'),
+        content: const Text(
+          'This teacher will no longer be assigned to this batch/subject.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await removeTeacherAssignment(ref.read(apiServiceProvider), assignmentId);
+      ref.invalidate(
+        teacherAssignmentsProvider((teacherId: teacherId, batchId: null)),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(friendlyErrorMessage(e)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildInfoCard({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Card(
+      color: Colors.white,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1F2E27),
+              ),
+            ),
             const SizedBox(height: 20),
             ...children,
           ],
@@ -294,9 +534,19 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              Text(
+                label,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
               const SizedBox(height: 2),
-              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87)),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
             ],
           ),
         ),
@@ -310,13 +560,18 @@ class _ChangeStatusBottomSheet extends ConsumerStatefulWidget {
   final Map<String, dynamic> teacher;
   final Function(Map<String, dynamic>) onSaved;
 
-  const _ChangeStatusBottomSheet({required this.teacher, required this.onSaved});
+  const _ChangeStatusBottomSheet({
+    required this.teacher,
+    required this.onSaved,
+  });
 
   @override
-  ConsumerState<_ChangeStatusBottomSheet> createState() => _ChangeStatusBottomSheetState();
+  ConsumerState<_ChangeStatusBottomSheet> createState() =>
+      _ChangeStatusBottomSheetState();
 }
 
-class _ChangeStatusBottomSheetState extends ConsumerState<_ChangeStatusBottomSheet> {
+class _ChangeStatusBottomSheetState
+    extends ConsumerState<_ChangeStatusBottomSheet> {
   late String _status;
   DateTime? _leaveStart;
   DateTime? _leaveEnd;
@@ -359,7 +614,10 @@ class _ChangeStatusBottomSheetState extends ConsumerState<_ChangeStatusBottomShe
       setState(() => _error = 'Please select both leave start and end dates.');
       return;
     }
-    setState(() { _saving = true; _error = null; });
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
     try {
       final api = ref.read(apiServiceProvider);
       final body = <String, dynamic>{'status': _status};
@@ -370,7 +628,10 @@ class _ChangeStatusBottomSheetState extends ConsumerState<_ChangeStatusBottomShe
         body['leaveStart'] = null;
         body['leaveEnd'] = null;
       }
-      final res = await api.put('/admin/teachers/${widget.teacher['id']}', body);
+      final res = await api.put(
+        '/admin/teachers/${widget.teacher['id']}',
+        body,
+      );
       final data = res as Map<String, dynamic>;
       final updatedData = Map<String, dynamic>.from(widget.teacher);
       updatedData['status'] = data['status'];
@@ -379,7 +640,10 @@ class _ChangeStatusBottomSheetState extends ConsumerState<_ChangeStatusBottomShe
       widget.onSaved(updatedData);
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      setState(() { _saving = false; _error = '$e'; });
+      setState(() {
+        _saving = false;
+        _error = friendlyErrorMessage(e);
+      });
     }
   }
 
@@ -401,9 +665,21 @@ class _ChangeStatusBottomSheetState extends ConsumerState<_ChangeStatusBottomShe
         ),
         child: Row(
           children: [
-            Icon(icon, color: selected ? color : Colors.grey.shade500, size: 22),
+            Icon(
+              icon,
+              color: selected ? color : Colors.grey.shade500,
+              size: 22,
+            ),
             const SizedBox(width: 12),
-            Expanded(child: Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: selected ? color : Colors.black87))),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: selected ? color : Colors.black87,
+                ),
+              ),
+            ),
             if (selected) Icon(Icons.check_circle, color: color, size: 20),
           ],
         ),
@@ -414,114 +690,219 @@ class _ChangeStatusBottomSheetState extends ConsumerState<_ChangeStatusBottomShe
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle — consistent with every other bottom sheet in the app.
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              height: 4,
+              width: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Change Status', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1F2E27))),
-                IconButton(icon: const Icon(Icons.close, color: Colors.grey), onPressed: () => Navigator.pop(context)),
+                const Text(
+                  'Change Status',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2E27),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () => Navigator.pop(context),
+                ),
               ],
             ),
-            const SizedBox(height: 20),
-            _statusOption('active', 'Active', Icons.check_circle_outline, Colors.green),
-            _statusOption('on_leave', 'On Leave', Icons.beach_access, Colors.orange),
-            _statusOption('inactive', 'Inactive', Icons.person_off_outlined, Colors.grey),
-
-            // Leave date pickers — shown only when on_leave is selected
-            if (_status == 'on_leave') ...[
-              const SizedBox(height: 12),
-              Row(
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _pickDate(true),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.orange.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.calendar_today_outlined, color: Colors.orange.shade700, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _leaveStart != null ? _displayFmt.format(_leaveStart!) : 'Start Date',
-                                style: TextStyle(fontWeight: FontWeight.w500, color: _leaveStart != null ? Colors.black87 : Colors.orange.shade400, fontSize: 13),
+                  _statusOption(
+                    'active',
+                    'Active',
+                    Icons.check_circle_outline,
+                    Colors.green,
+                  ),
+                  _statusOption(
+                    'on_leave',
+                    'On Leave',
+                    Icons.beach_access,
+                    Colors.orange,
+                  ),
+                  _statusOption(
+                    'inactive',
+                    'Inactive',
+                    Icons.person_off_outlined,
+                    Colors.grey,
+                  ),
+
+                  // Leave date pickers — shown only when on_leave is selected
+                  if (_status == 'on_leave') ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _pickDate(true),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.orange.shade200,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today_outlined,
+                                    color: Colors.orange.shade700,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _leaveStart != null
+                                          ? _displayFmt.format(_leaveStart!)
+                                          : 'Start Date',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        color: _leaveStart != null
+                                            ? Colors.black87
+                                            : Colors.orange.shade400,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _pickDate(false),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.orange.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.event_outlined, color: Colors.orange.shade700, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _leaveEnd != null ? _displayFmt.format(_leaveEnd!) : 'End Date',
-                                style: TextStyle(fontWeight: FontWeight.w500, color: _leaveEnd != null ? Colors.black87 : Colors.orange.shade400, fontSize: 13),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _pickDate(false),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.orange.shade200,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.event_outlined,
+                                    color: Colors.orange.shade700,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _leaveEnd != null
+                                          ? _displayFmt.format(_leaveEnd!)
+                                          : 'End Date',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        color: _leaveEnd != null
+                                            ? Colors.black87
+                                            : Colors.orange.shade400,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
+                      ],
+                    ),
+                  ],
+
+                  if (_error != null) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
-            ],
-
-            if (_error != null) ...[
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13))),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-            _saving
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: _saving
                 ? const Center(child: CircularProgressIndicator())
                 : SizedBox(
+                    width: double.infinity,
                     height: 52,
-                    child: CustomButton(text: 'Save Status', onPressed: _submit),
+                    child: CustomButton(
+                      text: 'Save Status',
+                      onPressed: _submit,
+                    ),
                   ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -535,10 +916,12 @@ class _EditTeacherBottomSheet extends ConsumerStatefulWidget {
   const _EditTeacherBottomSheet({required this.teacher, required this.onSaved});
 
   @override
-  ConsumerState<_EditTeacherBottomSheet> createState() => _EditTeacherBottomSheetState();
+  ConsumerState<_EditTeacherBottomSheet> createState() =>
+      _EditTeacherBottomSheetState();
 }
 
-class _EditTeacherBottomSheetState extends ConsumerState<_EditTeacherBottomSheet> {
+class _EditTeacherBottomSheetState
+    extends ConsumerState<_EditTeacherBottomSheet> {
   late TextEditingController _name;
   late TextEditingController _phone;
   late TextEditingController _email;
@@ -548,9 +931,15 @@ class _EditTeacherBottomSheetState extends ConsumerState<_EditTeacherBottomSheet
   @override
   void initState() {
     super.initState();
-    _name = TextEditingController(text: widget.teacher['fullName']?.toString() ?? '');
-    _phone = TextEditingController(text: widget.teacher['phone']?.toString() ?? '');
-    _email = TextEditingController(text: widget.teacher['email']?.toString() ?? '');
+    _name = TextEditingController(
+      text: widget.teacher['fullName']?.toString() ?? '',
+    );
+    _phone = TextEditingController(
+      text: widget.teacher['phone']?.toString() ?? '',
+    );
+    _email = TextEditingController(
+      text: widget.teacher['email']?.toString() ?? '',
+    );
   }
 
   @override
@@ -566,17 +955,17 @@ class _EditTeacherBottomSheetState extends ConsumerState<_EditTeacherBottomSheet
       setState(() => _error = 'Name is required.');
       return;
     }
-    setState(() { _saving = true; _error = null; });
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
     try {
       final api = ref.read(apiServiceProvider);
-      final res = await api.put(
-        '/admin/teachers/${widget.teacher['id']}',
-        {
-          'fullName': _name.text.trim(),
-          'phone': _phone.text.trim(),
-          'email': _email.text.trim().isNotEmpty ? _email.text.trim() : null,
-        },
-      );
+      final res = await api.put('/admin/teachers/${widget.teacher['id']}', {
+        'fullName': _name.text.trim(),
+        'phone': _phone.text.trim(),
+        'email': _email.text.trim().isNotEmpty ? _email.text.trim() : null,
+      });
       final data = res as Map<String, dynamic>;
       final updatedData = Map<String, dynamic>.from(widget.teacher);
       updatedData['fullName'] = data['fullName'];
@@ -585,60 +974,134 @@ class _EditTeacherBottomSheetState extends ConsumerState<_EditTeacherBottomSheet
       widget.onSaved(updatedData);
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      setState(() { _saving = false; _error = '$e'; });
+      setState(() {
+        _saving = false;
+        _error = friendlyErrorMessage(e);
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle — consistent with every other bottom sheet in the app.
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              height: 4,
+              width: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Edit Teacher', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1F2E27))),
-                IconButton(icon: const Icon(Icons.close, color: Colors.grey), onPressed: () => Navigator.pop(context)),
+                const Text(
+                  'Edit Teacher',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2E27),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () => Navigator.pop(context),
+                ),
               ],
             ),
-            const SizedBox(height: 24),
-            CustomTextField(label: 'Full Name', hint: 'e.g. Sunita Patil', controller: _name, prefixIcon: Icons.person_outline),
-            const SizedBox(height: 16),
-            CustomTextField(label: 'Phone Number', hint: '10-digit mobile number', controller: _phone, prefixIcon: Icons.phone_outlined),
-            const SizedBox(height: 16),
-            CustomTextField(label: 'Email Address (Optional)', hint: 'e.g. teacher@school.com', controller: _email, prefixIcon: Icons.email_outlined),
-            if (_error != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13))),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CustomTextField(
+                    label: 'Full Name',
+                    hint: 'e.g. Sunita Patil',
+                    controller: _name,
+                    prefixIcon: Icons.person_outline,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Phone Number',
+                    hint: '10-digit mobile number',
+                    controller: _phone,
+                    prefixIcon: Icons.phone_outlined,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Email Address (Optional)',
+                    hint: 'e.g. teacher@school.com',
+                    controller: _email,
+                    prefixIcon: Icons.email_outlined,
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
-            ],
-            const SizedBox(height: 32),
-            _saving
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: _saving
                 ? const Center(child: CircularProgressIndicator())
                 : SizedBox(
+                    width: double.infinity,
                     height: 52,
-                    child: CustomButton(text: 'Save Changes', onPressed: _submit),
+                    child: CustomButton(
+                      text: 'Save Changes',
+                      onPressed: _submit,
+                    ),
                   ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

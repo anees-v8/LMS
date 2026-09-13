@@ -20,22 +20,41 @@ class TeacherNotificationsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Notifications', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Notifications',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: AppColors.primaryDark,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: notificationsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load notifications: $e', style: const TextStyle(color: Colors.grey))),
+        error: (e, _) => Center(
+          child: Text(
+            friendlyErrorMessage(e),
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ),
         data: (notifications) {
           if (notifications.isEmpty) {
             return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey),
+                  Icon(
+                    Icons.notifications_off_outlined,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
                   SizedBox(height: 16),
-                  Text('No notifications yet', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                  Text(
+                    'No notifications yet',
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
                 ],
               ),
             );
@@ -74,10 +93,14 @@ class TeacherNotificationsScreen extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isRead ? Colors.white : AppColors.primary.withValues(alpha: 0.05),
+                    color: isRead
+                        ? Colors.white
+                        : AppColors.primary.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isRead ? Colors.grey.shade100 : AppColors.primary.withValues(alpha: 0.3),
+                      color: isRead
+                          ? Colors.grey.shade100
+                          : AppColors.primary.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -87,7 +110,9 @@ class TeacherNotificationsScreen extends ConsumerWidget {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: isRead ? Colors.grey.shade100 : AppColors.primary.withValues(alpha: 0.1),
+                          color: isRead
+                              ? Colors.grey.shade100
+                              : AppColors.primary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -108,13 +133,21 @@ class TeacherNotificationsScreen extends ConsumerWidget {
                                   child: Text(
                                     title,
                                     style: TextStyle(
-                                      fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
+                                      fontWeight: isRead
+                                          ? FontWeight.w600
+                                          : FontWeight.bold,
                                       fontSize: 14,
                                       color: AppColors.primaryDark,
                                     ),
                                   ),
                                 ),
-                                Text(timeAgo, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                Text(
+                                  timeAgo,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 6),
@@ -122,7 +155,9 @@ class TeacherNotificationsScreen extends ConsumerWidget {
                               body,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isRead ? Colors.grey.shade600 : Colors.black87,
+                                color: isRead
+                                    ? Colors.grey.shade600
+                                    : Colors.black87,
                               ),
                             ),
                           ],

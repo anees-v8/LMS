@@ -5,7 +5,8 @@ import '../utils/constants.dart';
 /// needs it for: getting a one-time server auth code to hand to the
 /// backend, so it can create Calendar/Meet events as the signed-in teacher.
 class GoogleAuthService {
-  static const _calendarScope = 'https://www.googleapis.com/auth/calendar.events';
+  static const _calendarScope =
+      'https://www.googleapis.com/auth/calendar.events';
 
   static bool _initialized = false;
 
@@ -32,8 +33,9 @@ class GoogleAuthService {
       rethrow;
     }
 
-    final GoogleSignInServerAuthorization? serverAuth =
-        await account.authorizationClient.authorizeServer(const [_calendarScope]);
+    final GoogleSignInServerAuthorization? serverAuth = await account
+        .authorizationClient
+        .authorizeServer(const [_calendarScope]);
 
     return serverAuth?.serverAuthCode;
   }

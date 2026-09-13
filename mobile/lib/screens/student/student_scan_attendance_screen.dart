@@ -12,10 +12,12 @@ class StudentScanAttendanceScreen extends ConsumerStatefulWidget {
   const StudentScanAttendanceScreen({super.key});
 
   @override
-  ConsumerState<StudentScanAttendanceScreen> createState() => _StudentScanAttendanceScreenState();
+  ConsumerState<StudentScanAttendanceScreen> createState() =>
+      _StudentScanAttendanceScreenState();
 }
 
-class _StudentScanAttendanceScreenState extends ConsumerState<StudentScanAttendanceScreen> {
+class _StudentScanAttendanceScreenState
+    extends ConsumerState<StudentScanAttendanceScreen> {
   final MobileScannerController _controller = MobileScannerController();
   bool _processing = false;
   bool _success = false;
@@ -30,7 +32,9 @@ class _StudentScanAttendanceScreenState extends ConsumerState<StudentScanAttenda
 
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_processing || _success || _error != null) return;
-    final value = capture.barcodes.isNotEmpty ? capture.barcodes.first.rawValue : null;
+    final value = capture.barcodes.isNotEmpty
+        ? capture.barcodes.first.rawValue
+        : null;
     if (value == null || value.isEmpty) return;
 
     setState(() => _processing = true);
@@ -65,7 +69,14 @@ class _StudentScanAttendanceScreenState extends ConsumerState<StudentScanAttenda
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Scan Attendance', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Scan Attendance',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: AppColors.primaryDark,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -92,9 +103,15 @@ class _StudentScanAttendanceScreenState extends ConsumerState<StudentScanAttenda
               left: 24,
               right: 24,
               child: Text(
-                _processing ? 'Checking…' : 'Point your camera at the QR code your teacher is showing',
+                _processing
+                    ? 'Checking…'
+                    : 'Point your camera at the QR code your teacher is showing',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
 
@@ -111,12 +128,18 @@ class _StudentScanAttendanceScreenState extends ConsumerState<StudentScanAttenda
                         width: 84,
                         height: 84,
                         decoration: BoxDecoration(
-                          color: _error != null ? AppColors.errorLight : AppColors.successLight,
+                          color: _error != null
+                              ? AppColors.errorLight
+                              : AppColors.successLight,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          _error != null ? Icons.close_rounded : Icons.check_rounded,
-                          color: _error != null ? AppColors.error : AppColors.success,
+                          _error != null
+                              ? Icons.close_rounded
+                              : Icons.check_rounded,
+                          color: _error != null
+                              ? AppColors.error
+                              : AppColors.success,
                           size: 44,
                         ),
                       ),
@@ -124,8 +147,14 @@ class _StudentScanAttendanceScreenState extends ConsumerState<StudentScanAttenda
                       Text(
                         _error != null
                             ? 'Could not mark attendance'
-                            : (_alreadyMarked ? 'Already Marked' : 'Attendance Marked!'),
-                        style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.bold),
+                            : (_alreadyMarked
+                                  ? 'Already Marked'
+                                  : 'Attendance Marked!'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 19,
+                          fontWeight: FontWeight.bold,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
@@ -134,7 +163,10 @@ class _StudentScanAttendanceScreenState extends ConsumerState<StudentScanAttenda
                             (_alreadyMarked
                                 ? "You've already been marked for today."
                                 : "You're marked Present for today."),
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 13),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 13,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 28),
@@ -142,15 +174,22 @@ class _StudentScanAttendanceScreenState extends ConsumerState<StudentScanAttenda
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: () => _error != null ? _retry() : Navigator.pop(context),
+                          onPressed: () => _error != null
+                              ? _retry()
+                              : Navigator.pop(context),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFA87D26),
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                           child: Text(
                             _error != null ? 'Try Again' : 'Done',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
                           ),
                         ),
                       ),

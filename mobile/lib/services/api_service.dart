@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
@@ -17,6 +19,49 @@ class ApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// Thrown when a request never reached the backend at all — no internet,
+/// DNS failure, or the request timed out. This is distinct from
+/// [ApiException] (a real response the backend sent back, e.g. 400/500):
+/// callers need to tell "you're offline" apart from "something's actually
+/// wrong on the server" to show the right message and decide whether
+/// retrying once connectivity returns makes sense.
+class NetworkException implements Exception {
+  final String message;
+  const NetworkException([this.message = 'No internet connection']);
+
+  @override
+  String toString() => message;
+}
+
+/// One place to turn any caught exception into text safe to show a user.
+/// Use this in every `catch (e) { ... }` that displays `'$e'` today — it
+/// replaces a raw `SocketException: Failed host lookup: ...`-style message
+/// with a clear "no internet" message, passes through a real backend
+/// message from [ApiException] as-is, and falls back to a generic message
+/// for anything unexpected rather than leaking exception internals.
+String friendlyErrorMessage(Object error) {
+  if (error is NetworkException) {
+    return 'No internet connection. Please check your network and try again.';
+  }
+  if (error is ApiException) {
+    return error.message;
+  }
+  if (error is SocketException || error is TimeoutException) {
+    return 'No internet connection. Please check your network and try again.';
+  }
+  final text = error.toString();
+  // http.ClientException's toString already reads reasonably (e.g.
+  // "ClientException: Failed to fetch, uri=...") but still isn't something
+  // to show a user — treat anything mentioning a socket/connection failure
+  // as offline, and anything else as a generic failure.
+  if (text.contains('SocketException') ||
+      text.contains('Connection failed') ||
+      text.contains('Failed host lookup')) {
+    return 'No internet connection. Please check your network and try again.';
+  }
+  return 'Something went wrong. Please try again.';
 }
 
 /// Wraps a [cachedGet] response — tells the caller whether data came
@@ -46,7 +91,8 @@ class ApiService {
       _request('PUT', endpoint, data);
   Future<dynamic> patch(String endpoint, Map<String, dynamic> data) =>
       _request('PATCH', endpoint, data);
-  Future<dynamic> delete(String endpoint, [Map<String, dynamic>? body]) => _request('DELETE', endpoint, body);
+  Future<dynamic> delete(String endpoint, [Map<String, dynamic>? body]) =>
+      _request('DELETE', endpoint, body);
 
   /// Cache-first GET. Attempts a live network call and stores the result
   /// in SQLite. If the call fails (offline / server error), falls back to
@@ -70,6 +116,8 @@ class ApiService {
     }
   }
 
+  static const _timeout = Duration(seconds: 20);
+
   Future<dynamic> _request(
     String method,
     String endpoint, [
@@ -81,24 +129,45 @@ class ApiService {
     final body = data != null ? json.encode(data) : null;
 
     http.Response response;
-    switch (method) {
-      case 'GET':
-        response = await _client.get(uri, headers: headers);
-        break;
-      case 'POST':
-        response = await _client.post(uri, headers: headers, body: body);
-        break;
-      case 'PUT':
-        response = await _client.put(uri, headers: headers, body: body);
-        break;
-      case 'PATCH':
-        response = await _client.patch(uri, headers: headers, body: body);
-        break;
-      case 'DELETE':
-        response = await _client.delete(uri, headers: headers, body: body);
-        break;
-      default:
-        throw ApiException('Unsupported method $method', 0);
+    try {
+      switch (method) {
+        case 'GET':
+          response = await _client.get(uri, headers: headers).timeout(_timeout);
+          break;
+        case 'POST':
+          response = await _client
+              .post(uri, headers: headers, body: body)
+              .timeout(_timeout);
+          break;
+        case 'PUT':
+          response = await _client
+              .put(uri, headers: headers, body: body)
+              .timeout(_timeout);
+          break;
+        case 'PATCH':
+          response = await _client
+              .patch(uri, headers: headers, body: body)
+              .timeout(_timeout);
+          break;
+        case 'DELETE':
+          response = await _client
+              .delete(uri, headers: headers, body: body)
+              .timeout(_timeout);
+          break;
+        default:
+          throw ApiException('Unsupported method $method', 0);
+      }
+    } on SocketException {
+      // No internet / DNS failure — the request never reached the backend.
+      throw const NetworkException();
+    } on TimeoutException {
+      throw const NetworkException(
+        'Request timed out. Please check your connection and try again.',
+      );
+    } on http.ClientException {
+      // Covers web/other-platform connection failures http.Client wraps
+      // instead of throwing a raw SocketException.
+      throw const NetworkException();
     }
 
     // Access token expired (15 min TTL) — try one silent refresh, then retry

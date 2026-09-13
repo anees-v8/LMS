@@ -4,11 +4,16 @@ import '../providers/management_providers.dart';
 import '../providers/superadmin_providers.dart';
 import '../services/api_service.dart';
 import '../utils/constants.dart';
+import 'custom_dropdown.dart';
 
-Future<void> showRecordPaymentBottomSheet(BuildContext context, WidgetRef ref, {int? prefillStudentId}) async {
+Future<void> showRecordPaymentBottomSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  int? prefillStudentId,
+}) async {
   final students = await ref.read(studentsProvider.future);
   if (!context.mounted) return;
-  
+
   if (students.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('No students found. Add a student first.')),
@@ -38,10 +43,12 @@ class RecordPaymentBottomSheet extends ConsumerStatefulWidget {
   }) : super(key: key);
 
   @override
-  ConsumerState<RecordPaymentBottomSheet> createState() => _RecordPaymentBottomSheetState();
+  ConsumerState<RecordPaymentBottomSheet> createState() =>
+      _RecordPaymentBottomSheetState();
 }
 
-class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSheet> {
+class _RecordPaymentBottomSheetState
+    extends ConsumerState<RecordPaymentBottomSheet> {
   final _amount = TextEditingController();
   int? _studentId;
   String _method = 'cash';
@@ -51,7 +58,8 @@ class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSh
   @override
   void initState() {
     super.initState();
-    if (widget.prefillStudentId != null && widget.students.any((s) => s['id'] == widget.prefillStudentId)) {
+    if (widget.prefillStudentId != null &&
+        widget.students.any((s) => s['id'] == widget.prefillStudentId)) {
       _studentId = widget.prefillStudentId;
     } else if (widget.students.isNotEmpty) {
       _studentId = widget.students.first['id'] as int?;
@@ -82,17 +90,22 @@ class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSh
         method: _method,
       );
       ref.invalidate(feesProvider);
-      
+      ref.invalidate(feeAnalyticsProvider);
+      // Students list shows a per-student pending-fee amount too — without
+      // this, it keeps showing the pre-payment amount until something else
+      // happens to refetch it.
+      ref.invalidate(studentsProvider);
+
       // Also invalidate the detailed student view to see the new fee
       if (widget.prefillStudentId != null) {
         ref.invalidate(studentDetailsProvider(widget.prefillStudentId!));
       }
-      
+
       if (mounted) Navigator.pop(context);
     } catch (e) {
       setState(() {
         _saving = false;
-        _error = '$e';
+        _error = friendlyErrorMessage(e);
       });
     }
   }
@@ -114,10 +127,20 @@ class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSh
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1F2E27))),
-              Text(subtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Color(0xFF1F2E27),
+                ),
+              ),
+              Text(
+                subtitle,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -146,7 +169,11 @@ class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSh
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (isRequired) const Text('*', style: TextStyle(color: Colors.red, fontSize: 16)),
+              if (isRequired)
+                const Text(
+                  '*',
+                  style: TextStyle(color: Colors.red, fontSize: 16),
+                ),
               const SizedBox(width: 16),
             ],
           ),
@@ -160,7 +187,10 @@ class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSh
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, top: 40),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        top: 40,
+      ),
       child: Container(
         decoration: const BoxDecoration(
           color: Color(0xFFF8F9FA),
@@ -175,7 +205,10 @@ class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSh
                 margin: const EdgeInsets.symmetric(vertical: 12),
                 height: 4,
                 width: 40,
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             // Header
@@ -193,17 +226,28 @@ class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSh
                       const CircleAvatar(
                         backgroundColor: Color(0xFFF4F6F3),
                         radius: 24,
-                        child: Icon(Icons.payments_outlined, color: Color(0xFF1F2E27), size: 28),
+                        child: Icon(
+                          Icons.payments_outlined,
+                          color: Color(0xFF1F2E27),
+                          size: 28,
+                        ),
                       ),
                       Positioned(
                         bottom: 0,
                         right: 0,
                         child: Container(
                           padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(color: Color(0xFFA87D26), shape: BoxShape.circle),
-                          child: const Icon(Icons.add, color: Colors.white, size: 12),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFA87D26),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.add,
+                            color: Colors.white,
+                            size: 12,
+                          ),
                         ),
-                      )
+                      ),
                     ],
                   ),
                   const SizedBox(width: 16),
@@ -213,25 +257,42 @@ class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSh
                       children: [
                         const Text(
                           'Record Payment',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1F2E27)),
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1F2E27),
+                          ),
                         ),
                         const SizedBox(height: 4),
-                        Text('Fill in the details to record a new fee payment', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                        Text(
+                          'Fill in the details to record a new fee payment',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   IconButton(
                     icon: Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.close, size: 18, color: Colors.black87),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        size: 18,
+                        color: Colors.black87,
+                      ),
                     ),
                     onPressed: () => Navigator.pop(context),
-                  )
+                  ),
                 ],
               ),
             ),
-            
+
             // Content
             Flexible(
               child: SingleChildScrollView(
@@ -240,102 +301,69 @@ class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSh
                   children: [
                     Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       child: Column(
                         children: [
-                          _buildSectionHeader(Icons.person_outline, 'Student Information', 'Select the student for payment'),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(Icons.people_outline, size: 16, color: Colors.grey.shade600),
-                                          const SizedBox(width: 8),
-                                          Text('Student *', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                                        ],
-                                      ),
-                                      DropdownButtonHideUnderline(
-                                        child: DropdownButton<int>(
-                                          isExpanded: true,
-                                          isDense: true,
-                                          value: _studentId,
-                                          hint: const Text('Select Student'),
-                                          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                                          items: widget.students
-                                              .map((s) => DropdownMenuItem<int>(
-                                                    value: s['id'] as int,
-                                                    child: Text(s['fullName']?.toString() ?? '', style: const TextStyle(fontSize: 14)),
-                                                  ))
-                                              .toList(),
-                                          onChanged: widget.prefillStudentId != null 
-                                            ? null // Disable if prefilled from student details
-                                            : (v) => setState(() => _studentId = v),
-                                        ),
-                                      ),
-                                    ],
+                          _buildSectionHeader(
+                            Icons.person_outline,
+                            'Student Information',
+                            'Select the student for payment',
+                          ),
+                          CustomDropdown<int>(
+                            label: 'Student *',
+                            hint: 'Select Student',
+                            value: _studentId,
+                            prefixIcon: Icons.people_outline,
+                            enabled: widget.prefillStudentId == null,
+                            options: widget.students
+                                .map(
+                                  (s) => DropdownOption<int>(
+                                    value: s['id'] as int,
+                                    label: s['fullName']?.toString() ?? '',
                                   ),
-                                ),
-                              ),
-                            ],
+                                )
+                                .toList(),
+                            onChanged: (v) => setState(() => _studentId = v),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       child: Column(
                         children: [
-                          _buildSectionHeader(Icons.payment, 'Payment Details', 'Amount and payment method'),
+                          _buildSectionHeader(
+                            Icons.payment,
+                            'Payment Details',
+                            'Amount and payment method',
+                          ),
                           _buildInputField(
                             controller: _amount,
                             hint: 'Amount Paid (${Constants.currencySymbol})',
                             prefixIcon: Icons.currency_rupee,
                             isRequired: true,
                           ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(Icons.account_balance_wallet_outlined, size: 16, color: Colors.grey.shade600),
-                                          const SizedBox(width: 8),
-                                          Text('Method *', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                                        ],
-                                      ),
-                                      DropdownButtonHideUnderline(
-                                        child: DropdownButton<String>(
-                                          isExpanded: true,
-                                          isDense: true,
-                                          value: _method,
-                                          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                                          items: const [
-                                            DropdownMenuItem(value: 'cash', child: Text('Cash', style: TextStyle(fontSize: 14))),
-                                            DropdownMenuItem(value: 'upi', child: Text('UPI', style: TextStyle(fontSize: 14))),
-                                            DropdownMenuItem(value: 'card', child: Text('Card', style: TextStyle(fontSize: 14))),
-                                          ],
-                                          onChanged: (v) => setState(() => _method = v ?? 'cash'),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                          CustomDropdown<String>(
+                            label: 'Method *',
+                            hint: 'Select Method',
+                            value: _method,
+                            prefixIcon: Icons.account_balance_wallet_outlined,
+                            options: const [
+                              DropdownOption(value: 'cash', label: 'Cash'),
+                              DropdownOption(value: 'upi', label: 'UPI'),
+                              DropdownOption(value: 'card', label: 'Card'),
                             ],
+                            onChanged: (v) =>
+                                setState(() => _method = v ?? 'cash'),
                           ),
                         ],
                       ),
@@ -343,19 +371,24 @@ class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSh
 
                     if (_error != null) ...[
                       const SizedBox(height: 12),
-                      Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
-                    ]
+                      Text(
+                        _error!,
+                        style: const TextStyle(color: Colors.red, fontSize: 13),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
-            
+
             // Footer Buttons
             Container(
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(24),
+                ),
               ),
               child: Row(
                 children: [
@@ -365,9 +398,17 @@ class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSh
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      child: const Text('Cancel', style: TextStyle(color: Color(0xFF1F2E27), fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: Color(0xFF1F2E27),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -378,12 +419,24 @@ class _RecordPaymentBottomSheetState extends ConsumerState<RecordPaymentBottomSh
                         backgroundColor: const Color(0xFF1F2E27),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         elevation: 0,
                       ),
                       child: _saving
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Record Payment', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Record Payment',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                     ),
                   ),
                 ],

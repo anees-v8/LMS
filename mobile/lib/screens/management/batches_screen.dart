@@ -4,6 +4,7 @@ import '../../providers/management_providers.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
+import '../../widgets/batch_schedule_bottom_sheet.dart';
 
 import 'batch_students_screen.dart';
 
@@ -67,7 +68,8 @@ class BatchesScreen extends ConsumerWidget {
                 child: batchesAsync.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text('Error: $err')),
+                  error: (err, stack) =>
+                      Center(child: Text(friendlyErrorMessage(err))),
                   data: (batches) {
                     int totalStudents = 0;
                     for (var b in batches) {
@@ -156,7 +158,12 @@ class BatchesScreen extends ConsumerWidget {
                             )
                           else
                             SliverPadding(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                16,
+                                16,
+                                160,
+                              ),
                               sliver: SliverList(
                                 delegate: SliverChildBuilderDelegate((
                                   context,
@@ -331,6 +338,62 @@ class BatchesScreen extends ConsumerWidget {
                                                     ),
                                                   ),
                                                 ),
+                                              PopupMenuButton<String>(
+                                                icon: Icon(
+                                                  Icons.more_vert,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                                onSelected: (action) {
+                                                  if (action == 'edit') {
+                                                    showBatchFormBottomSheet(
+                                                      context,
+                                                      ref,
+                                                      existing: batch,
+                                                    );
+                                                  } else if (action ==
+                                                      'delete') {
+                                                    _confirmDeleteBatch(
+                                                      context,
+                                                      ref,
+                                                      batch,
+                                                    );
+                                                  }
+                                                },
+                                                itemBuilder: (context) => [
+                                                  const PopupMenuItem(
+                                                    value: 'edit',
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(
+                                                          Icons.edit_outlined,
+                                                          size: 18,
+                                                        ),
+                                                        SizedBox(width: 8),
+                                                        Text('Edit'),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const PopupMenuItem(
+                                                    value: 'delete',
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(
+                                                          Icons.delete_outline,
+                                                          size: 18,
+                                                          color: Colors.red,
+                                                        ),
+                                                        SizedBox(width: 8),
+                                                        Text(
+                                                          'Delete',
+                                                          style: TextStyle(
+                                                            color: Colors.red,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ],
                                           ),
                                         ),
@@ -352,12 +415,7 @@ class BatchesScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
-        onPressed: () => showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (ctx) => const _AddBatchBottomSheet(),
-        ),
+        onPressed: () => showBatchFormBottomSheet(context, ref),
         backgroundColor: const Color(0xFF1F2E27),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
@@ -366,6 +424,64 @@ class BatchesScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDeleteBatch(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> batch,
+  ) async {
+    final studentCount = (batch['studentCount'] as num?)?.toInt() ?? 0;
+    final hasStudents = studentCount > 0;
+    final batchName = batch['name']?.toString() ?? 'this batch';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(hasStudents ? 'This batch has students' : 'Delete batch?'),
+        content: Text(
+          hasStudents
+              ? '$batchName has $studentCount student(s) enrolled, with attendance, fee, and timetable history attached. '
+                    'It will be archived (hidden from your batch list) instead of permanently deleted, so none of that history is lost. Continue?'
+              : '$batchName will be removed permanently. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              hasStudents ? 'Archive' : 'Delete',
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await deleteBatch(ref.read(apiServiceProvider), batch['id'] as int);
+      ref.invalidate(batchesProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(hasStudents ? 'Batch archived.' : 'Batch removed.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(friendlyErrorMessage(e)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildStatCard(
@@ -423,25 +539,73 @@ class BatchesScreen extends ConsumerWidget {
   }
 }
 
-class _AddBatchBottomSheet extends ConsumerStatefulWidget {
-  const _AddBatchBottomSheet();
+/// Shows the create/edit batch form. Pass `existing` (a batch map from
+/// `batchesProvider`) to edit it in place; omit it to create a new batch.
+/// After a brand-new batch is created, immediately opens the schedule editor
+/// for it too — using this OUTER context (which outlives the form sheet),
+/// not the form sheet's own context, since that's disposed the moment it
+/// pops and can't safely be reused to open a follow-up sheet.
+Future<void> showBatchFormBottomSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  Map<String, dynamic>? existing,
+}) async {
+  final result = await showModalBottomSheet<Map<String, dynamic>>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _BatchFormBottomSheet(existing: existing),
+  );
+  if (result == null || !context.mounted) return;
 
-  @override
-  ConsumerState<_AddBatchBottomSheet> createState() =>
-      _AddBatchBottomSheetState();
+  final batchId = result['id'] as int?;
+  final batchName = result['name']?.toString();
+  final subjectIds = (result['subjectIds'] as List<dynamic>?)?.cast<int>();
+  if (batchId != null && batchName != null && subjectIds != null) {
+    await showBatchScheduleBottomSheet(
+      context,
+      ref,
+      batchId: batchId,
+      batchName: batchName,
+      subjectIds: subjectIds,
+    );
+  }
 }
 
-class _AddBatchBottomSheetState extends ConsumerState<_AddBatchBottomSheet> {
-  final _name = TextEditingController();
-  final _grade = TextEditingController();
-  final Set<int> _selectedSubjectIds = {};
+class _BatchFormBottomSheet extends ConsumerStatefulWidget {
+  final Map<String, dynamic>? existing;
+  const _BatchFormBottomSheet({this.existing});
+
+  @override
+  ConsumerState<_BatchFormBottomSheet> createState() =>
+      _BatchFormBottomSheetState();
+}
+
+class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
+  late final _name = TextEditingController(
+    text: widget.existing?['name']?.toString() ?? '',
+  );
+  late final _grade = TextEditingController(
+    text: widget.existing?['grade']?.toString() ?? '',
+  );
+  late final Set<int> _selectedSubjectIds = {
+    ...((widget.existing?['subjectIds'] as List<dynamic>?)?.cast<int>() ??
+        const []),
+  };
+  late final _feeAmount = TextEditingController(
+    text: widget.existing?['feeAmount']?.toString() ?? '',
+  );
+  late String? _billingCycle = widget.existing?['billingCycle']?.toString();
   bool _saving = false;
   String? _error;
+
+  bool get _isEdit => widget.existing != null;
 
   @override
   void dispose() {
     _name.dispose();
     _grade.dispose();
+    _feeAmount.dispose();
     super.dispose();
   }
 
@@ -450,23 +614,67 @@ class _AddBatchBottomSheetState extends ConsumerState<_AddBatchBottomSheet> {
       setState(() => _error = 'Batch name is required.');
       return;
     }
+    // A batch with no subjects means every student enrolled in it sees an
+    // empty Learn tab — this is exactly the bug that slipped through when
+    // this field was skippable, so it's now required.
+    if (_selectedSubjectIds.isEmpty) {
+      setState(
+        () => _error =
+            'Select at least one subject — students in this batch need it to see their Learn tab.',
+      );
+      return;
+    }
+    final feeAmountText = _feeAmount.text.trim();
+    int? feeAmount;
+    if (feeAmountText.isNotEmpty) {
+      feeAmount = int.tryParse(feeAmountText);
+      if (feeAmount == null || feeAmount < 0) {
+        setState(() => _error = 'Enter a valid fee amount.');
+        return;
+      }
+      if (_billingCycle == null) {
+        setState(() => _error = 'Select a billing cycle for the batch fee.');
+        return;
+      }
+    }
     setState(() {
       _saving = true;
       _error = null;
     });
     try {
-      await createBatch(
-        ref.read(apiServiceProvider),
-        name: _name.text.trim(),
-        grade: _grade.text.trim(),
-        subjectIds: _selectedSubjectIds.toList(),
-      );
+      final api = ref.read(apiServiceProvider);
+      Map<String, dynamic> savedBatch;
+      if (_isEdit) {
+        savedBatch = await updateBatch(
+          api,
+          widget.existing!['id'] as int,
+          name: _name.text.trim(),
+          grade: _grade.text.trim(),
+          subjectIds: _selectedSubjectIds.toList(),
+          feeAmount: feeAmount,
+          billingCycle: feeAmount != null ? _billingCycle : null,
+        );
+      } else {
+        savedBatch = await createBatch(
+          api,
+          name: _name.text.trim(),
+          grade: _grade.text.trim(),
+          subjectIds: _selectedSubjectIds.toList(),
+          feeAmount: feeAmount,
+          billingCycle: feeAmount != null ? _billingCycle : null,
+        );
+      }
       ref.invalidate(batchesProvider);
-      if (mounted) Navigator.pop(context);
+      if (!mounted) return;
+      // Pop with the saved batch's data only on CREATE — the caller
+      // (showBatchFormBottomSheet) uses this to immediately open the
+      // schedule editor for a brand-new batch. Edits don't need this since
+      // the batch already has a schedule the admin can open separately.
+      Navigator.pop(context, _isEdit ? null : savedBatch);
     } catch (e) {
       setState(() {
         _saving = false;
-        _error = '$e';
+        _error = friendlyErrorMessage(e);
       });
     }
   }
@@ -474,6 +682,9 @@ class _AddBatchBottomSheetState extends ConsumerState<_AddBatchBottomSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
@@ -481,18 +692,29 @@ class _AddBatchBottomSheetState extends ConsumerState<_AddBatchBottomSheet> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle — consistent with every other bottom sheet in the app.
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              height: 4,
+              width: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Create New Batch',
-                  style: TextStyle(
+                Text(
+                  _isEdit ? 'Edit Batch' : 'Create New Batch',
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1F2E27),
@@ -504,131 +726,266 @@ class _AddBatchBottomSheetState extends ConsumerState<_AddBatchBottomSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            CustomTextField(
-              label: 'Batch Name',
-              hint: 'e.g. Class 11 Morning',
-              controller: _name,
-              prefixIcon: Icons.class_outlined,
-            ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Grade/Class (Optional)',
-              hint: 'e.g. Class 11',
-              controller: _grade,
-              prefixIcon: Icons.grade_outlined,
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Subjects',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1F2E27),
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Set once here — every student in this batch gets these automatically.',
-              style: TextStyle(fontSize: 11, color: Colors.grey),
-            ),
-            const SizedBox(height: 10),
-            Consumer(
-              builder: (context, ref, _) {
-                final subjectsAsync = ref.watch(subjectsProvider);
-                return subjectsAsync.when(
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text(
-                    'Error: $e',
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CustomTextField(
+                    label: 'Batch Name',
+                    hint: 'e.g. Class 11 Morning',
+                    controller: _name,
+                    prefixIcon: Icons.class_outlined,
                   ),
-                  data: (subjects) {
-                    if (subjects.isEmpty) {
-                      return const Text(
-                        'No subjects yet — add one from the Subjects screen first.',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
-                      );
-                    }
-                    return Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: subjects.map<Widget>((s) {
-                        final id = s['id'] as int;
-                        final selected = _selectedSubjectIds.contains(id);
-                        return FilterChip(
-                          label: Text(s['name'] ?? ''),
-                          selected: selected,
-                          onSelected: (val) => setState(() {
-                            if (val) {
-                              _selectedSubjectIds.add(id);
-                            } else {
-                              _selectedSubjectIds.remove(id);
-                            }
-                          }),
-                          selectedColor: const Color(0xFF2E6656),
-                          backgroundColor: Colors.white,
-                          checkmarkColor: Colors.white,
-                          labelStyle: TextStyle(
-                            color: selected
-                                ? Colors.white
-                                : const Color(0xFF1F2E27),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Grade/Class (Optional)',
+                    hint: 'e.g. Class 11',
+                    controller: _grade,
+                    prefixIcon: Icons.grade_outlined,
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Subjects',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1F2E27),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Set once here — every student in this batch gets these automatically.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 10),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final subjectsAsync = ref.watch(subjectsProvider);
+                      return subjectsAsync.when(
+                        loading: () => const LinearProgressIndicator(),
+                        error: (e, _) => Text(
+                          friendlyErrorMessage(e),
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: BorderSide(
-                              color: selected
-                                  ? const Color(0xFF2E6656)
-                                  : Colors.grey.shade300,
+                        ),
+                        data: (subjects) {
+                          if (subjects.isEmpty) {
+                            return const Text(
+                              'No subjects yet — add one from the Subjects screen first.',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            );
+                          }
+                          return Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: subjects.map<Widget>((s) {
+                              final id = s['id'] as int;
+                              final selected = _selectedSubjectIds.contains(id);
+                              return FilterChip(
+                                label: Text(s['name'] ?? ''),
+                                selected: selected,
+                                onSelected: (val) => setState(() {
+                                  if (val) {
+                                    _selectedSubjectIds.add(id);
+                                  } else {
+                                    _selectedSubjectIds.remove(id);
+                                  }
+                                }),
+                                selectedColor: const Color(0xFF2E6656),
+                                backgroundColor: Colors.white,
+                                checkmarkColor: Colors.white,
+                                labelStyle: TextStyle(
+                                  color: selected
+                                      ? Colors.white
+                                      : const Color(0xFF1F2E27),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  side: BorderSide(
+                                    color: selected
+                                        ? const Color(0xFF2E6656)
+                                        : Colors.grey.shade300,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Fee',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1F2E27),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Optional — set a default fee for every student in this batch. '
+                    'A student can still be given their own custom fee.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 10),
+                  CustomTextField(
+                    label: 'Batch Fee (Optional)',
+                    hint: 'e.g. 5000',
+                    controller: _feeAmount,
+                    prefixIcon: Icons.currency_rupee,
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildBillingCycleChips(),
+                  if (_isEdit) ...[
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Weekly Schedule',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1F2E27),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Set the days and times this batch meets each week.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 10),
+                    if (_selectedSubjectIds.isEmpty)
+                      Text(
+                        'Select subjects first',
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 12,
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => showBatchScheduleBottomSheet(
+                            context,
+                            ref,
+                            batchId: widget.existing!['id'] as int,
+                            batchName: _name.text.trim(),
+                            subjectIds: _selectedSubjectIds.toList(),
+                          ),
+                          icon: const Icon(
+                            Icons.schedule,
+                            color: Color(0xFF2E6656),
+                          ),
+                          label: const Text(
+                            'Edit Schedule',
+                            style: TextStyle(color: Color(0xFF2E6656)),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF2E6656)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                );
-              },
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: Colors.red,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red, fontSize: 13),
+                        ),
+                      ),
+                  ],
+                  if (_error != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
-            ],
-            const SizedBox(height: 32),
-            _saving
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: _saving
                 ? const Center(child: CircularProgressIndicator())
                 : SizedBox(
+                    width: double.infinity,
                     height: 52,
                     child: CustomButton(
-                      text: 'Create Batch',
+                      text: _isEdit ? 'Save Changes' : 'Create Batch',
                       onPressed: _submit,
                     ),
                   ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildBillingCycleChips() {
+    const cycles = [
+      ('monthly', 'Monthly'),
+      ('quarterly', 'Quarterly'),
+      ('yearly', 'Yearly'),
+    ];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: cycles.map((c) {
+        final (value, label) = c;
+        final selected = _billingCycle == value;
+        return FilterChip(
+          label: Text(label),
+          selected: selected,
+          onSelected: (val) =>
+              setState(() => _billingCycle = val ? value : null),
+          selectedColor: const Color(0xFF2E6656),
+          backgroundColor: Colors.white,
+          checkmarkColor: Colors.white,
+          labelStyle: TextStyle(
+            color: selected ? Colors.white : const Color(0xFF1F2E27),
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(
+              color: selected ? const Color(0xFF2E6656) : Colors.grey.shade300,
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

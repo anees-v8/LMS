@@ -32,7 +32,9 @@ export type NotificationType =
   | 'fee_due'
   | 'fee_paid'
   | 'live_class_reminder'
+  // Kept for old stored notification rows; new code emits 'schedule_update' instead.
   | 'timetable_update'
+  | 'schedule_update'
   | 'system';
 
 export interface BroadcastInput {
@@ -261,7 +263,7 @@ export async function broadcastNotification(
       SELECT DISTINCT u.tenant_id, u.id
         FROM users u
         JOIN teachers te ON te.user_id = u.id
-        LEFT JOIN timetable tt ON tt.teacher_id = u.id
+        LEFT JOIN teacher_assignments tt ON tt.teacher_user_id = u.id
        WHERE u.tenant_id = $1 AND u.role = 'teacher' AND u.is_active = true
          AND ($2::int IS NULL OR tt.batch_id = $2)`;
     audienceParams = [tenantId, batchId ?? null];

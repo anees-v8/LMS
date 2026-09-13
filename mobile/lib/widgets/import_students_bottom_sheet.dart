@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
 import '../widgets/custom_button.dart';
+import '../services/api_service.dart';
 
 /// Bottom sheet for bulk-importing students from an uploaded Excel file —
 /// download a sample template, pick a filled copy, and import it in one
@@ -76,7 +77,7 @@ class _ImportStudentsSheetState extends State<ImportStudentsSheet> {
         );
       }
     } catch (e) {
-      setState(() => _error = 'Download failed: $e');
+      setState(() => _error = 'Download failed: ${friendlyErrorMessage(e)}');
     } finally {
       if (mounted) setState(() => _downloading = false);
     }
@@ -143,7 +144,7 @@ class _ImportStudentsSheetState extends State<ImportStudentsSheet> {
       widget.onImported();
       await _showResultDialog(context, result);
     } catch (e) {
-      setState(() => _error = '$e');
+      setState(() => _error = friendlyErrorMessage(e));
     } finally {
       if (mounted) setState(() => _importing = false);
     }
@@ -235,6 +236,18 @@ class _ImportStudentsSheetState extends State<ImportStudentsSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Drag handle — consistent with every other bottom sheet in the app.
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    height: 4,
+                    width: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
                 Row(
                   children: [
                     const Expanded(
@@ -302,6 +315,7 @@ class _ImportStudentsSheetState extends State<ImportStudentsSheet> {
 
                 const SizedBox(height: 24),
                 SizedBox(
+                  width: double.infinity,
                   height: 52,
                   child: _importing
                       ? const Center(child: CircularProgressIndicator())

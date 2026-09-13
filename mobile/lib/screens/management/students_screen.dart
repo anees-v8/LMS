@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/management_overview_tile.dart';
 import '../../widgets/import_students_bottom_sheet.dart';
+import '../../widgets/custom_dropdown.dart';
 import 'student_details_screen.dart';
 
 class StudentsScreen extends ConsumerStatefulWidget {
@@ -288,7 +289,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                         error: (err, stack) => Center(
                           child: Padding(
                             padding: EdgeInsets.all(20.0),
-                            child: Text('Error: $err'),
+                            child: Text(friendlyErrorMessage(err)),
                           ),
                         ),
                         data: (students) {
@@ -325,7 +326,7 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
                           }
 
                           return ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 160),
                             itemCount: filteredStudents.length,
                             itemBuilder: (context, index) {
                               final student =
@@ -678,7 +679,10 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(friendlyErrorMessage(e)),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -730,6 +734,7 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
   final _parentPhone = TextEditingController();
   final _grade = TextEditingController();
   final _rollNo = TextEditingController();
+  final _feeOverride = TextEditingController();
   int? _batchId;
   bool _saving = false;
   String? _error;
@@ -746,6 +751,8 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
       _parentPhone.text = widget.student!['parentPhone']?.toString() ?? '';
       _grade.text = widget.student!['grade']?.toString() ?? '';
       _rollNo.text = widget.student!['rollNo']?.toString() ?? '';
+      _feeOverride.text =
+          widget.student!['feeOverrideAmount']?.toString() ?? '';
       _batchId = widget.student!['batchId'] as int?;
       _autoGenerateRoll = _rollNo.text.isEmpty;
     } else {
@@ -762,6 +769,7 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
     _parentPhone.dispose();
     _grade.dispose();
     _rollNo.dispose();
+    _feeOverride.dispose();
     super.dispose();
   }
 
@@ -775,6 +783,15 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
         () => _error = 'Please fill all required fields (marked with *).',
       );
       return;
+    }
+    final feeOverrideText = _feeOverride.text.trim();
+    int? feeOverrideAmount;
+    if (feeOverrideText.isNotEmpty) {
+      feeOverrideAmount = int.tryParse(feeOverrideText);
+      if (feeOverrideAmount == null || feeOverrideAmount < 0) {
+        setState(() => _error = 'Enter a valid custom fee amount.');
+        return;
+      }
     }
     setState(() {
       _saving = true;
@@ -793,6 +810,7 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
           parentName: _parentName.text.trim(),
           grade: _grade.text.trim(),
           rollNo: _autoGenerateRoll ? '' : _rollNo.text.trim(),
+          feeOverrideAmount: feeOverrideAmount,
         );
       } else {
         await createStudent(
@@ -809,6 +827,7 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
           rollNo: _autoGenerateRoll
               ? null
               : (_rollNo.text.trim().isEmpty ? null : _rollNo.text.trim()),
+          feeOverrideAmount: feeOverrideAmount,
         );
       }
       ref.invalidate(studentsProvider);
@@ -816,7 +835,7 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
     } catch (e) {
       setState(() {
         _saving = false;
-        _error = '$e';
+        _error = friendlyErrorMessage(e);
       });
     }
   }
@@ -874,6 +893,9 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
       child: TextField(
         controller: controller,
         obscureText: isPassword && _obscurePassword,
+        keyboardType: prefixIcon == Icons.currency_rupee
+            ? TextInputType.number
+            : TextInputType.text,
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
@@ -1132,67 +1154,21 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.people_outline,
-                                            size: 16,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Batch *',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      DropdownButtonHideUnderline(
-                                        child: DropdownButton<int>(
-                                          isExpanded: true,
-                                          isDense: true,
-                                          value: _batchId,
-                                          hint: const Text('Select Batch'),
-                                          icon: const Icon(
-                                            Icons.keyboard_arrow_down,
-                                            size: 18,
-                                          ),
-                                          items: widget.batches
-                                              .map(
-                                                (b) => DropdownMenuItem<int>(
-                                                  value: b['id'] as int,
-                                                  child: Text(
-                                                    b['name']?.toString() ?? '',
-                                                    style: const TextStyle(
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                ),
-                                              )
-                                              .toList(),
-                                          onChanged: (v) =>
-                                              setState(() => _batchId = v),
+                                child: CustomDropdown<int?>(
+                                  label: 'Batch *',
+                                  hint: 'Select Batch',
+                                  value: _batchId,
+                                  prefixIcon: Icons.people_outline,
+                                  options: widget.batches
+                                      .map(
+                                        (b) => DropdownOption<int?>(
+                                          value: b['id'] as int,
+                                          label: b['name']?.toString() ?? '',
                                         ),
-                                      ),
-                                    ],
-                                  ),
+                                      )
+                                      .toList(),
+                                  onChanged: (v) =>
+                                      setState(() => _batchId = v),
                                 ),
                               ),
                             ],
@@ -1251,6 +1227,43 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
                             hint: 'Parent WhatsApp Number *',
                             prefixIcon: Icons.phone_outlined,
                             isRequired: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Section 4
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildSectionHeader(
+                            Icons.currency_rupee,
+                            'Fees',
+                            'Override the batch\'s default fee for this student',
+                          ),
+                          _buildInputField(
+                            controller: _feeOverride,
+                            hint: 'Custom Fee (Optional)',
+                            prefixIcon: Icons.currency_rupee,
+                          ),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Padding(
+                              padding: EdgeInsets.only(top: 4, bottom: 4),
+                              child: Text(
+                                'Leave blank to use the batch\'s default fee.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),

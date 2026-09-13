@@ -3,6 +3,7 @@ import '../../theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../providers/dashboard_provider.dart';
+import '../../services/api_service.dart';
 import 'tenants_screen.dart';
 import 'plans_screen.dart';
 import 'subscriptions_screen.dart';
@@ -34,19 +35,36 @@ class AnalyticsScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                ),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(6),
-                child: Image.asset('assets/images/logo.png', height: 34, width: 34, fit: BoxFit.cover),
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  height: 34,
+                  width: 34,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             const SizedBox(width: 8),
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Super Admin', style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
-                Text('Campus', style: TextStyle(color: AppColors.primary, fontSize: 12)),
+                Text(
+                  'Super Admin',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Campus',
+                  style: TextStyle(color: AppColors.primary, fontSize: 12),
+                ),
               ],
             ),
           ],
@@ -60,8 +78,16 @@ class AnalyticsScreen extends ConsumerWidget {
             alignment: Alignment.center,
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: AppColors.textPrimary,
+                ),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
+                ),
               ),
               Positioned(
                 right: 8,
@@ -72,9 +98,16 @@ class AnalyticsScreen extends ConsumerWidget {
                     color: AppColors.error,
                     shape: BoxShape.circle,
                   ),
-                  child: const Text('8', style: TextStyle(color: AppColors.surface, fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    '8',
+                    style: TextStyle(
+                      color: AppColors.surface,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-              )
+              ),
             ],
           ),
         ],
@@ -83,7 +116,10 @@ class AnalyticsScreen extends ConsumerWidget {
         child: analyticsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, stack) => Center(
-            child: Text('Error: $err', style: const TextStyle(color: AppColors.error)),
+            child: Text(
+              friendlyErrorMessage(err),
+              style: const TextStyle(color: AppColors.error),
+            ),
           ),
           data: (data) {
             final totalTenants = data['totalTenants']?.toString() ?? '0';
@@ -91,10 +127,14 @@ class AnalyticsScreen extends ConsumerWidget {
             final totalStudents = data['totalStudents']?.toString() ?? '0';
             final mrr = '₹${data['mrr'] ?? 0}';
             final onTrial = data['onTrial']?.toString() ?? '0';
-            final growthTotalTenants = data['growthTotalTenants']?.toString() ?? '+0 this month';
-            final growthTotalStudents = data['growthTotalStudents']?.toString() ?? '+0% this month';
-            final growthActiveTenants = data['growthActiveTenants']?.toString() ?? '+0% this month';
-            final growthRevenue = data['growthRevenue']?.toString() ?? '+0% this month';
+            final growthTotalTenants =
+                data['growthTotalTenants']?.toString() ?? '+0 this month';
+            final growthTotalStudents =
+                data['growthTotalStudents']?.toString() ?? '+0% this month';
+            final growthActiveTenants =
+                data['growthActiveTenants']?.toString() ?? '+0% this month';
+            final growthRevenue =
+                data['growthRevenue']?.toString() ?? '+0% this month';
 
             final graphDataRaw = data['graphData'] as List<dynamic>? ?? [];
             final spotsStudents = <FlSpot>[];
@@ -112,8 +152,22 @@ class AnalyticsScreen extends ConsumerWidget {
               spotsRevenue.add(FlSpot(day, revenue));
             }
             final now = DateTime.now();
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            final todayFormatted = '${now.day} ${months[now.month - 1]} ${now.year}';
+            const months = [
+              'Jan',
+              'Feb',
+              'Mar',
+              'Apr',
+              'May',
+              'Jun',
+              'Jul',
+              'Aug',
+              'Sep',
+              'Oct',
+              'Nov',
+              'Dec',
+            ];
+            final todayFormatted =
+                '${now.day} ${months[now.month - 1]} ${now.year}';
 
             return RefreshIndicator(
               onRefresh: () async => ref.invalidate(dashboardProvider),
@@ -145,13 +199,19 @@ class AnalyticsScreen extends ConsumerWidget {
                                 SizedBox(height: 4),
                                 Text(
                                   'Here\'s what\'s happening with your platform today.',
-                                  style: TextStyle(fontSize: 14, color: AppColors.primary),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.primary,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.surface,
                               borderRadius: BorderRadius.circular(20),
@@ -159,12 +219,22 @@ class AnalyticsScreen extends ConsumerWidget {
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.calendar_today, size: 14, color: AppColors.info),
+                                const Icon(
+                                  Icons.calendar_today,
+                                  size: 14,
+                                  color: AppColors.info,
+                                ),
                                 const SizedBox(width: 6),
-                                Text(todayFormatted, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                Text(
+                                  todayFormatted,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ],
                             ),
-                          )
+                          ),
                         ],
                       ),
                     ),
@@ -172,15 +242,43 @@ class AnalyticsScreen extends ConsumerWidget {
 
                     // Top Stat Cards (Horizontal Scroll)
                     SizedBox(
-                      height: 155, 
+                      height: 155,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
-                          AnalyticsTopCard(title: 'Total Institutes', value: totalTenants, subtitle: growthTotalTenants, icon: Icons.business, bgColor: AppColors.successLight, iconColor: AppColors.success),
-                          AnalyticsTopCard(title: 'Total Students', value: totalStudents, subtitle: growthTotalStudents, icon: Icons.school, bgColor: AppColors.purpleLight, iconColor: AppColors.purple),
-                          AnalyticsTopCard(title: 'Active Institutes', value: activeTenants, subtitle: growthActiveTenants, icon: Icons.bar_chart, bgColor: AppColors.warningLight, iconColor: AppColors.warning),
-                          AnalyticsTopCard(title: 'Total Revenue', value: mrr, subtitle: growthRevenue, icon: Icons.account_balance_wallet, bgColor: AppColors.infoLight, iconColor: AppColors.info),
+                          AnalyticsTopCard(
+                            title: 'Total Institutes',
+                            value: totalTenants,
+                            subtitle: growthTotalTenants,
+                            icon: Icons.business,
+                            bgColor: AppColors.successLight,
+                            iconColor: AppColors.success,
+                          ),
+                          AnalyticsTopCard(
+                            title: 'Total Students',
+                            value: totalStudents,
+                            subtitle: growthTotalStudents,
+                            icon: Icons.school,
+                            bgColor: AppColors.purpleLight,
+                            iconColor: AppColors.purple,
+                          ),
+                          AnalyticsTopCard(
+                            title: 'Active Institutes',
+                            value: activeTenants,
+                            subtitle: growthActiveTenants,
+                            icon: Icons.bar_chart,
+                            bgColor: AppColors.warningLight,
+                            iconColor: AppColors.warning,
+                          ),
+                          AnalyticsTopCard(
+                            title: 'Total Revenue',
+                            value: mrr,
+                            subtitle: growthRevenue,
+                            icon: Icons.account_balance_wallet,
+                            bgColor: AppColors.infoLight,
+                            iconColor: AppColors.info,
+                          ),
                         ],
                       ),
                     ),
@@ -193,9 +291,13 @@ class AnalyticsScreen extends ConsumerWidget {
                         spotsStudents: spotsStudents,
                         spotsInstitutes: spotsInstitutes,
                         spotsRevenue: spotsRevenue,
-                        selectedMonth: ref.watch(selectedAnalyticsMonthProvider),
+                        selectedMonth: ref.watch(
+                          selectedAnalyticsMonthProvider,
+                        ),
                         onMonthTap: () async {
-                          final current = ref.read(selectedAnalyticsMonthProvider);
+                          final current = ref.read(
+                            selectedAnalyticsMonthProvider,
+                          );
                           await showModalBottomSheet(
                             context: context,
                             isScrollControlled: true,
@@ -206,7 +308,9 @@ class AnalyticsScreen extends ConsumerWidget {
                                 height: 350,
                                 decoration: const BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                  borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(24),
+                                  ),
                                 ),
                                 child: Column(
                                   children: [
@@ -214,25 +318,61 @@ class AnalyticsScreen extends ConsumerWidget {
                                       width: 36,
                                       height: 4,
                                       margin: const EdgeInsets.only(bottom: 12),
-                                      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade300,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
                                     ),
                                     const Text(
                                       'Select Month',
-                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1F2E27)),
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF1F2E27),
+                                      ),
                                     ),
                                     const SizedBox(height: 16),
                                     Expanded(
                                       child: ListView.builder(
                                         itemCount: 12,
                                         itemBuilder: (context, index) {
-                                          final date = DateTime(current.year, index + 1, 1);
-                                          final isSelected = current.month == date.month;
-                                          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                          final date = DateTime(
+                                            current.year,
+                                            index + 1,
+                                            1,
+                                          );
+                                          final isSelected =
+                                              current.month == date.month;
+                                          const monthNames = [
+                                            'Jan',
+                                            'Feb',
+                                            'Mar',
+                                            'Apr',
+                                            'May',
+                                            'Jun',
+                                            'Jul',
+                                            'Aug',
+                                            'Sep',
+                                            'Oct',
+                                            'Nov',
+                                            'Dec',
+                                          ];
                                           return ListTile(
                                             title: Text(monthNames[index]),
-                                            trailing: isSelected ? const Icon(Icons.check, color: AppColors.success) : null,
+                                            trailing: isSelected
+                                                ? const Icon(
+                                                    Icons.check,
+                                                    color: AppColors.success,
+                                                  )
+                                                : null,
                                             onTap: () {
-                                              ref.read(selectedAnalyticsMonthProvider.notifier).state = date;
+                                              ref
+                                                      .read(
+                                                        selectedAnalyticsMonthProvider
+                                                            .notifier,
+                                                      )
+                                                      .state =
+                                                  date;
                                               Navigator.pop(context);
                                             },
                                           );
@@ -254,7 +394,11 @@ class AnalyticsScreen extends ConsumerWidget {
                       padding: EdgeInsets.symmetric(horizontal: 20.0),
                       child: Text(
                         'Quick Actions',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -264,11 +408,36 @@ class AnalyticsScreen extends ConsumerWidget {
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: [
-                          QuickActionIcon(label: 'Institutes', icon: Icons.business, iconColor: AppColors.success, destination: const TenantsScreen()),
-                          QuickActionIcon(label: 'Plans', icon: Icons.card_membership, iconColor: AppColors.purple, destination: const PlansScreen()),
-                          QuickActionIcon(label: 'Subscriptions', icon: Icons.receipt_long, iconColor: AppColors.warning, destination: const SubscriptionsScreen()),
-                          QuickActionIcon(label: 'Leads', icon: Icons.inbox, iconColor: AppColors.info, destination: const LeadsScreen()),
-                          QuickActionIcon(label: 'Send Notice', icon: Icons.campaign, iconColor: AppColors.pink, destination: const BroadcastAdminsScreen()),
+                          QuickActionIcon(
+                            label: 'Institutes',
+                            icon: Icons.business,
+                            iconColor: AppColors.success,
+                            destination: const TenantsScreen(),
+                          ),
+                          QuickActionIcon(
+                            label: 'Plans',
+                            icon: Icons.card_membership,
+                            iconColor: AppColors.purple,
+                            destination: const PlansScreen(),
+                          ),
+                          QuickActionIcon(
+                            label: 'Subscriptions',
+                            icon: Icons.receipt_long,
+                            iconColor: AppColors.warning,
+                            destination: const SubscriptionsScreen(),
+                          ),
+                          QuickActionIcon(
+                            label: 'Leads',
+                            icon: Icons.inbox,
+                            iconColor: AppColors.info,
+                            destination: const LeadsScreen(),
+                          ),
+                          QuickActionIcon(
+                            label: 'Send Notice',
+                            icon: Icons.campaign,
+                            iconColor: AppColors.pink,
+                            destination: const BroadcastAdminsScreen(),
+                          ),
                         ],
                       ),
                     ),
@@ -279,7 +448,11 @@ class AnalyticsScreen extends ConsumerWidget {
                       padding: EdgeInsets.symmetric(horizontal: 20.0),
                       child: Text(
                         'Management Overview',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -293,11 +466,81 @@ class AnalyticsScreen extends ConsumerWidget {
                         physics: const NeverScrollableScrollPhysics(),
                         childAspectRatio: 2.2,
                         children: [
-                          ManagementOverviewTile(title: 'Institutes', subtitle: 'Manage all institutes', value: totalTenants, icon: Icons.business, bgColor: AppColors.successLight, iconColor: AppColors.success, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TenantsScreen()))),
-                          ManagementOverviewTile(title: 'Active', subtitle: 'Active institutes', value: activeTenants, icon: Icons.check_circle, bgColor: AppColors.warningLight, iconColor: AppColors.warning, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TenantsScreen(initialFilter: 'active')))),
-                          ManagementOverviewTile(title: 'Students', subtitle: 'Manage all students', value: totalStudents, icon: Icons.people, bgColor: AppColors.purpleLight, iconColor: AppColors.purple, onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dedicated tab not available yet')))),
-                          ManagementOverviewTile(title: 'On Trial', subtitle: 'Institutes on trial', value: onTrial, icon: Icons.hourglass_top, bgColor: AppColors.lightBlueBackground, iconColor: AppColors.lightBlue, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TenantsScreen(initialFilter: 'trial')))),
-                          ManagementOverviewTile(title: 'Payments', subtitle: 'Track all payments', value: mrr, icon: Icons.account_balance_wallet, bgColor: AppColors.successLight, iconColor: AppColors.success, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionsScreen()))),
+                          ManagementOverviewTile(
+                            title: 'Institutes',
+                            subtitle: 'Manage all institutes',
+                            value: totalTenants,
+                            icon: Icons.business,
+                            bgColor: AppColors.successLight,
+                            iconColor: AppColors.success,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const TenantsScreen(),
+                              ),
+                            ),
+                          ),
+                          ManagementOverviewTile(
+                            title: 'Active',
+                            subtitle: 'Active institutes',
+                            value: activeTenants,
+                            icon: Icons.check_circle,
+                            bgColor: AppColors.warningLight,
+                            iconColor: AppColors.warning,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const TenantsScreen(
+                                  initialFilter: 'active',
+                                ),
+                              ),
+                            ),
+                          ),
+                          ManagementOverviewTile(
+                            title: 'Students',
+                            subtitle: 'Manage all students',
+                            value: totalStudents,
+                            icon: Icons.people,
+                            bgColor: AppColors.purpleLight,
+                            iconColor: AppColors.purple,
+                            onTap: () =>
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Dedicated tab not available yet',
+                                    ),
+                                  ),
+                                ),
+                          ),
+                          ManagementOverviewTile(
+                            title: 'On Trial',
+                            subtitle: 'Institutes on trial',
+                            value: onTrial,
+                            icon: Icons.hourglass_top,
+                            bgColor: AppColors.lightBlueBackground,
+                            iconColor: AppColors.lightBlue,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const TenantsScreen(initialFilter: 'trial'),
+                              ),
+                            ),
+                          ),
+                          ManagementOverviewTile(
+                            title: 'Payments',
+                            subtitle: 'Track all payments',
+                            value: mrr,
+                            icon: Icons.account_balance_wallet,
+                            bgColor: AppColors.successLight,
+                            iconColor: AppColors.success,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SubscriptionsScreen(),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),

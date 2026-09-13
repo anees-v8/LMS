@@ -10,9 +10,14 @@ import '../../utils/duration_format.dart';
 import 'pdf_viewer_screen.dart';
 
 String? extractYoutubeId(String url) {
-  RegExp regExp = RegExp(r'.*(?:youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*', caseSensitive: false, multiLine: false);
+  RegExp regExp = RegExp(
+    r'.*(?:youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*',
+    caseSensitive: false,
+    multiLine: false,
+  );
   final match = regExp.firstMatch(url);
-  if (match != null && match.groupCount >= 1 && match.group(1)!.length == 11) return match.group(1);
+  if (match != null && match.groupCount >= 1 && match.group(1)!.length == 11)
+    return match.group(1);
   return null;
 }
 
@@ -31,10 +36,13 @@ class StudentChapterContentScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<StudentChapterContentScreen> createState() => _StudentChapterContentScreenState();
+  ConsumerState<StudentChapterContentScreen> createState() =>
+      _StudentChapterContentScreenState();
 }
 
-class _StudentChapterContentScreenState extends ConsumerState<StudentChapterContentScreen> with SingleTickerProviderStateMixin {
+class _StudentChapterContentScreenState
+    extends ConsumerState<StudentChapterContentScreen>
+    with SingleTickerProviderStateMixin {
   Map<String, dynamic>? _selectedContent;
   late TabController _tabController;
   YoutubePlayerController? _ytController;
@@ -60,7 +68,7 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
       _progressTimer?.cancel();
       _ytController?.close();
       _ytController = null;
-      
+
       final type = item['contentType']?.toString() ?? '';
       if (type.contains('video')) {
         final url = item['fileUrl']?.toString();
@@ -71,12 +79,12 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
               videoId: videoId,
               autoPlay: false,
               startSeconds: (item['progressSeconds'] as int? ?? 0).toDouble(),
-              params: const YoutubePlayerParams(
-                showFullscreenButton: true,
-              ),
+              params: const YoutubePlayerParams(showFullscreenButton: true),
             );
-            
-            _progressTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+
+            _progressTimer = Timer.periodic(const Duration(seconds: 10), (
+              _,
+            ) async {
               if (!mounted || _ytController == null) return;
               try {
                 final state = await _ytController!.playerState;
@@ -85,10 +93,12 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
                   final contentId = item['id'] as int?;
                   if (contentId != null) {
                     final api = ref.read(apiServiceProvider);
-                    api.post('/student/progress', {
-                      'contentId': contentId,
-                      'progressSeconds': time.toInt(),
-                    }).catchError((_) {});
+                    api
+                        .post('/student/progress', {
+                          'contentId': contentId,
+                          'progressSeconds': time.toInt(),
+                        })
+                        .catchError((_) {});
                   }
                 }
               } catch (_) {}
@@ -109,10 +119,8 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => PdfViewerScreen(
-            url: url,
-            title: item['title'] ?? 'Document',
-          ),
+          builder: (context) =>
+              PdfViewerScreen(url: url, title: item['title'] ?? 'Document'),
         ),
       );
     } else {
@@ -124,8 +132,9 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
   Widget build(BuildContext context) {
     final chapterId = widget.chapter['id'] as int? ?? 0;
     final contentAsync = ref.watch(studentChapterContentProvider(chapterId));
-    
-    final isVideo = _selectedContent?['contentType']?.toString().contains('video') ?? false;
+
+    final isVideo =
+        _selectedContent?['contentType']?.toString().contains('video') ?? false;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -135,8 +144,23 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.subjectName, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
-            Text(widget.chapter['name'] as String? ?? widget.chapter['title'] as String? ?? 'Chapter', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+            Text(
+              widget.subjectName,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 11,
+              ),
+            ),
+            Text(
+              widget.chapter['name'] as String? ??
+                  widget.chapter['title'] as String? ??
+                  'Chapter',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),
@@ -152,22 +176,24 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
                     child: CircularProgressIndicator(color: AppColors.primary),
                   )
                 : isVideo
-                    ? (_ytController != null
-                        ? YoutubePlayer(
-                            controller: _ytController!,
-                          )
-                        : GestureDetector(
-                            onTap: () => _launchURL(_selectedContent?['fileUrl'] as String?),
-                            child: _VideoPlaceholder(title: _selectedContent?['title'] ?? ''),
-                          ))
-                    : _PdfPlaceholder(
-                        title: _selectedContent?['title'] ?? '',
-                        onOpen: () {
-                          if (_selectedContent != null) {
-                            _openResource(_selectedContent!);
-                          }
-                        },
-                      ),
+                ? (_ytController != null
+                      ? YoutubePlayer(controller: _ytController!)
+                      : GestureDetector(
+                          onTap: () => _launchURL(
+                            _selectedContent?['fileUrl'] as String?,
+                          ),
+                          child: _VideoPlaceholder(
+                            title: _selectedContent?['title'] ?? '',
+                          ),
+                        ))
+                : _PdfPlaceholder(
+                    title: _selectedContent?['title'] ?? '',
+                    onOpen: () {
+                      if (_selectedContent != null) {
+                        _openResource(_selectedContent!);
+                      }
+                    },
+                  ),
           ),
 
           // ── Content Info Strip ────────────────────────────────────────
@@ -177,7 +203,9 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
             child: Row(
               children: [
                 Icon(
-                  isVideo ? Icons.play_circle_filled_rounded : Icons.picture_as_pdf_rounded,
+                  isVideo
+                      ? Icons.play_circle_filled_rounded
+                      : Icons.picture_as_pdf_rounded,
                   color: const Color(0xFFA87D26),
                   size: 18,
                 ),
@@ -185,7 +213,11 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
                 Expanded(
                   child: Text(
                     _selectedContent?['title'] ?? '',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -194,9 +226,13 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
                       ? ''
                       : formatExactDuration(
                           _selectedContent?['durationSeconds'] as int?,
-                          fallbackMinutes: _selectedContent?['durationMinutes'] as int?,
+                          fallbackMinutes:
+                              _selectedContent?['durationMinutes'] as int?,
                         ),
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
@@ -210,7 +246,10 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
               indicatorColor: const Color(0xFFA87D26),
               labelColor: AppColors.primaryDark,
               unselectedLabelColor: Colors.grey,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
               tabs: const [
                 Tab(text: 'Lectures'),
                 Tab(text: 'Resources'),
@@ -224,23 +263,43 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
               color: AppColors.background,
               child: contentAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error: $e', style: const TextStyle(color: Colors.grey))),
+                error: (e, _) => Center(
+                  child: Text(
+                    friendlyErrorMessage(e),
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ),
                 data: (contentItems) {
-                  final lectures = contentItems.where((item) => item['contentType'].toString().contains('video')).toList();
-                  final resources = contentItems.where((item) => !item['contentType'].toString().contains('video')).toList();
+                  final lectures = contentItems
+                      .where(
+                        (item) =>
+                            item['contentType'].toString().contains('video'),
+                      )
+                      .toList();
+                  final resources = contentItems
+                      .where(
+                        (item) =>
+                            !item['contentType'].toString().contains('video'),
+                      )
+                      .toList();
 
                   // Auto-select if requested and not already selected
                   if (_selectedContent == null) {
                     bool didAutoSelect = false;
-                    
+
                     if (widget.autoSelectContentId != null) {
-                      final toSelect = lectures.where((c) => c['id'] == widget.autoSelectContentId).firstOrNull;
+                      final toSelect = lectures
+                          .where((c) => c['id'] == widget.autoSelectContentId)
+                          .firstOrNull;
                       if (toSelect != null) {
                         didAutoSelect = true;
                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                          final mutableItem = Map<String, dynamic>.from(toSelect);
+                          final mutableItem = Map<String, dynamic>.from(
+                            toSelect,
+                          );
                           if (widget.startAtSeconds != null) {
-                            mutableItem['progressSeconds'] = widget.startAtSeconds;
+                            mutableItem['progressSeconds'] =
+                                widget.startAtSeconds;
                           }
                           _updateSelection(mutableItem);
                         });
@@ -250,7 +309,8 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
                     // Auto select first item if none selected
                     if (!didAutoSelect && contentItems.isNotEmpty) {
                       final firstVideo = contentItems.firstWhere(
-                        (item) => item['contentType'].toString().contains('video'),
+                        (item) =>
+                            item['contentType'].toString().contains('video'),
                         orElse: () => contentItems.first,
                       );
                       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -264,41 +324,59 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
                     children: [
                       // Lectures Tab
                       lectures.isEmpty
-                          ? const Center(child: Text('No lectures in this chapter yet.', style: TextStyle(color: Colors.grey)))
+                          ? const Center(
+                              child: Text(
+                                'No lectures in this chapter yet.',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            )
                           : ListView.builder(
                               padding: const EdgeInsets.all(16),
                               itemCount: lectures.length,
                               itemBuilder: (context, index) {
-                                final item = lectures[index] as Map<String, dynamic>;
-                                final isSelected = _selectedContent?['id'] == item['id'];
+                                final item =
+                                    lectures[index] as Map<String, dynamic>;
+                                final isSelected =
+                                    _selectedContent?['id'] == item['id'];
                                 return _ContentTile(
                                   item: item,
                                   isSelected: isSelected,
-                                  ytController: isSelected ? _ytController : null,
+                                  ytController: isSelected
+                                      ? _ytController
+                                      : null,
                                   onTap: () => _updateSelection(item),
                                 );
                               },
                             ),
                       // Resources Tab
                       resources.isEmpty
-                          ? const Center(child: Text('No resources in this chapter yet.', style: TextStyle(color: Colors.grey)))
+                          ? const Center(
+                              child: Text(
+                                'No resources in this chapter yet.',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            )
                           : ListView.builder(
                               padding: const EdgeInsets.all(16),
                               itemCount: resources.length,
                               itemBuilder: (context, index) {
-                                final item = resources[index] as Map<String, dynamic>;
-                                final isSelected = _selectedContent?['id'] == item['id'];
+                                final item =
+                                    resources[index] as Map<String, dynamic>;
+                                final isSelected =
+                                    _selectedContent?['id'] == item['id'];
                                 return _ContentTile(
                                   item: item,
                                   isSelected: isSelected,
-                                  ytController: isSelected ? _ytController : null,
+                                  ytController: isSelected
+                                      ? _ytController
+                                      : null,
                                   onTap: () => _openResource(item),
                                 );
                               },
                             ),
                     ],
                   );
-                }
+                },
               ),
             ),
           ),
@@ -312,7 +390,9 @@ class _StudentChapterContentScreenState extends ConsumerState<StudentChapterCont
     final Uri url = Uri.parse(urlString);
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open link')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not open link')));
       }
     }
   }
@@ -325,16 +405,22 @@ class _PlayingIndicator extends StatefulWidget {
   State<_PlayingIndicator> createState() => _PlayingIndicatorState();
 }
 
-class _PlayingIndicatorState extends State<_PlayingIndicator> with SingleTickerProviderStateMixin {
+class _PlayingIndicatorState extends State<_PlayingIndicator>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   Timer? _pollingTimer;
-  
+
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
     if (widget.ytController != null) {
-      _pollingTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
+      _pollingTimer = Timer.periodic(const Duration(milliseconds: 500), (
+        _,
+      ) async {
         if (!mounted) return;
         try {
           final state = await widget.ytController!.playerState;
@@ -354,6 +440,7 @@ class _PlayingIndicatorState extends State<_PlayingIndicator> with SingleTickerP
     _controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -368,7 +455,8 @@ class _PlayingIndicatorState extends State<_PlayingIndicator> with SingleTickerP
             if (value < 0) value += 1;
             if (value > 1) value -= 1;
             // Create a triangle wave
-            final height = 4.0 + (value < 0.5 ? value * 2 : (1 - value) * 2) * 12.0;
+            final height =
+                4.0 + (value < 0.5 ? value * 2 : (1 - value) * 2) * 12.0;
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 1.5),
               width: 4,
@@ -391,7 +479,12 @@ class _ContentTile extends StatelessWidget {
   final YoutubePlayerController? ytController;
   final VoidCallback onTap;
 
-  const _ContentTile({required this.item, required this.isSelected, this.ytController, required this.onTap});
+  const _ContentTile({
+    required this.item,
+    required this.isSelected,
+    this.ytController,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -422,7 +515,13 @@ class _ContentTile extends StatelessWidget {
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
-              ? [BoxShadow(color: AppColors.primaryDark.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))]
+              ? [
+                  BoxShadow(
+                    color: AppColors.primaryDark.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
               : [],
         ),
         child: Row(
@@ -434,21 +533,29 @@ class _ContentTile extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isSelected
                     ? Colors.white.withValues(alpha: 0.15)
-                    : isVideo ? AppColors.infoLight : AppColors.errorLight,
+                    : isVideo
+                    ? AppColors.infoLight
+                    : AppColors.errorLight,
                 borderRadius: BorderRadius.circular(8),
                 image: videoId != null
                     ? DecorationImage(
-                        image: NetworkImage('https://img.youtube.com/vi/$videoId/hqdefault.jpg'),
+                        image: NetworkImage(
+                          'https://img.youtube.com/vi/$videoId/hqdefault.jpg',
+                        ),
                         fit: BoxFit.cover,
                       )
                     : null,
               ),
               child: videoId == null
                   ? Icon(
-                      isVideo ? Icons.play_arrow_rounded : Icons.picture_as_pdf_rounded,
+                      isVideo
+                          ? Icons.play_arrow_rounded
+                          : Icons.picture_as_pdf_rounded,
                       color: isSelected
                           ? Colors.white
-                          : isVideo ? AppColors.info : AppColors.error,
+                          : isVideo
+                          ? AppColors.info
+                          : AppColors.error,
                       size: 22,
                     )
                   : Center(
@@ -458,7 +565,11 @@ class _ContentTile extends StatelessWidget {
                           color: Colors.black.withValues(alpha: 0.5),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
                       ),
                     ),
             ),
@@ -479,13 +590,19 @@ class _ContentTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.timer_outlined, size: 12, color: isSelected ? Colors.white70 : Colors.grey),
+                      Icon(
+                        Icons.timer_outlined,
+                        size: 12,
+                        color: isSelected ? Colors.white70 : Colors.grey,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         duration,
                         style: TextStyle(
                           fontSize: 11,
-                          color: isSelected ? Colors.white70 : Colors.grey.shade600,
+                          color: isSelected
+                              ? Colors.white70
+                              : Colors.grey.shade600,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -526,12 +643,23 @@ class _VideoPlaceholder extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: const Color(0xFFA87D26).withValues(alpha: 0.2),
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFA87D26), width: 2),
+                    border: Border.all(
+                      color: const Color(0xFFA87D26),
+                      width: 2,
+                    ),
                   ),
-                  child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFA87D26), size: 38),
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    color: Color(0xFFA87D26),
+                    size: 38,
+                  ),
                 ),
                 const SizedBox(height: 14),
-                Text(title, style: const TextStyle(color: Colors.white60, fontSize: 12), textAlign: TextAlign.center),
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           ),
@@ -554,17 +682,35 @@ class _PdfPlaceholder extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFE53935), size: 52),
+            const Icon(
+              Icons.picture_as_pdf_rounded,
+              color: Color(0xFFE53935),
+              size: 52,
+            ),
             const SizedBox(height: 12),
-            const Text('PDF Document', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+            const Text(
+              'PDF Document',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(title, style: const TextStyle(color: Colors.white60, fontSize: 12), textAlign: TextAlign.center),
+            Text(
+              title,
+              style: const TextStyle(color: Colors.white60, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 14),
             ElevatedButton.icon(
               onPressed: onOpen,
               icon: const Icon(Icons.open_in_new, size: 14),
               label: const Text('Open PDF'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),

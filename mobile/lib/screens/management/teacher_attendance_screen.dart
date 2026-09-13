@@ -13,22 +13,46 @@ import 'teacher_qr_attendance_screen.dart';
 class TeacherAttendanceScreen extends ConsumerStatefulWidget {
   final int batchId;
   final String batchName;
-  final int? timetableId;
+  final int? batchScheduleId;
 
   const TeacherAttendanceScreen({
     super.key,
     required this.batchId,
     required this.batchName,
-    this.timetableId,
+    this.batchScheduleId,
   });
 
   @override
-  ConsumerState<TeacherAttendanceScreen> createState() => _TeacherAttendanceScreenState();
+  ConsumerState<TeacherAttendanceScreen> createState() =>
+      _TeacherAttendanceScreenState();
 }
 
-class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScreen> {
+class _TeacherAttendanceScreenState
+    extends ConsumerState<TeacherAttendanceScreen> {
   // Map of studentId -> 'present' | 'absent' | 'late'
   final Map<int, String> _attendanceState = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // attendanceBatchStudentsProvider is a FutureProvider.family, cached per
+    // (batchId, date) for the life of the provider container — a teacher
+    // who opened this batch before a student was newly enrolled would keep
+    // seeing that stale roster indefinitely (no re-fetch trigger otherwise
+    // exists). Force a fresh fetch every time this screen opens so a
+    // recently-added student always shows up without needing an app
+    // restart or a submit-attendance round trip.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.invalidate(
+          attendanceBatchStudentsProvider((
+            batchId: widget.batchId,
+            date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          )),
+        );
+      }
+    });
+  }
 
   void _markAll(String status, List<dynamic> students) {
     setState(() {
@@ -46,7 +70,9 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
 
   String? _statusFor(dynamic s) {
     final sid = _studentId(s);
-    return _attendanceState.containsKey(sid) ? _attendanceState[sid] : s['status'] as String?;
+    return _attendanceState.containsKey(sid)
+        ? _attendanceState[sid]
+        : s['status'] as String?;
   }
 
   Future<void> _submit(List<dynamic> students) async {
@@ -61,7 +87,8 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
     final api = ref.read(apiServiceProvider);
     await api.post('/teacher/attendance', {
       'batchId': widget.batchId,
-      if (widget.timetableId != null) 'timetableId': widget.timetableId,
+      if (widget.batchScheduleId != null)
+        'batchScheduleId': widget.batchScheduleId,
       'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
       'records': records,
     });
@@ -103,10 +130,12 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
     if (submitted == true && mounted) {
       // Fixes the stale-list bug: without this, re-opening the same
       // batch/date would still show pre-submit data until app restart.
-      ref.invalidate(attendanceBatchStudentsProvider((
-        batchId: widget.batchId,
-        date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
-      )));
+      ref.invalidate(
+        attendanceBatchStudentsProvider((
+          batchId: widget.batchId,
+          date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+        )),
+      );
       await Future.delayed(const Duration(milliseconds: 900));
       if (mounted) Navigator.pop(context);
     }
@@ -115,16 +144,21 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
   @override
   Widget build(BuildContext context) {
     final todayStrAPI = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final studentsAsync = ref.watch(attendanceBatchStudentsProvider((
-      batchId: widget.batchId,
-      date: todayStrAPI,
-    )));
+    final studentsAsync = ref.watch(
+      attendanceBatchStudentsProvider((
+        batchId: widget.batchId,
+        date: todayStrAPI,
+      )),
+    );
     final todayStr = DateFormat('dd MMM yyyy').format(DateTime.now());
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Attendance: ${widget.batchName}', style: const TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text(
+          'Attendance: ${widget.batchName}',
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
         backgroundColor: AppColors.primaryDark,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
@@ -137,7 +171,7 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                 builder: (_) => TeacherQrAttendanceScreen(
                   batchId: widget.batchId,
                   batchName: widget.batchName,
-                  timetableId: widget.timetableId,
+                  batchScheduleId: widget.batchScheduleId,
                 ),
               ),
             ),
@@ -146,10 +180,12 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
       ),
       body: studentsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
+        error: (err, stack) => Center(child: Text(friendlyErrorMessage(err))),
         data: (students) {
           if (students.isEmpty) {
-            return const Center(child: Text('No students found in this batch.'));
+            return const Center(
+              child: Text('No students found in this batch.'),
+            );
           }
 
           int present = 0, absent = 0, late = 0, marked = 0;
@@ -176,16 +212,29 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(todayStr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            Text(
+                              todayStr,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
                             TextButton(
                               onPressed: () => _markAll('present', students),
-                              child: const Text('Mark All Present', style: TextStyle(color: AppColors.success)),
+                              child: const Text(
+                                'Mark All Present',
+                                style: TextStyle(color: AppColors.success),
+                              ),
                             ),
                           ],
                         ),
                         if (hasAnyMarked) ...[
                           const SizedBox(height: 6),
-                          AttendanceSummaryBar(present: present, absent: absent, late: late),
+                          AttendanceSummaryBar(
+                            present: present,
+                            absent: absent,
+                            late: late,
+                          ),
                         ],
                       ],
                     ),
@@ -194,26 +243,44 @@ class _TeacherAttendanceScreenState extends ConsumerState<TeacherAttendanceScree
 
                   // Students list
                   Expanded(
-                    child: ListView.separated(
-                      padding: const EdgeInsets.only(bottom: 100),
-                      itemCount: students.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final student = students[index];
-                        final sid = _studentId(student);
-                        final name = student['name'];
-                        final status = _statusFor(student);
+                    child: RefreshIndicator(
+                      onRefresh: () async => ref.invalidate(
+                        attendanceBatchStudentsProvider((
+                          batchId: widget.batchId,
+                          date: todayStrAPI,
+                        )),
+                      ),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 100),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: students.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final student = students[index];
+                          final sid = _studentId(student);
+                          final name = student['name'];
+                          final status = _statusFor(student);
 
-                        return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                          title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text('ID: $sid'),
-                          trailing: AttendanceStatusButtonRow(
-                            status: status,
-                            onChanged: (val) => setState(() => _attendanceState[sid] = val),
-                          ),
-                        );
-                      },
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            title: Text(
+                              name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text('ID: $sid'),
+                            trailing: AttendanceStatusButtonRow(
+                              status: status,
+                              onChanged: (val) =>
+                                  setState(() => _attendanceState[sid] = val),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],

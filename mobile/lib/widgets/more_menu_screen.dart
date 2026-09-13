@@ -14,8 +14,15 @@ class MoreMenuItem {
   final Widget? destination;
   final VoidCallback? onTap;
 
-  const MoreMenuItem({required this.icon, required this.label, this.destination, this.onTap})
-      : assert(destination != null || onTap != null, 'Provide either destination or onTap');
+  const MoreMenuItem({
+    required this.icon,
+    required this.label,
+    this.destination,
+    this.onTap,
+  }) : assert(
+         destination != null || onTap != null,
+         'Provide either destination or onTap',
+       );
 }
 
 /// The "More" tab shown in every role's bottom nav — holds secondary screens
@@ -47,10 +54,7 @@ class MoreMenuScreen extends ConsumerWidget {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: ProfileHeader(
-              name: fullName,
-              subtitleLine1: subtitle1,
-            ),
+            child: ProfileHeader(name: fullName, subtitleLine1: subtitle1),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
           SliverToBoxAdapter(
@@ -65,11 +69,12 @@ class MoreMenuScreen extends ConsumerWidget {
                     iconBg: color.withValues(alpha: 0.1),
                     iconColor: color,
                     label: item.label,
-                    onTap: item.onTap ??
+                    onTap:
+                        item.onTap ??
                         () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => item.destination!),
-                            ),
+                          context,
+                          MaterialPageRoute(builder: (_) => item.destination!),
+                        ),
                   );
                 }),
               ),

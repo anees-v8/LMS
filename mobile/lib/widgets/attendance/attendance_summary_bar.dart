@@ -9,7 +9,12 @@ class AttendanceSummaryBar extends StatelessWidget {
   final int absent;
   final int late;
 
-  const AttendanceSummaryBar({super.key, required this.present, required this.absent, required this.late});
+  const AttendanceSummaryBar({
+    super.key,
+    required this.present,
+    required this.absent,
+    required this.late,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -35,9 +40,16 @@ class _Dot extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 5),
-        Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF56655B))),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Color(0xFF56655B)),
+        ),
       ],
     );
   }

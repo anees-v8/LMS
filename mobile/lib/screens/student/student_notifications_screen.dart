@@ -22,20 +22,35 @@ class StudentNotificationsScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: AppColors.primaryDark,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Notifications', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Notifications',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
       body: notificationsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load notifications: $e', style: const TextStyle(color: Colors.grey))),
+        error: (e, _) => Center(
+          child: Text(
+            'Failed to load notifications: ${friendlyErrorMessage(e)}',
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ),
         data: (notifications) {
           if (notifications.isEmpty) {
             return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey),
+                  Icon(
+                    Icons.notifications_off_outlined,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
                   SizedBox(height: 16),
-                  Text('No notifications yet', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                  Text(
+                    'No notifications yet',
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
                 ],
               ),
             );
@@ -51,7 +66,7 @@ class StudentNotificationsScreen extends ConsumerWidget {
               final body = notif['body'] as String? ?? '';
               final isRead = notif['isRead'] as bool? ?? false;
               final createdAtStr = notif['createdAt'] as String?;
-              
+
               String timeAgo = 'Just now';
               if (createdAtStr != null) {
                 try {
@@ -73,64 +88,80 @@ class StudentNotificationsScreen extends ConsumerWidget {
                 onTap: (!isRead && id != null) ? () => markRead(id) : null,
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isRead ? Colors.white : AppColors.primary.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isRead ? Colors.grey.shade100 : AppColors.primary.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: isRead ? Colors.grey.shade100 : AppColors.primary.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.notifications_rounded,
-                        color: isRead ? Colors.grey : AppColors.primary,
-                        size: 20,
-                      ),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isRead
+                        ? Colors.white
+                        : AppColors.primary.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isRead
+                          ? Colors.grey.shade100
+                          : AppColors.primary.withValues(alpha: 0.3),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  title,
-                                  style: TextStyle(
-                                    fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
-                                    fontSize: 14,
-                                    color: AppColors.primaryDark,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: isRead
+                              ? Colors.grey.shade100
+                              : AppColors.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.notifications_rounded,
+                          color: isRead ? Colors.grey : AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    title,
+                                    style: TextStyle(
+                                      fontWeight: isRead
+                                          ? FontWeight.w600
+                                          : FontWeight.bold,
+                                      fontSize: 14,
+                                      color: AppColors.primaryDark,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              Text(timeAgo, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            body,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isRead ? Colors.grey.shade600 : Colors.black87,
+                                Text(
+                                  timeAgo,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 6),
+                            Text(
+                              body,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isRead
+                                    ? Colors.grey.shade600
+                                    : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 ),
               );
             },

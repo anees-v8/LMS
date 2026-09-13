@@ -36,7 +36,8 @@ class StudentActiveQuizScreen extends StatefulWidget {
   const StudentActiveQuizScreen({super.key, required this.test});
 
   @override
-  State<StudentActiveQuizScreen> createState() => _StudentActiveQuizScreenState();
+  State<StudentActiveQuizScreen> createState() =>
+      _StudentActiveQuizScreenState();
 }
 
 class _StudentActiveQuizScreenState extends State<StudentActiveQuizScreen> {
@@ -131,18 +132,35 @@ class _StudentActiveQuizScreenState extends State<StudentActiveQuizScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.primaryDark,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(widget.test['title'] as String, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+        title: Text(
+          widget.test['title'] as String,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         actions: [
           // Timer
           Container(
             margin: const EdgeInsets.only(right: 12),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: _timerColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(
+              color: _timerColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: Row(
               children: [
                 Icon(Icons.timer_rounded, size: 14, color: _timerColor),
                 const SizedBox(width: 4),
-                Text(_timeDisplay, style: TextStyle(color: _timerColor, fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(
+                  _timeDisplay,
+                  style: TextStyle(
+                    color: _timerColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
               ],
             ),
           ),
@@ -159,8 +177,17 @@ class _StudentActiveQuizScreenState extends State<StudentActiveQuizScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Question ${_currentIndex + 1} of $total', style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.primaryDark)),
-                    Text('${_selectedAnswers.length} answered', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(
+                      'Question ${_currentIndex + 1} of $total',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryDark,
+                      ),
+                    ),
+                    Text(
+                      '${_selectedAnswers.length} answered',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -169,7 +196,9 @@ class _StudentActiveQuizScreenState extends State<StudentActiveQuizScreen> {
                   child: LinearProgressIndicator(
                     value: (_currentIndex + 1) / total,
                     backgroundColor: Colors.grey.shade100,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFA87D26)),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFFA87D26),
+                    ),
                     minHeight: 6,
                   ),
                 ),
@@ -193,7 +222,15 @@ class _StudentActiveQuizScreenState extends State<StudentActiveQuizScreen> {
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.grey.shade100),
                     ),
-                    child: Text(q['q'] as String, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.primaryDark, height: 1.5)),
+                    child: Text(
+                      q['q'] as String,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryDark,
+                        height: 1.5,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 20),
 
@@ -207,10 +244,14 @@ class _StudentActiveQuizScreenState extends State<StudentActiveQuizScreen> {
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primaryDark : Colors.white,
+                          color: isSelected
+                              ? AppColors.primaryDark
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: isSelected ? AppColors.primaryDark : Colors.grey.shade200,
+                            color: isSelected
+                                ? AppColors.primaryDark
+                                : Colors.grey.shade200,
                             width: isSelected ? 2 : 1,
                           ),
                         ),
@@ -221,7 +262,9 @@ class _StudentActiveQuizScreenState extends State<StudentActiveQuizScreen> {
                               height: 28,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: isSelected ? const Color(0xFFA87D26) : Colors.grey.shade100,
+                                color: isSelected
+                                    ? const Color(0xFFA87D26)
+                                    : Colors.grey.shade100,
                               ),
                               child: Center(
                                 child: Text(
@@ -229,7 +272,9 @@ class _StudentActiveQuizScreenState extends State<StudentActiveQuizScreen> {
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
-                                    color: isSelected ? Colors.white : Colors.grey,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.grey,
                                   ),
                                 ),
                               ),
@@ -240,8 +285,12 @@ class _StudentActiveQuizScreenState extends State<StudentActiveQuizScreen> {
                                 options[i],
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: isSelected ? Colors.white : AppColors.primaryDark,
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : AppColors.primaryDark,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
                                 ),
                               ),
                             ),
@@ -268,24 +317,41 @@ class _StudentActiveQuizScreenState extends State<StudentActiveQuizScreen> {
                       onPressed: () => setState(() => _currentIndex--),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: AppColors.primaryDark),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      child: const Text('← Previous', style: TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        '← Previous',
+                        style: TextStyle(
+                          color: AppColors.primaryDark,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 if (_currentIndex > 0) const SizedBox(width: 12),
                 // Next / Submit
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: isLast ? _submitQuiz : () => setState(() => _currentIndex++),
+                    onPressed: isLast
+                        ? _submitQuiz
+                        : () => setState(() => _currentIndex++),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isLast ? AppColors.success : AppColors.primaryDark,
+                      backgroundColor: isLast
+                          ? AppColors.success
+                          : AppColors.primaryDark,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: Text(isLast ? 'Submit Quiz ✓' : 'Next →', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      isLast ? 'Submit Quiz ✓' : 'Next →',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ],
@@ -301,13 +367,23 @@ class _StudentActiveQuizScreenState extends State<StudentActiveQuizScreen> {
 class _QuizResultScreen extends StatelessWidget {
   final String testTitle;
   final int correct, incorrect, skipped, maxMarks;
-  const _QuizResultScreen({required this.testTitle, required this.correct, required this.incorrect, required this.skipped, required this.maxMarks});
+  const _QuizResultScreen({
+    required this.testTitle,
+    required this.correct,
+    required this.incorrect,
+    required this.skipped,
+    required this.maxMarks,
+  });
 
   @override
   Widget build(BuildContext context) {
     final marksObtained = correct * (maxMarks ~/ _mockQuestions.length);
     final pct = (marksObtained / maxMarks * 100).toInt();
-    final color = pct >= 75 ? AppColors.success : pct >= 50 ? Colors.orange : AppColors.error;
+    final color = pct >= 75
+        ? AppColors.success
+        : pct >= 50
+        ? Colors.orange
+        : AppColors.error;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -332,29 +408,70 @@ class _QuizResultScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('$pct%', style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: color)),
-                    Text('$marksObtained/$maxMarks', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                    Text(
+                      '$pct%',
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                    Text(
+                      '$marksObtained/$maxMarks',
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
-              Text(testTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryDark), textAlign: TextAlign.center),
+              Text(
+                testTitle,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryDark,
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 30),
               // Stat row
               Row(
                 children: [
-                  _ResultStat(label: 'Correct', value: '$correct', color: AppColors.success, icon: Icons.check_circle_rounded),
-                  _ResultStat(label: 'Incorrect', value: '$incorrect', color: AppColors.error, icon: Icons.cancel_rounded),
-                  _ResultStat(label: 'Skipped', value: '$skipped', color: Colors.grey, icon: Icons.remove_circle_rounded),
+                  _ResultStat(
+                    label: 'Correct',
+                    value: '$correct',
+                    color: AppColors.success,
+                    icon: Icons.check_circle_rounded,
+                  ),
+                  _ResultStat(
+                    label: 'Incorrect',
+                    value: '$incorrect',
+                    color: AppColors.error,
+                    icon: Icons.cancel_rounded,
+                  ),
+                  _ResultStat(
+                    label: 'Skipped',
+                    value: '$skipped',
+                    color: Colors.grey,
+                    icon: Icons.remove_circle_rounded,
+                  ),
                 ],
               ),
               const SizedBox(height: 30),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryDark, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
-                  child: const Text('Go to Tests', style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: () =>
+                      Navigator.of(context).popUntil((r) => r.isFirst),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryDark,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text(
+                    'Go to Tests',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
@@ -369,7 +486,12 @@ class _ResultStat extends StatelessWidget {
   final String label, value;
   final Color color;
   final IconData icon;
-  const _ResultStat({required this.label, required this.value, required this.color, required this.icon});
+  const _ResultStat({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -377,13 +499,26 @@ class _ResultStat extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: Column(
           children: [
             Icon(icon, color: color, size: 28),
             const SizedBox(height: 6),
-            Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ],
         ),
       ),

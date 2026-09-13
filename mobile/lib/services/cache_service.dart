@@ -60,15 +60,11 @@ class CacheService {
   /// Encodes [data] as JSON and upserts it under [key].
   Future<void> write(String key, dynamic data) async {
     final encoded = json.encode(data);
-    await _database.insert(
-      'cache_store',
-      {
-        'cache_key': key,
-        'json_value': encoded,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _database.insert('cache_store', {
+      'cache_key': key,
+      'json_value': encoded,
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   // ── Clear ─────────────────────────────────────────────────────────────

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/management_providers.dart';
+import '../../services/api_service.dart';
+import '../../widgets/custom_dropdown.dart';
 import 'ranked_students_screen.dart';
 
 class _SelectedBatchNotifier extends Notifier<int?> {
@@ -96,52 +98,26 @@ class ReportsScreen extends ConsumerWidget {
                           loading: () => const SizedBox.shrink(),
                           error: (_, _) => const SizedBox.shrink(),
                           data: (batches) {
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<int?>(
-                                  value: selectedBatch,
-                                  isExpanded: true,
-                                  hint: const Text('Filter by batch'),
-                                  icon: Icon(
-                                    Icons.arrow_drop_down,
-                                    color: Colors.grey.shade700,
-                                  ),
-                                  items: [
-                                    const DropdownMenuItem<int?>(
-                                      value: null,
-                                      child: Text(
-                                        'All Batches',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                    ...batches.cast<Map<String, dynamic>>().map(
-                                      (b) => DropdownMenuItem<int?>(
-                                        value: b['id'] as int,
-                                        child: Text(
-                                          b['name']?.toString() ?? '',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  onChanged: (v) => ref
-                                      .read(_selectedBatchProvider.notifier)
-                                      .set(v),
+                            return CustomDropdown<int?>(
+                              label: 'Filter by Batch',
+                              hint: 'All Batches',
+                              value: selectedBatch,
+                              prefixIcon: Icons.class_outlined,
+                              options: [
+                                const DropdownOption<int?>(
+                                  value: null,
+                                  label: 'All Batches',
                                 ),
-                              ),
+                                ...batches.cast<Map<String, dynamic>>().map(
+                                  (b) => DropdownOption<int?>(
+                                    value: b['id'] as int,
+                                    label: b['name']?.toString() ?? '',
+                                  ),
+                                ),
+                              ],
+                              onChanged: (v) => ref
+                                  .read(_selectedBatchProvider.notifier)
+                                  .set(v),
                             );
                           },
                         ),
@@ -157,7 +133,7 @@ class ReportsScreen extends ConsumerWidget {
                           ),
                           error: (err, stack) => Center(
                             child: Text(
-                              'Error: $err',
+                              friendlyErrorMessage(err),
                               style: const TextStyle(color: Colors.red),
                             ),
                           ),

@@ -17,7 +17,8 @@ class ContentViewerScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ContentViewerScreen> createState() => _ContentViewerScreenState();
+  ConsumerState<ContentViewerScreen> createState() =>
+      _ContentViewerScreenState();
 }
 
 class _ContentViewerScreenState extends ConsumerState<ContentViewerScreen> {
@@ -53,7 +54,10 @@ class _ContentViewerScreenState extends ConsumerState<ContentViewerScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 18)),
+        title: Text(
+          widget.title,
+          style: const TextStyle(color: Colors.white, fontSize: 18),
+        ),
         backgroundColor: AppColors.primaryDark,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -73,9 +77,7 @@ class _ContentViewerScreenState extends ConsumerState<ContentViewerScreen> {
             borderRadius: const BorderRadius.vertical(
               bottom: Radius.circular(12),
             ),
-            child: YoutubePlayer(
-              controller: _ytController!,
-            ),
+            child: YoutubePlayer(controller: _ytController!),
           ),
           const SizedBox(height: 16),
           Padding(
@@ -83,7 +85,7 @@ class _ContentViewerScreenState extends ConsumerState<ContentViewerScreen> {
             child: Text(
               widget.title,
               style: const TextStyle(
-                fontSize: 22, 
+                fontSize: 22,
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
               ),
@@ -110,12 +112,14 @@ class _ContentViewerScreenState extends ConsumerState<ContentViewerScreen> {
               return Center(
                 child: CircularProgressIndicator(
                   value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded / (loadingProgress.expectedTotalBytes ?? 1)
+                      ? loadingProgress.cumulativeBytesLoaded /
+                            (loadingProgress.expectedTotalBytes ?? 1)
                       : null,
                 ),
               );
             },
-            errorBuilder: (_, __, ___) => const Center(child: Text('Failed to load image')),
+            errorBuilder: (_, __, ___) =>
+                const Center(child: Text('Failed to load image')),
           ),
         ),
       );

@@ -41,7 +41,10 @@ class UnsupportedRoleScreen extends ConsumerWidget {
                   }
                 },
                 icon: const Icon(Icons.logout, color: Colors.red),
-                label: const Text('Logout', style: TextStyle(color: Colors.red)),
+                label: const Text(
+                  'Logout',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
             ],
           ),

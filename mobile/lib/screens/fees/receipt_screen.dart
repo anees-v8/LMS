@@ -24,10 +24,14 @@ class ReceiptScreen extends StatelessWidget {
     final pdf = pw.Document();
 
     final dateStr = paymentData['date'] != null
-        ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(paymentData['date'].toString()))
+        ? DateFormat(
+            'dd MMM yyyy, hh:mm a',
+          ).format(DateTime.parse(paymentData['date'].toString()))
         : 'N/A';
 
-    final displayGrade = grade.toLowerCase().startsWith('class') ? grade : 'Class $grade';
+    final displayGrade = grade.toLowerCase().startsWith('class')
+        ? grade
+        : 'Class $grade';
 
     pdf.addPage(
       pw.Page(
@@ -41,14 +45,21 @@ class ReceiptScreen extends StatelessWidget {
                 pw.Center(
                   child: pw.Text(
                     tenantName.toUpperCase(),
-                    style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+                    style: pw.TextStyle(
+                      fontSize: 24,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
                 ),
                 pw.SizedBox(height: 8),
                 pw.Center(
                   child: pw.Text(
                     'FEE RECEIPT',
-                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700),
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.grey700,
+                    ),
                   ),
                 ),
                 pw.SizedBox(height: 24),
@@ -64,17 +75,32 @@ class ReceiptScreen extends StatelessWidget {
                 pw.SizedBox(height: 12),
                 pw.Divider(),
                 pw.SizedBox(height: 24),
-                pw.Text('Student Details', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                pw.Text(
+                  'Student Details',
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
                 pw.SizedBox(height: 8),
                 pw.Text('Name: $studentName'),
                 pw.Text('$displayGrade - Roll No. $rollNo'),
                 pw.SizedBox(height: 24),
-                pw.Text('Payment Details', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                pw.Text(
+                  'Payment Details',
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
                 pw.SizedBox(height: 8),
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('Description:', style: pw.TextStyle(color: PdfColors.grey700)),
+                    pw.Text(
+                      'Description:',
+                      style: pw.TextStyle(color: PdfColors.grey700),
+                    ),
                     pw.Text(paymentData['desc']?.toString() ?? 'Fee Payment'),
                   ],
                 ),
@@ -82,8 +108,13 @@ class ReceiptScreen extends StatelessWidget {
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('Payment Method:', style: pw.TextStyle(color: PdfColors.grey700)),
-                    pw.Text(paymentData['method']?.toString().toUpperCase() ?? 'N/A'),
+                    pw.Text(
+                      'Payment Method:',
+                      style: pw.TextStyle(color: PdfColors.grey700),
+                    ),
+                    pw.Text(
+                      paymentData['method']?.toString().toUpperCase() ?? 'N/A',
+                    ),
                   ],
                 ),
                 pw.SizedBox(height: 12),
@@ -92,23 +123,41 @@ class ReceiptScreen extends StatelessWidget {
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('Amount Paid:', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-                    pw.Text('Rs. ${paymentData['amount'] ?? 0}', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                    pw.Text(
+                      'Amount Paid:',
+                      style: pw.TextStyle(
+                        fontSize: 18,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.Text(
+                      'Rs. ${paymentData['amount'] ?? 0}',
+                      style: pw.TextStyle(
+                        fontSize: 18,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
                 pw.SizedBox(height: 12),
                 pw.Divider(),
                 pw.Spacer(),
                 pw.Center(
-                  child: pw.Text('Thank you for the payment!', style: pw.TextStyle(fontStyle: pw.FontStyle.italic)),
+                  child: pw.Text(
+                    'Thank you for the payment!',
+                    style: pw.TextStyle(fontStyle: pw.FontStyle.italic),
+                  ),
                 ),
                 pw.SizedBox(height: 32),
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('_____________________\nAuthorized Signatory', textAlign: pw.TextAlign.center),
+                    pw.Text(
+                      '_____________________\nAuthorized Signatory',
+                      textAlign: pw.TextAlign.center,
+                    ),
                   ],
-                )
+                ),
               ],
             ),
           );
@@ -125,10 +174,14 @@ class ReceiptScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateStr = paymentData['date'] != null
-        ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(paymentData['date'].toString()))
+        ? DateFormat(
+            'dd MMM yyyy, hh:mm a',
+          ).format(DateTime.parse(paymentData['date'].toString()))
         : 'N/A';
 
-    final displayGrade = grade.toLowerCase().startsWith('class') ? grade : 'Class $grade';
+    final displayGrade = grade.toLowerCase().startsWith('class')
+        ? grade
+        : 'Class $grade';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -155,7 +208,11 @@ class ReceiptScreen extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
                 ],
               ),
               child: Column(
@@ -170,52 +227,117 @@ class ReceiptScreen extends StatelessWidget {
                             color: Color(0xFFE8F0EA),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.receipt_long, color: Color(0xFF2E6656), size: 32),
+                          child: const Icon(
+                            Icons.receipt_long,
+                            color: Color(0xFF2E6656),
+                            size: 32,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Text(
                           tenantName.toUpperCase(),
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1F2E27)),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1F2E27),
+                          ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 4),
-                        const Text('FEE RECEIPT', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                        const Text(
+                          'FEE RECEIPT',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 24),
                   const Divider(color: Color(0xFFE0E0E0)),
                   const SizedBox(height: 16),
-                  _buildDetailRow('Receipt No', paymentData['receiptNo']?.toString() ?? 'N/A'),
+                  _buildDetailRow(
+                    'Receipt No',
+                    paymentData['receiptNo']?.toString() ?? 'N/A',
+                  ),
                   const SizedBox(height: 12),
                   _buildDetailRow('Date', dateStr),
                   const SizedBox(height: 16),
                   const Divider(color: Color(0xFFE0E0E0)),
                   const SizedBox(height: 16),
-                  const Text('STUDENT DETAILS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const Text(
+                    'STUDENT DETAILS',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  Text(studentName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    studentName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text('$displayGrade • Roll No. $rollNo', style: const TextStyle(color: Colors.grey)),
+                  Text(
+                    '$displayGrade • Roll No. $rollNo',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
                   const SizedBox(height: 24),
-                  const Text('PAYMENT DETAILS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const Text(
+                    'PAYMENT DETAILS',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  _buildDetailRow('Description', paymentData['desc']?.toString() ?? 'Fee Payment'),
+                  _buildDetailRow(
+                    'Description',
+                    paymentData['desc']?.toString() ?? 'Fee Payment',
+                  ),
                   const SizedBox(height: 12),
-                  _buildDetailRow('Payment Method', paymentData['method']?.toString().toUpperCase() ?? 'N/A'),
+                  _buildDetailRow(
+                    'Payment Method',
+                    paymentData['method']?.toString().toUpperCase() ?? 'N/A',
+                  ),
                   const SizedBox(height: 16),
                   const Divider(color: Color(0xFFE0E0E0)),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total Amount', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text('₹${paymentData['amount'] ?? 0}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2E6656))),
+                      const Text(
+                        'Total Amount',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '₹${paymentData['amount'] ?? 0}',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2E6656),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 32),
                   const Center(
-                    child: Text('Thank you!', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey)),
+                    child: Text(
+                      'Thank you!',
+                      style: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -231,7 +353,9 @@ class ReceiptScreen extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF2E6656),
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),

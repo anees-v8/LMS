@@ -1,9 +1,12 @@
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'screens/auth/login_screen.dart';
 import 'providers/auth_provider.dart';
+import 'providers/connectivity_refresh.dart';
 import 'utils/constants.dart';
 import 'utils/role_router.dart';
 import 'services/cache_service.dart';
@@ -17,11 +20,35 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 /// that part of the tree on its own.
 final ProviderContainer rootProviderContainer = ProviderContainer();
 
+/// Watches for the device coming back online and silently refetches every
+/// screen's data (WhatsApp-style — no spinner, no toast; screens just show
+/// current data again once Riverpod's rebuild lands). Kept as a top-level
+/// subscription (not tied to any widget's lifecycle) so it's always active
+/// for as long as the app process is, same reasoning as
+/// `rootProviderContainer` above — intentionally never cancelled, since it
+/// should run until the process exits.
+// ignore: unused_element
+StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+bool _wasOffline = false;
+
+void _startConnectivityRefreshListener() {
+  _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+    results,
+  ) {
+    final isOnline = results.any((r) => r != ConnectivityResult.none);
+    if (isOnline && _wasOffline) {
+      refreshAllData(rootProviderContainer);
+    }
+    _wasOffline = !isOnline;
+  });
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await CacheService.instance.init();
   await PushNotificationService().initialize(navigatorKey);
+  _startConnectivityRefreshListener();
 
   runApp(
     // UncontrolledProviderScope reuses rootProviderContainer instead of
@@ -101,7 +128,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           backgroundColor: Colors.white,
           selectedItemColor: Color(0xFF1F2E27),
           unselectedItemColor: Color(0xFF2E6656),
-          selectedLabelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          selectedLabelStyle: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
           unselectedLabelStyle: TextStyle(fontSize: 11),
           type: BottomNavigationBarType.fixed,
           elevation: 8,
@@ -111,9 +141,14 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFA87D26),
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            textStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         // --- Filled Buttons -> Ink-green ---
@@ -121,14 +156,14 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF1F2E27),
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         ),
         // --- Text Buttons -> Chalk-teal ---
         textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: const Color(0xFF2E6656),
-          ),
+          style: TextButton.styleFrom(foregroundColor: const Color(0xFF2E6656)),
         ),
         // --- Floating Action Button -> Ink-green (consistency with FilledButton) ---
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -140,14 +175,19 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           color: Colors.white,
           elevation: 0,
           margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           shadowColor: Colors.black12,
         ),
         // --- Input fields ---
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: Color(0xFFDDE2E0)),
@@ -161,7 +201,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
             borderSide: const BorderSide(color: Color(0xFFA87D26), width: 2),
           ),
           labelStyle: const TextStyle(color: Color(0xFF2E6656)),
-          hintStyle: TextStyle(color: const Color(0xFF1F2E27).withValues(alpha: 0.4)),
+          hintStyle: TextStyle(
+            color: const Color(0xFF1F2E27).withValues(alpha: 0.4),
+          ),
           prefixIconColor: const Color(0xFF2E6656),
         ),
         // --- Progress Indicator -> Brass-gold ---
@@ -176,14 +218,20 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         // --- ListTile ---
         listTileTheme: const ListTileThemeData(
           iconColor: Color(0xFF2E6656),
-          titleTextStyle: TextStyle(color: Color(0xFF1F2E27), fontWeight: FontWeight.w500, fontSize: 15),
+          titleTextStyle: TextStyle(
+            color: Color(0xFF1F2E27),
+            fontWeight: FontWeight.w500,
+            fontSize: 15,
+          ),
         ),
         // --- Snackbar ---
         snackBarTheme: SnackBarThemeData(
           backgroundColor: const Color(0xFF1F2E27),
           contentTextStyle: const TextStyle(color: Colors.white),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
         // --- Chip ---
         chipTheme: ChipThemeData(
@@ -228,12 +276,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     await notifier.hydrateFromCache();
     final ok = await notifier.restoreSession();
     if (!mounted) return;
-    _goTo(ok ? homeScreenForRole(ref.read(authProvider).userRole) : const LoginScreen());
+    _goTo(
+      ok
+          ? homeScreenForRole(ref.read(authProvider).userRole)
+          : const LoginScreen(),
+    );
   }
 
   void _goTo(Widget screen) {
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => screen));
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => screen));
   }
 
   @override

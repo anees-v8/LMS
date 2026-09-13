@@ -4,16 +4,13 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
+import '../../services/api_service.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final String url;
   final String title;
 
-  const PdfViewerScreen({
-    super.key,
-    required this.url,
-    required this.title,
-  });
+  const PdfViewerScreen({super.key, required this.url, required this.title});
 
   @override
   State<PdfViewerScreen> createState() => _PdfViewerScreenState();
@@ -29,24 +26,48 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       if (response.statusCode == 200) {
         final dir = await getTemporaryDirectory();
         final ext = widget.url.toLowerCase().split('.').last.split('?').first;
-        final validExt = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext) ? ext : 'pdf';
-        var fileName = widget.title.replaceAll(RegExp(r'[^a-zA-Z0-9_\-\.]'), '_');
-        if (!fileName.toLowerCase().endsWith('.$validExt')) fileName += '.$validExt';
-        
+        final validExt =
+            ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)
+            ? ext
+            : 'pdf';
+        var fileName = widget.title.replaceAll(
+          RegExp(r'[^a-zA-Z0-9_\-\.]'),
+          '_',
+        );
+        if (!fileName.toLowerCase().endsWith('.$validExt'))
+          fileName += '.$validExt';
+
         final file = File('${dir.path}/$fileName');
         await file.writeAsBytes(response.bodyBytes);
 
         final params = SaveFileDialogParams(sourceFilePath: file.path);
         final filePath = await FlutterFileDialog.saveFile(params: params);
-        
+
         if (filePath != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File saved successfully!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'File saved successfully!',
+                style: TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
         }
       } else {
         throw Exception('Failed to download');
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Download failed: $e', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.red));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Download failed: ${friendlyErrorMessage(e)}',
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
     } finally {
       if (mounted) setState(() => _isDownloading = false);
     }
@@ -55,17 +76,21 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   @override
   Widget build(BuildContext context) {
     final lowerUrl = widget.url.toLowerCase();
-    final isImage = lowerUrl.endsWith('.jpg') || 
-                    lowerUrl.endsWith('.jpeg') || 
-                    lowerUrl.endsWith('.png') || 
-                    lowerUrl.endsWith('.gif') ||
-                    lowerUrl.endsWith('.webp') ||
-                    widget.title.toLowerCase().contains('image');
+    final isImage =
+        lowerUrl.endsWith('.jpg') ||
+        lowerUrl.endsWith('.jpeg') ||
+        lowerUrl.endsWith('.png') ||
+        lowerUrl.endsWith('.gif') ||
+        lowerUrl.endsWith('.webp') ||
+        widget.title.toLowerCase().contains('image');
 
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text(
+          widget.title,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
         backgroundColor: Colors.black,
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
@@ -73,7 +98,16 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
           if (_isDownloading)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                ),
+              ),
             )
           else
             IconButton(
@@ -92,7 +126,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                     if (loadingProgress == null) return child;
                     return const CircularProgressIndicator();
                   },
-                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.broken_image,
+                    size: 50,
+                    color: Colors.grey,
+                  ),
                 ),
               ),
             )

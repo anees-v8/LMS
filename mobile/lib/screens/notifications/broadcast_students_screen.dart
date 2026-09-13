@@ -4,6 +4,7 @@ import '../../providers/management_providers.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/custom_button.dart';
+import '../../widgets/custom_dropdown.dart';
 import '../../widgets/custom_textfield.dart';
 
 /// Coaching Admin composes a notification for students or teachers in their
@@ -65,7 +66,7 @@ class _BroadcastStudentsScreenState
     } catch (e) {
       setState(() {
         _sending = false;
-        _error = '$e';
+        _error = friendlyErrorMessage(e);
       });
     }
   }
@@ -196,38 +197,25 @@ class _BroadcastStudentsScreenState
                         controller: _body,
                       ),
                       const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Batch (optional)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade800,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
                       batchesAsync.when(
                         loading: () => const LinearProgressIndicator(),
                         error: (err, stack) => Text(
-                          '$err',
+                          friendlyErrorMessage(err),
                           style: const TextStyle(color: Colors.red),
                         ),
-                        data: (batches) => DropdownButtonFormField<int?>(
-                          initialValue: _batchId,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                          ),
-                          hint: const Text('Every batch'),
-                          items: [
-                            const DropdownMenuItem<int?>(
+                        data: (batches) => CustomDropdown<int?>(
+                          label: 'Batch (optional)',
+                          hint: 'Every batch',
+                          value: _batchId,
+                          options: [
+                            const DropdownOption<int?>(
                               value: null,
-                              child: Text('Every batch'),
+                              label: 'Every batch',
                             ),
                             ...batches.cast<Map<String, dynamic>>().map(
-                              (b) => DropdownMenuItem<int?>(
+                              (b) => DropdownOption<int?>(
                                 value: b['id'] as int,
-                                child: Text(b['name']?.toString() ?? ''),
+                                label: b['name']?.toString() ?? '',
                               ),
                             ),
                           ],

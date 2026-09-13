@@ -5,8 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/management_providers.dart';
 import '../../services/api_service.dart';
 import '../../utils/constants.dart';
-import '../../widgets/custom_textfield.dart';
-import '../../widgets/add_fee_structure_bottom_sheet.dart';
 import '../../widgets/fee_analytic_card.dart';
 import '../../widgets/record_payment_bottom_sheet.dart';
 import 'student_fee_details_screen.dart';
@@ -21,39 +19,18 @@ class FeesManagementScreen extends ConsumerStatefulWidget {
       _FeesManagementScreenState();
 }
 
-class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen> {
   String _selectedStatus = 'all';
   String _searchQuery = '';
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    // Rebuild FAB whenever the tab index changes
-    _tabController.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
   void _openAction() {
-    if (_tabController.index == 0) {
-      showRecordPaymentBottomSheet(context, ref);
-    } else {
-      showAddFeeStructureBottomSheet(context, ref);
-    }
+    showRecordPaymentBottomSheet(context, ref);
   }
 
   @override
   Widget build(BuildContext context) {
     final feesAsync = ref.watch(feesProvider(_selectedStatus));
     final analyticsAsync = ref.watch(feeAnalyticsProvider);
-    final isPaymentTab = _tabController.index == 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF1F2E27),
@@ -69,7 +46,7 @@ class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen>
                 left: 20.0,
                 right: 20.0,
                 top: 10.0,
-                bottom: 8.0,
+                bottom: 20.0,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,7 +62,7 @@ class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Track payments and fee structures',
+                    'Track student balances and payments',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 13,
@@ -94,19 +71,6 @@ class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen>
                 ],
               ),
             ),
-            TabBar(
-              controller: _tabController,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white60,
-              indicatorColor: const Color(0xFFA87D26),
-              indicatorWeight: 3,
-              dividerColor: Colors.transparent,
-              tabs: const [
-                Tab(text: 'Student Balances'),
-                Tab(text: 'Fee Structures'),
-              ],
-            ),
-            const SizedBox(height: 25.0),
 
             // White Container with fixed parts and scrollable list
             Expanded(
@@ -118,13 +82,7 @@ class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen>
                     topRight: Radius.circular(24),
                   ),
                 ),
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildBalancesTab(feesAsync, analyticsAsync),
-                    _buildFeeStructuresTab(),
-                  ],
-                ),
+                child: _buildBalancesTab(feesAsync, analyticsAsync),
               ),
             ),
           ],
@@ -134,7 +92,7 @@ class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen>
         heroTag: null,
         onPressed: _openAction,
         icon: const Icon(Icons.add),
-        label: Text(isPaymentTab ? 'Record Payment' : 'Add Fee Structure'),
+        label: const Text('Record Payment'),
       ),
     );
   }
@@ -156,7 +114,8 @@ class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen>
                 child: analyticsAsync.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text('Error: $err')),
+                  error: (err, stack) =>
+                      Center(child: Text(friendlyErrorMessage(err))),
                   data: (data) {
                     final totalCollected = data['totalCollected'] ?? 0;
                     final totalCollectedGrowth =
@@ -288,8 +247,9 @@ class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen>
           loading: () => const SliverFillRemaining(
             child: Center(child: CircularProgressIndicator()),
           ),
-          error: (err, stack) =>
-              SliverFillRemaining(child: Center(child: Text('Error: $err'))),
+          error: (err, stack) => SliverFillRemaining(
+            child: Center(child: Text(friendlyErrorMessage(err))),
+          ),
           data: (fees) {
             final filteredFees = fees.where((f) {
               final name = (f['name'] ?? '').toString().toLowerCase();
@@ -299,7 +259,7 @@ class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen>
             if (filteredFees.isEmpty) return _buildEmptyState();
 
             return SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 160),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate((context, index) {
                   return _buildFeeItem(
@@ -507,49 +467,8 @@ class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
       }
     }
-  }
-
-  Widget _buildFeeStructuresTab() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2E6656).withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.receipt_outlined,
-                size: 48,
-                color: Color(0xFF2E6656),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'No Fee Structures Yet',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1F2E27),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Fee structures automatically apply to students in a batch. '
-              'Tap "Add Fee Structure" to create one.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF2E6656), height: 1.5),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

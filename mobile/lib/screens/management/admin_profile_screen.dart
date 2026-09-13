@@ -39,9 +39,17 @@ class AdminProfileScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ProfileInfoCard(
                 rows: [
-                  ProfileInfoRowData(icon: Icons.phone_rounded, label: 'Phone', value: phone),
+                  ProfileInfoRowData(
+                    icon: Icons.phone_rounded,
+                    label: 'Phone',
+                    value: phone,
+                  ),
                   if (email != null && email.isNotEmpty)
-                    ProfileInfoRowData(icon: Icons.email_rounded, label: 'Email', value: email),
+                    ProfileInfoRowData(
+                      icon: Icons.email_rounded,
+                      label: 'Email',
+                      value: email,
+                    ),
                 ],
               ),
             ),

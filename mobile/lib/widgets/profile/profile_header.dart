@@ -47,14 +47,33 @@ class ProfileHeader extends StatelessWidget {
             children: [
               const ProfileAvatar(),
               const SizedBox(height: 14),
-              Text(name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+              Text(
+                name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               if (subtitleLine1 != null && subtitleLine1!.isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text(subtitleLine1!, style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12)),
+                Text(
+                  subtitleLine1!,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.75),
+                    fontSize: 12,
+                  ),
+                ),
               ],
               if (subtitleLine2 != null && subtitleLine2!.isNotEmpty) ...[
                 const SizedBox(height: 2),
-                Text(subtitleLine2!, style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11)),
+                Text(
+                  subtitleLine2!,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 11,
+                  ),
+                ),
               ],
               if (stats.isNotEmpty) ...[
                 const SizedBox(height: 20),
@@ -62,7 +81,12 @@ class ProfileHeader extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     for (var i = 0; i < stats.length; i++) ...[
-                      if (i > 0) Container(width: 1, height: 30, color: Colors.white.withValues(alpha: 0.2)),
+                      if (i > 0)
+                        Container(
+                          width: 1,
+                          height: 30,
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
                       _QuickStat(stat: stats[i]),
                     ],
                   ],
@@ -85,8 +109,21 @@ class _QuickStat extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Text(stat.value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-          Text(stat.label, style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 10)),
+          Text(
+            stat.value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          Text(
+            stat.label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.65),
+              fontSize: 10,
+            ),
+          ),
         ],
       ),
     );

@@ -15,7 +15,7 @@ class Constants {
   /// the resulting server auth code for a refresh token. Must match
   /// GOOGLE_OAUTH_CLIENT_ID in the backend's .env.
   static const String googleOAuthWebClientId =
-      '616148352281-69ektourfds5q3mi1u9042bbpkfgg148.apps.googleusercontent.com';
+      '618925709812-vvv9jm990fqe35cmj0hkhuc3v7e6igmn.apps.googleusercontent.com';
 
   /// The app's single fixed theme color — every institute uses the same UI color.
   static const Color defaultPrimaryColor = Color(0xFF1F2E27);

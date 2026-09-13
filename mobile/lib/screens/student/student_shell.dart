@@ -49,15 +49,34 @@ class _StudentShellState extends State<StudentShell> {
             backgroundColor: Colors.white,
             selectedItemColor: AppColors.primaryDark,
             unselectedItemColor: Colors.grey.shade400,
-            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+            selectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+            ),
             unselectedLabelStyle: const TextStyle(fontSize: 11),
             elevation: 0,
             items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-              BottomNavigationBarItem(icon: Icon(Icons.menu_book_rounded), label: 'Learn'),
-              BottomNavigationBarItem(icon: Icon(Icons.videocam_outlined), activeIcon: Icon(Icons.videocam_rounded), label: 'Live'),
-              BottomNavigationBarItem(icon: Icon(Icons.quiz_rounded), label: 'Tests'),
-              BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_rounded),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.menu_book_rounded),
+                label: 'Learn',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.videocam_outlined),
+                activeIcon: Icon(Icons.videocam_rounded),
+                label: 'Live',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.quiz_rounded),
+                label: 'Tests',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_rounded),
+                label: 'Profile',
+              ),
             ],
           ),
         ),
