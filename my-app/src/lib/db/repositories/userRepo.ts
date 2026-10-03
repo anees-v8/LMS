@@ -32,6 +32,8 @@ export function toPublicUser(u: UserRow | null | undefined): PublicUser | null {
     phone: u.phone,
     email: u.email,
     avatarUrl: u.avatar_url,
+    termsVersion: u.terms_version,
+    termsAcceptedAt: u.terms_accepted_at ? u.terms_accepted_at.toISOString() : null,
   };
 }
 
@@ -41,6 +43,18 @@ export async function updateAvatarUrl(userId: number, avatarUrl: string): Promis
   const { rows } = await query<UserRow>(
     `UPDATE users SET avatar_url = $1 WHERE id = $2 RETURNING *`,
     [avatarUrl, userId]
+  );
+  return toPublicUser(rows[0]);
+}
+
+/** Stamps the given user as having accepted the current terms version.
+ *  The version is always server-authoritative (see auth.service.ts's
+ *  CURRENT_TERMS_VERSION) — never accepted from client input, so a stale
+ *  client can't mark an old version as "current". */
+export async function acceptTerms(userId: number, version: string): Promise<PublicUser | null> {
+  const { rows } = await query<UserRow>(
+    `UPDATE users SET terms_version = $1, terms_accepted_at = now() WHERE id = $2 RETURNING *`,
+    [version, userId]
   );
   return toPublicUser(rows[0]);
 }

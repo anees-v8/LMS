@@ -29,6 +29,8 @@ export interface UserRow {
   avatar_url: string | null;
   is_active: boolean;
   created_at: Date;
+  terms_version: string | null;
+  terms_accepted_at: Date | null;
 }
 
 export interface PublicUser {
@@ -39,6 +41,8 @@ export interface PublicUser {
   phone: string;
   email: string | null;
   avatarUrl: string | null;
+  termsVersion: string | null;
+  termsAcceptedAt: string | null;
 }
 
 export type LeadStatus = 'new' | 'contacted' | 'converted' | 'lost';

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dashboard_screen.dart';
 import '../management/students_screen.dart';
 import '../management/admin_profile_screen.dart';
@@ -14,8 +15,19 @@ import '../settings/subscription_screen.dart';
 import '../settings/browse_plans_screen.dart';
 import '../settings/support_screens.dart';
 import '../../providers/management_providers.dart';
+import '../../utils/constants.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/more_menu_screen.dart';
+
+/// Opens a legal document (Privacy Policy/Terms) in the external browser —
+/// same hosted page shown during login/terms-acceptance, kept in one place
+/// (the Next.js legal pages) rather than duplicating content in-app.
+Future<void> _openLegalUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
 
 /// Bottom-nav home for `coaching_admin`: 4 const Color(0xFF1F2E27) tabs + a "More" tab
 /// holding the less-frequently-used sections (mirrors [SuperAdminShell]'s
@@ -51,49 +63,49 @@ class CoachingAdminShell extends StatelessWidget {
           icon: Icons.more_horiz,
           label: 'More',
           iconWidget: const _MoreIconWithUnreadBadge(),
-          screen: const MoreMenuScreen(
+          screen: MoreMenuScreen(
             items: [
-              MoreMenuItem(
+              const MoreMenuItem(
                 icon: Icons.person,
                 label: 'Profile',
                 destination: AdminProfileScreen(),
               ),
-              MoreMenuItem(
+              const MoreMenuItem(
                 icon: Icons.notifications,
                 label: 'Notifications',
                 destination: AdminNotificationsScreen(),
               ),
-              MoreMenuItem(
+              const MoreMenuItem(
                 icon: Icons.campaign,
                 label: 'Send Announcement',
                 destination: BroadcastStudentsScreen(),
               ),
-              MoreMenuItem(
+              const MoreMenuItem(
                 icon: Icons.badge,
                 label: 'Teachers',
                 destination: TeachersScreen(),
               ),
-              MoreMenuItem(
+              const MoreMenuItem(
                 icon: Icons.class_,
                 label: 'Batches',
                 destination: BatchesScreen(),
               ),
-              MoreMenuItem(
+              const MoreMenuItem(
                 icon: Icons.book,
                 label: 'Subjects',
                 destination: SubjectsScreen(),
               ),
-              MoreMenuItem(
+              const MoreMenuItem(
                 icon: Icons.payment,
                 label: 'Subscription & Billing',
                 destination: SubscriptionScreen(),
               ),
-              MoreMenuItem(
+              const MoreMenuItem(
                 icon: Icons.list_alt,
                 label: 'Browse Plans',
                 destination: BrowsePlansScreen(),
               ),
-              MoreMenuItem(
+              const MoreMenuItem(
                 icon: Icons.help,
                 label: 'Help & FAQs',
                 destination: HelpScreen(),
@@ -101,7 +113,7 @@ class CoachingAdminShell extends StatelessWidget {
               MoreMenuItem(
                 icon: Icons.description,
                 label: 'Terms & Privacy Policy',
-                destination: PrivacyPolicyScreen(),
+                onTap: () => _openLegalUrl(Constants.privacyPolicyUrl),
               ),
             ],
           ),

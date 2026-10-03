@@ -276,11 +276,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     await notifier.hydrateFromCache();
     final ok = await notifier.restoreSession();
     if (!mounted) return;
-    _goTo(
-      ok
-          ? homeScreenForRole(ref.read(authProvider).userRole)
-          : const LoginScreen(),
-    );
+    if (!ok) {
+      _goTo(const LoginScreen());
+      return;
+    }
+    _goTo(homeScreenForRole(ref.read(authProvider).userRole));
   }
 
   void _goTo(Widget screen) {

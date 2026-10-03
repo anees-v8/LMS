@@ -8,6 +8,13 @@ class Constants {
   static const String termsAndConditionsUrl =
       'https://www.campusweb.co.in/legals/terms-conditions';
 
+  /// Must be bumped by hand, in lockstep with the backend's
+  /// CURRENT_TERMS_VERSION (my-app/src/lib/services/auth.service.ts),
+  /// whenever the Privacy Policy/Terms content actually changes. A user
+  /// whose stored acceptance doesn't match this gets prompted to re-accept
+  /// once — not on every login, only when the version actually moves.
+  static const String currentTermsVersion = '2026-09-15';
+
   static const String currencySymbol = '₹';
 
   /// The "Web application" OAuth client ID from Google Cloud Console —

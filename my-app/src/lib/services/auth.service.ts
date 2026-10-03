@@ -10,6 +10,12 @@ export interface TenantInfo {
   slug: string;
 }
 
+/** Bump this whenever the Privacy Policy/Terms content actually changes —
+ *  must be kept in lockstep with mobile's Constants.currentTermsVersion.
+ *  Any user whose stored terms_version doesn't match gets prompted to
+ *  re-accept once, on their next login or session restore. */
+export const CURRENT_TERMS_VERSION = '2026-09-15';
+
 export interface LoginInput {
   phone: string;
   password: string;
@@ -94,4 +100,30 @@ export async function updateAvatar({ userId, avatarUrl }: { userId: number; avat
   const user = await userRepo.updateAvatarUrl(userId, avatarUrl);
   if (!user) throw ApiError.notFound('USER_NOT_FOUND');
   return user;
+}
+
+/** Stamps the current terms/privacy policy version as accepted for the
+ *  caller. Always stamps CURRENT_TERMS_VERSION — never a client-supplied
+ *  value — so a stale app build can't mark an outdated version current. */
+export async function acceptTerms({ userId }: { userId: number }): Promise<PublicUser> {
+  const user = await userRepo.acceptTerms(userId, CURRENT_TERMS_VERSION);
+  if (!user) throw ApiError.notFound('USER_NOT_FOUND');
+  return user;
+}
+
+/**
+ * Unauthenticated pre-login check: does this phone number's account (if any)
+ * still need to accept the current terms? Lets the login form show/hide the
+ * acceptance checkbox as soon as the phone is typed, before the user has
+ * entered a password. Always returns `true` for an unknown phone (a new
+ * account, or a typo) — the checkbox should show rather than silently hide
+ * on a lookup miss, so a first-time user is never blocked from accepting.
+ * Doesn't check is_active/suspension — this is purely about the terms flag,
+ * a suspended user still gets a normal INVALID_CREDENTIALS-shaped rejection
+ * at actual login time.
+ */
+export async function checkTermsStatus({ phone }: { phone: string }): Promise<{ needsAcceptance: boolean }> {
+  const user = await userRepo.findForLogin(phone);
+  if (!user) return { needsAcceptance: true };
+  return { needsAcceptance: user.terms_version !== CURRENT_TERMS_VERSION };
 }

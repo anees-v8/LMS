@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../services/cache_service.dart';
 import '../services/push_notification_service.dart';
+import '../utils/constants.dart';
 
 final authProvider = NotifierProvider<AuthNotifier, AuthState>(
   AuthNotifier.new,
@@ -20,6 +21,7 @@ class AuthState {
   final String? phone;
   final String? instituteName;
   final String? avatarUrl;
+  final bool needsTermsAcceptance;
 
   AuthState({
     this.isLoading = false,
@@ -32,6 +34,7 @@ class AuthState {
     this.phone,
     this.instituteName,
     this.avatarUrl,
+    this.needsTermsAcceptance = false,
   });
 
   AuthState copyWith({
@@ -45,6 +48,7 @@ class AuthState {
     String? phone,
     String? instituteName,
     String? avatarUrl,
+    bool? needsTermsAcceptance,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
@@ -57,6 +61,7 @@ class AuthState {
       phone: phone ?? this.phone,
       instituteName: instituteName ?? this.instituteName,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      needsTermsAcceptance: needsTermsAcceptance ?? this.needsTermsAcceptance,
     );
   }
 }
@@ -88,7 +93,16 @@ class AuthNotifier extends Notifier<AuthState> {
     );
   }
 
-  Future<bool> login(String phone, String password) async {
+  /// [acceptedTerms] is true only when the login screen showed the "accept
+  /// Privacy Policy & Terms" checkbox (i.e. this phone hadn't accepted the
+  /// current version yet) AND the user checked it. When true, the
+  /// acceptance is recorded right after a successful login — same
+  /// button-press, no separate screen or extra step for the user.
+  Future<bool> login(
+    String phone,
+    String password, {
+    bool acceptedTerms = false,
+  }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final response = await _api.post('/auth/login', {
@@ -107,6 +121,10 @@ class AuthNotifier extends Notifier<AuthState> {
       }
 
       await _applyUserAndTenant(response['user'], response['tenant']);
+
+      if (acceptedTerms && state.needsTermsAcceptance) {
+        await acceptTerms();
+      }
 
       // Sync FCM token with backend
       await PushNotificationService().sendTokenToBackend();
@@ -171,12 +189,19 @@ class AuthNotifier extends Notifier<AuthState> {
     String? email;
     String? phone;
     String? avatarUrl;
+    // Derived fresh from the server's response every call (login and
+    // restoreSession both go through here) — never cached locally, since
+    // the DB is the source of truth for whether this user has accepted the
+    // CURRENT version, not the device.
+    bool needsTermsAcceptance = false;
     if (user is Map) {
       userRole = user['role']?.toString();
       fullName = user['fullName']?.toString();
       email = user['email']?.toString();
       phone = user['phone']?.toString();
       avatarUrl = user['avatarUrl']?.toString();
+      needsTermsAcceptance =
+          user['termsVersion']?.toString() != Constants.currentTermsVersion;
       if (userRole != null) await prefs.setString('user_role', userRole);
       if (fullName != null) await prefs.setString('full_name', fullName);
       if (email != null) await prefs.setString('email', email);
@@ -202,7 +227,17 @@ class AuthNotifier extends Notifier<AuthState> {
       avatarUrl: avatarUrl,
       tenantSlug: tenantSlug,
       instituteName: instituteName,
+      needsTermsAcceptance: needsTermsAcceptance,
     );
+  }
+
+  /// Records that the current user has accepted the current Privacy
+  /// Policy/Terms version. The backend stamps its own server-side version
+  /// (never a client-supplied one), so this just needs to succeed and then
+  /// clear the local flag — no data to send.
+  Future<void> acceptTerms() async {
+    await _api.post('/auth/accept-terms', {});
+    state = state.copyWith(needsTermsAcceptance: false);
   }
 
   /// Uploads happen client-side (Cloudinary) first; this just tells the
