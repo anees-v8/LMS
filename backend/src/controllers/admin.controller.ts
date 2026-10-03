@@ -10,6 +10,16 @@ export const dashboard = asyncHandler(async (req: Request, res: Response) => {
   res.json(await svc.dashboard(tenantId(req), month, year));
 });
 
+/* Settings */
+export const getPaymentSettings = asyncHandler(async (req: Request, res: Response) =>
+  res.json(await svc.getPaymentSettings(tenantId(req)))
+);
+
+export const updatePaymentSettings = asyncHandler(async (req: Request, res: Response) => {
+  const { keyId, secret } = req.body;
+  res.json(await svc.updatePaymentSettings(tenantId(req), keyId, secret));
+});
+
 /* Teachers */
 export const listTeachers = asyncHandler(async (req: Request, res: Response) =>
   res.json(await svc.listTeachers(tenantId(req)))

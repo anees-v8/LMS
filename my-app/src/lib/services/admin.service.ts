@@ -63,6 +63,27 @@ export async function createTeacher(
   actorUserId: number,
   { fullName, phone, password, email }: CreateTeacherInput
 ): Promise<TeacherItem> {
+  const planInfo = await query(`
+    SELECT pc.name AS "planName"
+    FROM subscriptions s
+    LEFT JOIN plan_catalog pc ON pc.id = s.plan_catalog_id
+    WHERE s.tenant_id = $1
+  `, [tenantId]);
+  
+  const planName = planInfo.rows[0]?.planName || 'Basic';
+  let allowedTeachers = 1;
+  
+  if (planName === 'Basic') allowedTeachers = 0;
+  else if (planName === 'Pro') allowedTeachers = 3;
+  else if (planName === 'Elite') allowedTeachers = 15;
+
+  const teacherCountRes = await query(`SELECT count(*) FROM users WHERE tenant_id = $1 AND role = 'teacher'`, [tenantId]);
+  const currentTeachers = parseInt(teacherCountRes.rows[0].count, 10);
+
+  if (currentTeachers >= allowedTeachers) {
+    throw ApiError.forbidden('PLAN_LIMIT_REACHED', `Your ${planName} plan only allows up to ${allowedTeachers} teachers.`);
+  }
+
   const hash = await bcrypt.hash(password, 10);
   const user = await withTransaction(async (client) => {
     const userRes = await client.query<{ id: number; fullName: string; phone: string; email: string | null }>(

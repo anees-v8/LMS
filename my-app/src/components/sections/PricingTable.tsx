@@ -41,18 +41,15 @@ interface BackendPlan {
   priceMonthly: number;
   priceQuarterly: number;
   priceYearly: number;
-  flatPriceMonthly: number;
-  flatStudentLimit: number;
   features: string[];
 }
 
-type Cycle = "monthly" | "quarterly" | "yearly" | "flat";
+type Cycle = "monthly" | "quarterly" | "yearly";
 
 const CYCLE_LABELS: Record<Cycle, string> = {
   monthly: "Monthly",
   quarterly: "Quarterly",
   yearly: "Yearly",
-  flat: "Flat Rate",
 };
 
 function priceForCycle(plan: BackendPlan, cycle: Cycle): number {
@@ -63,8 +60,6 @@ function priceForCycle(plan: BackendPlan, cycle: Cycle): number {
       return plan.priceQuarterly;
     case "yearly":
       return plan.priceYearly;
-    case "flat":
-      return plan.flatPriceMonthly;
   }
 }
 
@@ -186,8 +181,7 @@ export default function PricingTable() {
                   const isPopular = plan.name.toLowerCase() === "pro";
                   const Icon = planIcons[i % planIcons.length];
                   const price = priceForCycle(plan, cycle);
-                  const priceSuffix =
-                    cycle === "flat" ? "/ month" : "/ student / month";
+                  const priceSuffix = "/ student / month";
 
                   return (
                     <motion.div
@@ -270,9 +264,7 @@ export default function PricingTable() {
                             isPopular ? "text-white/40" : "text-ink-green/40"
                           )}
                         >
-                          {cycle === "flat"
-                            ? `Up to ${plan.flatStudentLimit} students`
-                            : `Billed ${cycle}`}
+                          {`Billed ${cycle}`}
                         </p>
                       </div>
 

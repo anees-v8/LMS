@@ -23,7 +23,6 @@ export async function POST(req: NextRequest) {
   try {
     const user = requireAuth(req, 'coaching_admin');
     const tenantId = requireTenantId(user);
-    await requireFeature(tenantId, 'teacher_accounts');
     const body = validateBody(createTeacherSchema, await req.json());
     const result = await svc.createTeacher(tenantId, user.userId, body);
     return NextResponse.json(result, { status: 201 });

@@ -42,6 +42,8 @@ router.post('/tests/:testId/submit', validate(testIdParamSchema, 'params'), vali
 
 /* ── Fees ───────────────────────────────────────────────────────────────── */
 router.get('/fees', ctrl.fees);
+router.post('/fees/create-order', ctrl.createFeeOrder);
+router.post('/fees/verify', ctrl.verifyFeePayment);
 router.get('/fees/receipt/:paymentId', validate(paymentIdParamSchema, 'params'), ctrl.receipt);
 
 /* ── Profile Analytics ──────────────────────────────────────────────────── */

@@ -198,3 +198,66 @@ export async function verifyPayment(
   return { status: rows[0].status, nextBillingDate: rows[0].nextBillingDate };
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Tenant (Institute) BYOG (Bring Your Own Gateway) Payment Logic
+ * Used when a Student pays their Fee to the Institute.
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+async function getTenantRazorpayKeys(tenantId: number) {
+  const { rows } = await query(
+    `SELECT razorpay_key_id AS key_id, razorpay_secret AS secret FROM tenants WHERE id = $1`,
+    [tenantId]
+  );
+  const keys = rows[0];
+  if (!keys || !keys.key_id || !keys.secret) {
+    throw ApiError.badRequest('PAYMENT_NOT_CONFIGURED', 'Institute has not configured online payments.');
+  }
+  return keys;
+}
+
+export async function createFeeOrder(tenantId: number, studentId: number, amountRupees: number) {
+  const keys = await getTenantRazorpayKeys(tenantId);
+  const rzp = new Razorpay({ key_id: keys.key_id, key_secret: keys.secret });
+  
+  const amountPaise = Math.round(amountRupees * 100);
+  
+  const order = await rzp.orders.create({
+    amount: amountPaise,
+    currency: 'INR',
+    receipt: `fee_${studentId}_${Date.now()}`,
+    notes: { tenantId: String(tenantId), studentId: String(studentId) },
+  });
+
+  return {
+    orderId: order.id,
+    amount: Number(order.amount),
+    amountRupees,
+    currency: order.currency,
+    keyId: keys.key_id,
+  };
+}
+
+export async function verifyFeePayment(
+  tenantId: number,
+  studentId: number,
+  { orderId, paymentId, signature }: VerifyPaymentInput,
+  amountPaid: number,
+  feeStructureId?: number
+) {
+  const keys = await getTenantRazorpayKeys(tenantId);
+  
+  const expected = crypto
+    .createHmac('sha256', keys.secret)
+    .update(`${orderId}|${paymentId}`)
+    .digest('hex');
+    
+  if (expected !== signature) {
+    throw ApiError.badRequest('INVALID_SIGNATURE', 'Payment signature verification failed');
+  }
+
+  // If valid, record the payment directly into the database
+  // We'll import recordPayment from admin.service in the controller or do it directly here.
+  // Returning success so the controller can handle the db insert.
+  return { success: true, paymentId, amountPaid, feeStructureId };
+}
+

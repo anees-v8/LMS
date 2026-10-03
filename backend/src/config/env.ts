@@ -109,6 +109,10 @@ export interface AppEnv {
     apiKey?: string;
     apiSecret?: string;
   };
+  whatsapp: {
+    token: string;
+    phoneId: string;
+  };
 }
 
 const nodeEnv = optional('NODE_ENV', 'development');
@@ -164,6 +168,11 @@ export const env: AppEnv = {
     get enabled(): boolean {
       return Boolean(this.projectId && this.clientEmail && this.privateKey);
     },
+  },
+
+  whatsapp: {
+    token: optional('WHATSAPP_TOKEN', ''),
+    phoneId: optional('WHATSAPP_PHONE_ID', ''),
   },
 
   googleOAuth: {

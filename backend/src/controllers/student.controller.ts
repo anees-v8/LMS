@@ -1,6 +1,8 @@
 import type { Request, Response } from 'express';
 import * as svc from '../services/student.service.js';
 import * as notificationCenter from '../services/notificationCenter.service.js';
+import * as rzpSvc from '../services/razorpay.service.js';
+import * as adminSvc from '../services/admin.service.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
 import { tenantId, userId } from './helpers.js';
@@ -30,6 +32,31 @@ export const upcomingLive = asyncHandler(async (req: Request, res: Response) =>
 export const fees = asyncHandler(async (req: Request, res: Response) =>
   res.json(await svc.fees(tenantId(req), userId(req)))
 );
+
+export const createFeeOrder = asyncHandler(async (req: Request, res: Response) => {
+  const { amount } = req.body;
+  if (!amount || amount <= 0) throw ApiError.badRequest('INVALID_AMOUNT', 'Invalid fee amount');
+  const student = await svc.getProfile(tenantId(req), userId(req));
+  res.json(await rzpSvc.createFeeOrder(tenantId(req), student.studentId, amount));
+});
+
+export const verifyFeePayment = asyncHandler(async (req: Request, res: Response) => {
+  const { orderId, paymentId, signature, amount, feeStructureId } = req.body;
+  const student = await svc.getProfile(tenantId(req), userId(req));
+  
+  // Verify signature
+  await rzpSvc.verifyFeePayment(tenantId(req), student.studentId, { orderId, paymentId, signature }, amount, feeStructureId);
+  
+  // Record payment in database
+  const result = await adminSvc.recordPayment(tenantId(req), userId(req), {
+    studentId: student.studentId,
+    feeStructureId: feeStructureId || undefined,
+    amountPaid: amount,
+    method: 'upi'
+  });
+  
+  res.json(result);
+});
 
 export const receipt = asyncHandler(async (req: Request, res: Response) =>
   res.json(await svc.receipt(tenantId(req), userId(req), Number(req.params.paymentId)))

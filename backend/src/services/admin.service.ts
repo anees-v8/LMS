@@ -25,6 +25,26 @@ export async function dashboard(tenantId: number, month?: number, year?: number)
   };
 }
 
+/* ─────────────── Settings (Razorpay BYOG) ─────────────── */
+export async function getPaymentSettings(tenantId: number) {
+  const { rows } = await query(
+    `SELECT razorpay_key_id AS "keyId",
+            CASE WHEN razorpay_secret IS NOT NULL THEN '********' ELSE NULL END AS "secretPlaceholder"
+       FROM tenants WHERE id = $1`,
+    [tenantId]
+  );
+  if (!rows[0]) throw ApiError.notFound('TENANT_NOT_FOUND');
+  return { keyId: rows[0].keyId, configured: !!rows[0].keyId };
+}
+
+export async function updatePaymentSettings(tenantId: number, keyId: string, secret: string) {
+  await query(
+    `UPDATE tenants SET razorpay_key_id = $1, razorpay_secret = $2 WHERE id = $3`,
+    [keyId, secret, tenantId]
+  );
+  return { success: true };
+}
+
 /* ─────────────── Teachers ─────────────── */
 export interface TeacherItem {
   id: number;
@@ -60,6 +80,28 @@ export async function createTeacher(
   actorUserId: number,
   { fullName, phone, password, email }: CreateTeacherInput
 ): Promise<TeacherItem> {
+  // Check Teacher Plan Limits
+  const planInfo = await query(`
+    SELECT pc.name AS "planName"
+    FROM subscriptions s
+    LEFT JOIN plan_catalog pc ON pc.id = s.plan_catalog_id
+    WHERE s.tenant_id = $1
+  `, [tenantId]);
+  
+  const planName = planInfo.rows[0]?.planName || 'Basic';
+  let allowedTeachers = 1; // Basic plan limit is 1 (actually admin is 1, so 0 extra, but let's say 0 extra teachers)
+  
+  if (planName === 'Basic') allowedTeachers = 0;
+  else if (planName === 'Pro') allowedTeachers = 3;
+  else if (planName === 'Elite') allowedTeachers = 15;
+
+  const teacherCountRes = await query(`SELECT count(*) FROM users WHERE tenant_id = $1 AND role = 'teacher'`, [tenantId]);
+  const currentTeachers = parseInt(teacherCountRes.rows[0].count, 10);
+
+  if (currentTeachers >= allowedTeachers) {
+    throw ApiError.forbidden('PLAN_LIMIT_REACHED', `Your ${planName} plan only allows up to ${allowedTeachers} teachers.`);
+  }
+
   const hash = await bcrypt.hash(password, 10);
   const user = await withTransaction(async (client) => {
     const userRes = await client.query<{ id: number; fullName: string; phone: string; email: string | null }>(

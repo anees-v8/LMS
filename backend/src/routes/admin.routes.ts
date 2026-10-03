@@ -36,6 +36,7 @@ router.get('/fees/analytics', ctrl.feeAnalytics);
 router.get('/notifications', ctrl.listNotifications);
 router.get('/notifications/unread-count', ctrl.unreadNotificationCount);
 router.patch('/notifications/:id/read', validate(idParamSchema, 'params'), ctrl.markNotificationRead);
+router.get('/settings/payment', ctrl.getPaymentSettings);
 
 // Performance reports — Pro & Elite only
 router.get('/reports/performance', featureGuard('performance_reports'), ctrl.performance);
@@ -50,11 +51,12 @@ router.post(
 
 // ── Writes (blocked by subscriptionGuard when trial expired / past_due) ───────
 
-// Teacher accounts — Elite only (max 3 allowed in plan)
+router.put('/settings/payment', subscriptionGuard, ctrl.updatePaymentSettings);
+
+// Teacher accounts — Limit handled in service based on Plan Name
 router.post(
   '/teachers',
   subscriptionGuard,
-  featureGuard('teacher_accounts'),
   validate(createTeacherSchema),
   ctrl.createTeacher
 );
