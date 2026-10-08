@@ -13,12 +13,14 @@ import '../../services/api_service.dart';
 class TeacherQrAttendanceScreen extends ConsumerStatefulWidget {
   final int batchId;
   final String batchName;
+  final int subjectId;
   final int? batchScheduleId;
 
   const TeacherQrAttendanceScreen({
     super.key,
     required this.batchId,
     required this.batchName,
+    required this.subjectId,
     this.batchScheduleId,
   });
 
@@ -59,6 +61,7 @@ class _TeacherQrAttendanceScreenState
       final result = await createQrAttendanceSession(
         api,
         batchId: widget.batchId,
+        subjectId: widget.subjectId,
         batchScheduleId: widget.batchScheduleId,
         validForMinutes: _selectedMinutes,
       );

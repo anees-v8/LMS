@@ -8,6 +8,7 @@ class CustomTextField extends StatefulWidget {
   final IconData? prefixIcon;
   final TextInputType? keyboardType;
   final ValueChanged<String>? onChanged;
+  final bool enabled;
 
   const CustomTextField({
     super.key,
@@ -18,6 +19,7 @@ class CustomTextField extends StatefulWidget {
     this.prefixIcon,
     this.keyboardType,
     this.onChanged,
+    this.enabled = true,
   });
 
   @override
@@ -52,6 +54,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
           obscureText: _obscureText,
           keyboardType: widget.keyboardType,
           onChanged: widget.onChanged,
+          enabled: widget.enabled,
           decoration: InputDecoration(
             hintText: widget.hint,
             hintStyle: TextStyle(

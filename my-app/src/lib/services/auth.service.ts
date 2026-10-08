@@ -3,6 +3,7 @@ import * as userRepo from '../db/repositories/userRepo';
 import * as tenantRepo from '../db/repositories/tenantRepo';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import ApiError from '../utils/ApiError';
+import * as otpService from './otp.service';
 import type { PublicUser } from '../db/rows';
 
 export interface TenantInfo {
@@ -78,6 +79,11 @@ export async function refresh({ refreshToken }: { refreshToken: string }): Promi
   const user = await userRepo.findById(payload.sub);
   if (!user || !user.is_active) throw ApiError.unauthorized('INVALID_REFRESH', 'User no longer active');
 
+  if (user.tenant_id) {
+    const tenant = await tenantRepo.findById(user.tenant_id);
+    if (!tenant || !tenant.is_active) throw ApiError.forbidden('TENANT_SUSPENDED', 'This institute is suspended');
+  }
+
   const accessToken = signAccessToken({
     userId: user.id,
     tenantId: user.tenant_id,
@@ -90,7 +96,9 @@ export async function refresh({ refreshToken }: { refreshToken: string }): Promi
 export async function me({ userId }: { userId: number }): Promise<{ user: PublicUser | null; tenant: TenantInfo | null }> {
   const user = await userRepo.findById(userId);
   if (!user) throw ApiError.unauthorized('USER_NOT_FOUND');
+  if (!user.is_active) throw ApiError.forbidden('USER_SUSPENDED', 'Your ID has been suspended. Please contact your institute.');
   const tenant = user.tenant_id ? await tenantRepo.findById(user.tenant_id) : null;
+  if (user.tenant_id && (!tenant || !tenant.is_active)) throw ApiError.forbidden('TENANT_SUSPENDED', 'This institute is suspended');
   return { user: userRepo.toPublicUser(user), tenant: tenant ? { name: tenant.name, slug: tenant.slug } : null };
 }
 
@@ -126,4 +134,117 @@ export async function checkTermsStatus({ phone }: { phone: string }): Promise<{ 
   const user = await userRepo.findForLogin(phone);
   if (!user) return { needsAcceptance: true };
   return { needsAcceptance: user.terms_version !== CURRENT_TERMS_VERSION };
+}
+
+/**
+ * Sends a password-reset OTP to the account's email on file. Doesn't
+ * reveal whether the phone matched an account, or whether that account has
+ * an email — both cases return the same generic success response, so an
+ * attacker probing phone numbers can't use this to enumerate accounts.
+ * An account with no email simply never receives anything; the mobile UI
+ * tells the user to add an email from their profile first regardless.
+ */
+export async function forgotPassword({ phone }: { phone: string }): Promise<void> {
+  const user = await userRepo.findForLogin(phone);
+  if (!user || !user.is_active || !user.email) return;
+
+  await otpService.requestOtp({
+    userId: user.id,
+    purpose: 'password_reset',
+    target: user.email,
+    purposeLabel: 'Reset your Campus password',
+  });
+}
+
+/** Verifies the OTP sent by forgotPassword and sets the new password. */
+export async function resetPassword({
+  phone,
+  otp,
+  newPassword,
+}: {
+  phone: string;
+  otp: string;
+  newPassword: string;
+}): Promise<void> {
+  const user = await userRepo.findForLogin(phone);
+  if (!user || !user.is_active || !user.email) throw ApiError.badRequest('OTP_INVALID', 'Invalid or expired code.');
+
+  await otpService.verifyOtp({ userId: user.id, purpose: 'password_reset', target: user.email, code: otp });
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await userRepo.setPasswordHash(user.id, hash);
+}
+
+/**
+ * Step 1 of adding/changing a logged-in user's email: sends an OTP to the
+ * NEW address (not the old one) — the new email must be proven reachable
+ * before it's saved, so account-recovery can never be silently redirected
+ * to an address the user doesn't actually control.
+ */
+export async function requestEmailChange({ userId, newEmail }: { userId: number; newEmail: string }): Promise<void> {
+  const existing = await userRepo.findByEmail(newEmail);
+  if (existing && existing.id !== userId) throw ApiError.conflict('EMAIL_TAKEN', 'This email is already in use by another account.');
+
+  await otpService.requestOtp({
+    userId,
+    purpose: 'email_change',
+    target: newEmail,
+    purposeLabel: 'Confirm your new Campus email',
+  });
+}
+
+/** Step 2: verifies the OTP sent to the new email and saves it. */
+export async function confirmEmailChange({
+  userId,
+  newEmail,
+  otp,
+}: {
+  userId: number;
+  newEmail: string;
+  otp: string;
+}): Promise<PublicUser> {
+  await otpService.verifyOtp({ userId, purpose: 'email_change', target: newEmail, code: otp });
+
+  const user = await userRepo.setEmail(userId, newEmail);
+  if (!user) throw ApiError.notFound('USER_NOT_FOUND');
+  return user;
+}
+
+/**
+ * Step 1 of a logged-in password change: sends an OTP to the email already
+ * on file (not a client-supplied address) — proves the request really
+ * came from the account owner, same as forgotPassword but while
+ * authenticated. Requires an email on file; there is no fallback channel
+ * yet (WhatsApp OTP is planned).
+ */
+export async function requestPasswordChange({ userId }: { userId: number }): Promise<void> {
+  const user = await userRepo.findById(userId);
+  if (!user) throw ApiError.notFound('USER_NOT_FOUND');
+  if (!user.email) throw ApiError.badRequest('NO_EMAIL_ON_FILE', 'Add an email to your profile first.');
+
+  await otpService.requestOtp({
+    userId,
+    purpose: 'password_change',
+    target: user.email,
+    purposeLabel: 'Confirm your Campus password change',
+  });
+}
+
+/** Step 2: verifies the OTP and sets the new password. */
+export async function confirmPasswordChange({
+  userId,
+  otp,
+  newPassword,
+}: {
+  userId: number;
+  otp: string;
+  newPassword: string;
+}): Promise<void> {
+  const user = await userRepo.findById(userId);
+  if (!user || !user.email) throw ApiError.badRequest('OTP_INVALID', 'Invalid or expired code.');
+
+  await otpService.verifyOtp({ userId, purpose: 'password_change', target: user.email, code: otp });
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await userRepo.setPasswordHash(userId, hash);
 }

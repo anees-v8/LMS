@@ -13,12 +13,14 @@ import 'teacher_qr_attendance_screen.dart';
 class TeacherAttendanceScreen extends ConsumerStatefulWidget {
   final int batchId;
   final String batchName;
+  final int subjectId;
   final int? batchScheduleId;
 
   const TeacherAttendanceScreen({
     super.key,
     required this.batchId,
     required this.batchName,
+    required this.subjectId,
     this.batchScheduleId,
   });
 
@@ -48,6 +50,7 @@ class _TeacherAttendanceScreenState
           attendanceBatchStudentsProvider((
             batchId: widget.batchId,
             date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+            subjectId: widget.subjectId,
           )),
         );
       }
@@ -87,6 +90,7 @@ class _TeacherAttendanceScreenState
     final api = ref.read(apiServiceProvider);
     await api.post('/teacher/attendance', {
       'batchId': widget.batchId,
+      'subjectId': widget.subjectId,
       if (widget.batchScheduleId != null)
         'batchScheduleId': widget.batchScheduleId,
       'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
@@ -134,6 +138,7 @@ class _TeacherAttendanceScreenState
         attendanceBatchStudentsProvider((
           batchId: widget.batchId,
           date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          subjectId: widget.subjectId,
         )),
       );
       await Future.delayed(const Duration(milliseconds: 900));
@@ -148,6 +153,7 @@ class _TeacherAttendanceScreenState
       attendanceBatchStudentsProvider((
         batchId: widget.batchId,
         date: todayStrAPI,
+        subjectId: widget.subjectId,
       )),
     );
     final todayStr = DateFormat('dd MMM yyyy').format(DateTime.now());
@@ -171,6 +177,7 @@ class _TeacherAttendanceScreenState
                 builder: (_) => TeacherQrAttendanceScreen(
                   batchId: widget.batchId,
                   batchName: widget.batchName,
+                  subjectId: widget.subjectId,
                   batchScheduleId: widget.batchScheduleId,
                 ),
               ),
@@ -248,6 +255,7 @@ class _TeacherAttendanceScreenState
                         attendanceBatchStudentsProvider((
                           batchId: widget.batchId,
                           date: todayStrAPI,
+                          subjectId: widget.subjectId,
                         )),
                       ),
                       child: ListView.separated(

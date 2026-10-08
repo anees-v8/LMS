@@ -77,12 +77,6 @@ export const updateBatchSchema = z
 export const createSubjectSchema = z
   .object({
     name: z.string().trim().min(1).max(80),
-    // Planned total, not a live count of chapters actually created yet.
-    // No zod-level default: this schema is reused for PUT /subjects/:id too,
-    // and a default here would silently zero out totalChapters on any
-    // update that doesn't touch it. createSubject()/updateSubject() each
-    // apply their own default (0 on create, "leave unchanged" on update).
-    totalChapters: z.coerce.number().int().nonnegative().optional(),
   })
   .strict();
 

@@ -951,15 +951,20 @@ export async function deleteBatch(tenantId: number, id: number, actorUserId: num
 }
 
 /* ─────────────── Subjects ─────────────── */
+export interface SubjectChapter {
+  id: number;
+  name: string;
+}
+
 export interface SubjectItem {
   id: number;
   name: string;
-  totalChapters: number;
+  chapters: SubjectChapter[];
 }
 
 export async function listSubjects(tenantId: number): Promise<SubjectItem[]> {
   const { rows } = await query<SubjectItem>(
-    `SELECT id, name, total_chapters AS "totalChapters" FROM subjects WHERE tenant_id=$1 ORDER BY name`,
+    `SELECT id, name, chapters FROM subjects WHERE tenant_id=$1 AND is_active = true ORDER BY name`,
     [tenantId]
   );
   return rows;
@@ -967,12 +972,12 @@ export async function listSubjects(tenantId: number): Promise<SubjectItem[]> {
 
 export async function createSubject(
   tenantId: number,
-  { name, totalChapters }: { name: string; totalChapters?: number }
+  { name }: { name: string }
 ): Promise<SubjectItem> {
   const { rows } = await query<SubjectItem>(
-    `INSERT INTO subjects (tenant_id, name, total_chapters) VALUES ($1,$2,$3)
-     RETURNING id, name, total_chapters AS "totalChapters"`,
-    [tenantId, name, totalChapters ?? 0]
+    `INSERT INTO subjects (tenant_id, name) VALUES ($1,$2)
+     RETURNING id, name, chapters`,
+    [tenantId, name]
   );
   return rows[0];
 }
@@ -980,24 +985,57 @@ export async function createSubject(
 export async function updateSubject(
   tenantId: number,
   subjectId: number,
-  { name, totalChapters }: { name: string; totalChapters?: number }
+  { name }: { name: string }
 ): Promise<SubjectItem> {
   const { rows } = await query<SubjectItem>(
-    `UPDATE subjects SET name = $1, total_chapters = COALESCE($2, total_chapters)
-      WHERE id = $3 AND tenant_id = $4
-      RETURNING id, name, total_chapters AS "totalChapters"`,
-    [name, totalChapters ?? null, subjectId, tenantId]
+    `UPDATE subjects SET name = $1
+      WHERE id = $2 AND tenant_id = $3 AND is_active = true
+      RETURNING id, name, chapters`,
+    [name, subjectId, tenantId]
   );
-  if (rows.length === 0) throw new Error('Subject not found or unauthorized');
+  if (rows.length === 0) throw ApiError.notFound('SUBJECT_NOT_FOUND');
   return rows[0];
 }
 
-export async function deleteSubject(tenantId: number, subjectId: number): Promise<void> {
-  const { rowCount } = await query(
-    `DELETE FROM subjects WHERE id = $1 AND tenant_id = $2`,
+/**
+ * Removes/renames a subject with the same soft-delete-if-has-dependents
+ * pattern deleteStudent/deleteTeacher/deleteBatch already use — subjects
+ * used to be the one entity that hard-deleted unconditionally, silently
+ * cascading away content attached via a chapter and raw-erroring on
+ * content/tests attached directly. Checks every real reference: content,
+ * tests, batch_schedule, teacher_assignments, and batches.subject_ids
+ * (a plain INT[] with no FK, so it needs its own manual check).
+ */
+export async function deleteSubject(tenantId: number, subjectId: number, actorUserId: number): Promise<{ softDeleted: boolean }> {
+  const { rowCount: exists } = await query(`SELECT 1 FROM subjects WHERE id=$1 AND tenant_id=$2`, [subjectId, tenantId]);
+  if (!exists) throw ApiError.notFound('SUBJECT_NOT_FOUND');
+
+  const { rows: depRows } = await query<{ has_dependents: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM content c
+        WHERE c.tenant_id = $2
+          AND EXISTS (
+            SELECT 1 FROM subjects s, jsonb_array_elements(s.chapters) ch
+             WHERE s.id = $1 AND (ch->>'id')::int = c.chapter_id
+          )
+       UNION ALL SELECT 1 FROM tests WHERE subject_id=$1
+       UNION ALL SELECT 1 FROM batch_schedule WHERE subject_id=$1
+       UNION ALL SELECT 1 FROM teacher_assignments WHERE subject_id=$1
+       UNION ALL SELECT 1 FROM batches WHERE $1 = ANY(subject_ids)
+     ) AS has_dependents`,
     [subjectId, tenantId]
   );
-  if (rowCount === 0) throw new Error('Subject not found or unauthorized');
+  const hasDependents = depRows[0]?.has_dependents ?? false;
+
+  if (!hasDependents) {
+    await query(`DELETE FROM subjects WHERE id=$1 AND tenant_id=$2`, [subjectId, tenantId]);
+    await writeAudit({ tenantId, actorUserId, action: 'subject_deleted', entity: 'subject', entityId: subjectId });
+    return { softDeleted: false };
+  }
+
+  await query(`UPDATE subjects SET is_active=false WHERE id=$1 AND tenant_id=$2`, [subjectId, tenantId]);
+  await writeAudit({ tenantId, actorUserId, action: 'subject_deactivated', entity: 'subject', entityId: subjectId });
+  return { softDeleted: true };
 }
 
 /* ─────────────── Batch Schedule (weekly recurring template) ─────────────── */
@@ -1069,6 +1107,20 @@ export async function setBatchSchedule(
     for (const e of entries) {
       if (!batchSubjectIds.has(e.subjectId)) {
         throw ApiError.badRequest('INVALID_SUBJECT', 'Subject is not part of this batch');
+      }
+    }
+
+    // A batch itself can't have two subjects scheduled at an overlapping
+    // day/time — students would be double-booked, and (since attendance is
+    // keyed per subject, see migration 0034) nothing else would catch this.
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        if (slotsOverlap(entries[i], entries[j])) {
+          throw ApiError.conflict(
+            'SCHEDULE_CLASH',
+            `Two entries overlap on day ${entries[i].dayOfWeek} (${entries[i].startTime}-${entries[i].endTime} and ${entries[j].startTime}-${entries[j].endTime})`
+          );
+        }
       }
     }
 
@@ -1421,12 +1473,40 @@ export async function recordPayment(
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const receiptNo = generateReceiptNo(tenantId);
     try {
-      const { rows } = await query(
-        `INSERT INTO fee_payments (tenant_id, student_id, fee_due_id, amount_paid, method, receipt_no)
-         VALUES ($1,$2,$3,$4,$5,$6)
-         RETURNING id, amount_paid AS "amountPaid", method, receipt_no AS "receiptNo", paid_on AS "paidOn"`,
-        [tenantId, studentId, feeDueId || null, amountPaid, method || 'cash', receiptNo]
-      );
+      const rows = await withTransaction(async (client) => {
+        if (feeDueId != null) {
+          // Lock the due row for the duration of this transaction so two
+          // concurrent payments against the same due can't both read a
+          // stale "pending" balance and both insert — the second one
+          // re-reads the up-to-date paid total once the first commits.
+          const due = await client.query<{ amount: number; paid: number }>(
+            `SELECT fd.amount,
+                    COALESCE((SELECT SUM(fp.amount_paid) FROM fee_payments fp WHERE fp.fee_due_id = fd.id), 0) AS paid
+               FROM fee_dues fd
+              WHERE fd.id = $1 AND fd.tenant_id = $2 AND fd.student_id = $3
+              FOR UPDATE`,
+            [feeDueId, tenantId, studentId]
+          );
+          if (!due.rowCount) throw ApiError.badRequest('INVALID_FEE_DUE', 'Fee due not found for this student');
+
+          const remaining = due.rows[0].amount - Number(due.rows[0].paid);
+          if (amountPaid > remaining) {
+            throw ApiError.badRequest(
+              'AMOUNT_EXCEEDS_DUE',
+              `Amount (₹${amountPaid}) exceeds the remaining balance (₹${remaining}) on this fee due`
+            );
+          }
+        }
+
+        const { rows } = await client.query(
+          `INSERT INTO fee_payments (tenant_id, student_id, fee_due_id, amount_paid, method, receipt_no)
+           VALUES ($1,$2,$3,$4,$5,$6)
+           RETURNING id, amount_paid AS "amountPaid", method, receipt_no AS "receiptNo", paid_on AS "paidOn"`,
+          [tenantId, studentId, feeDueId || null, amountPaid, method || 'cash', receiptNo]
+        );
+        return rows;
+      });
+
       await writeAudit({
         tenantId,
         actorUserId,

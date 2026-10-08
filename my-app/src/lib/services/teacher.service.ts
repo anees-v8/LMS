@@ -64,6 +64,7 @@ export interface ScheduleClass {
   batchScheduleId: number;
   batch: string;
   subject: string | null;
+  subjectId: number;
   startTime: string;
   endTime: string;
   batchId: number;
@@ -76,7 +77,7 @@ export async function todaySchedule(
   const dow = istDayOfWeek();
   const today = istDateString();
   const { rows } = await query<ScheduleClass>(
-    `SELECT bs.id AS "batchScheduleId", b.name AS batch, sub.name AS subject,
+    `SELECT bs.id AS "batchScheduleId", b.name AS batch, sub.name AS subject, bs.subject_id AS "subjectId",
             bs.start_time AS "startTime", bs.end_time AS "endTime",
             bs.batch_id AS "batchId",
             EXISTS(
@@ -125,20 +126,24 @@ export interface BatchStudent {
   rollNo: string | null;
 }
 
-export async function batchStudents(tenantId: number, batchId: number, date?: string): Promise<any[]> {
+export async function batchStudents(tenantId: number, batchId: number, date?: string, subjectId?: number): Promise<any[]> {
   const b = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
   if (!b.rowCount) throw ApiError.notFound('BATCH_NOT_FOUND');
 
   if (date) {
+    // subjectId narrows to one subject's attendance row for that date —
+    // without it, a batch with 2+ subjects attended the same day would
+    // LEFT JOIN multiple attendance rows per student, duplicating rows.
     const { rows } = await query(
       `SELECT s.id AS "studentId", u.full_name AS name, s.roll_no AS "rollNo", a.status
          FROM batch_enrollments be
          JOIN students s ON s.id = be.student_id
          JOIN users u ON u.id = s.user_id
          LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $3 AND a.batch_id = $2
+                                AND ($4::int IS NULL OR a.subject_id = $4)
         WHERE be.tenant_id=$1 AND be.batch_id=$2
         ORDER BY u.full_name`,
-      [tenantId, batchId, date]
+      [tenantId, batchId, date, subjectId ?? null]
     );
     return rows;
   } else {
@@ -164,6 +169,7 @@ export interface AttendanceRecord {
 
 export interface MarkAttendanceInput {
   batchId: number;
+  subjectId: number;
   batchScheduleId?: number;
   date: string;
   records: AttendanceRecord[];
@@ -182,10 +188,19 @@ export interface AbsentReminder {
 export async function markAttendance(
   tenantId: number,
   teacherId: number,
-  { batchId, batchScheduleId, date, records }: MarkAttendanceInput
+  { batchId, subjectId, batchScheduleId, date, records }: MarkAttendanceInput
 ): Promise<{ saved: number; absentReminders: AbsentReminder[] }> {
   const b = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
   if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH');
+
+  // Only a teacher actually assigned to teach this subject in this batch
+  // may mark its attendance — previously any teacher in the tenant could
+  // mark attendance for any batch.
+  const assigned = await query(
+    `SELECT 1 FROM teacher_assignments WHERE tenant_id=$1 AND teacher_user_id=$2 AND batch_id=$3 AND subject_id=$4`,
+    [tenantId, teacherId, batchId, subjectId]
+  );
+  if (!assigned.rowCount) throw ApiError.forbidden('NOT_ASSIGNED', 'You are not assigned to teach this subject in this batch.');
 
   const instituteRow = await query<{ name: string }>(`SELECT name FROM tenants WHERE id=$1`, [tenantId]);
   const instituteName = instituteRow.rows[0]?.name || '';
@@ -195,11 +210,11 @@ export async function markAttendance(
   await withTransaction(async (client) => {
     for (const r of records) {
       await client.query(
-        `INSERT INTO attendance (tenant_id, batch_schedule_id, batch_id, student_id, date, status, marked_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)
-         ON CONFLICT (student_id, date, batch_id)
+        `INSERT INTO attendance (tenant_id, batch_schedule_id, batch_id, subject_id, student_id, date, status, marked_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         ON CONFLICT (student_id, date, batch_id, subject_id)
          DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, batch_schedule_id = EXCLUDED.batch_schedule_id`,
-        [tenantId, batchScheduleId || null, batchId, r.studentId, date, r.status, teacherId]
+        [tenantId, batchScheduleId || null, batchId, subjectId, r.studentId, date, r.status, teacherId]
       );
 
       if (r.status === 'absent') {
@@ -228,6 +243,7 @@ export async function markAttendance(
 
 export interface QrSessionInput {
   batchId: number;
+  subjectId: number;
   batchScheduleId?: number;
   validForMinutes: number;
 }
@@ -243,7 +259,7 @@ export interface QrSession {
 export async function createQrAttendanceSession(
   tenantId: number,
   teacherId: number,
-  { batchId, batchScheduleId, validForMinutes }: QrSessionInput
+  { batchId, subjectId, batchScheduleId, validForMinutes }: QrSessionInput
 ): Promise<QrSession> {
   const b = await query<{ name: string }>(`SELECT name FROM batches WHERE id=$1 AND tenant_id=$2`, [
     batchId,
@@ -251,15 +267,23 @@ export async function createQrAttendanceSession(
   ]);
   if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH');
 
+  // Only a teacher actually assigned to teach this subject in this batch
+  // may open a QR attendance session for it.
+  const assigned = await query(
+    `SELECT 1 FROM teacher_assignments WHERE tenant_id=$1 AND teacher_user_id=$2 AND batch_id=$3 AND subject_id=$4`,
+    [tenantId, teacherId, batchId, subjectId]
+  );
+  if (!assigned.rowCount) throw ApiError.forbidden('NOT_ASSIGNED', 'You are not assigned to teach this subject in this batch.');
+
   // 24 random bytes -> 48 hex chars: unguessable, short enough for a
   // reliable QR scan (a JSON payload would just make the code denser).
   const token = randomBytes(24).toString('hex');
 
   const { rows } = await query<QrSession>(
-    `INSERT INTO attendance_sessions (tenant_id, batch_id, batch_schedule_id, created_by, token, date, expires_at)
-     VALUES ($1,$2,$3,$4,$5, CURRENT_DATE, now() + ($6 || ' minutes')::interval)
+    `INSERT INTO attendance_sessions (tenant_id, batch_id, subject_id, batch_schedule_id, created_by, token, date, expires_at)
+     VALUES ($1,$2,$3,$4,$5,$6, CURRENT_DATE, now() + ($7 || ' minutes')::interval)
      RETURNING id, token, batch_id AS "batchId", date, expires_at AS "expiresAt"`,
-    [tenantId, batchId, batchScheduleId || null, teacherId, token, validForMinutes]
+    [tenantId, batchId, subjectId, batchScheduleId || null, teacherId, token, validForMinutes]
   );
   const session = rows[0];
 
@@ -331,7 +355,7 @@ export async function getQrAttendanceSessionStatus(
   };
 }
 
-/* Chapters */
+/* Chapters — live inside subjects.chapters (JSONB), see migration 0033 */
 export interface ChapterItem {
   id: number;
   subjectId: number;
@@ -340,27 +364,28 @@ export interface ChapterItem {
 
 export async function listChapters(tenantId: number, subjectId?: number): Promise<ChapterItem[]> {
   const params: any[] = [tenantId];
-  let q = `SELECT id, subject_id AS "subjectId", name FROM chapters WHERE tenant_id=$1`;
+  let q = `SELECT id, chapters FROM subjects WHERE tenant_id=$1 AND is_active = true`;
   if (subjectId) {
     params.push(subjectId);
-    q += ` AND subject_id=$2`;
+    q += ` AND id=$2`;
   }
-  q += ` ORDER BY created_at DESC`;
-  const { rows } = await query<ChapterItem>(q, params);
-  return rows;
+  const { rows } = await query<{ id: number; chapters: { id: number; name: string }[] }>(q, params);
+  return rows.flatMap((s) => s.chapters.map((ch) => ({ id: ch.id, subjectId: s.id, name: ch.name })));
 }
 
 export async function createChapter(tenantId: number, subjectId: number, name: string): Promise<ChapterItem> {
-  const sub = await query(`SELECT 1 FROM subjects WHERE id=$1 AND tenant_id=$2`, [subjectId, tenantId]);
-  if (!sub.rowCount) throw ApiError.badRequest('INVALID_SUBJECT');
-
-  const { rows } = await query<ChapterItem>(
-    `INSERT INTO chapters (tenant_id, subject_id, name)
-     VALUES ($1,$2,$3)
-     RETURNING id, subject_id AS "subjectId", name`,
-    [tenantId, subjectId, name]
+  const { rows } = await query<{ chapters: { id: number; name: string }[] }>(
+    `UPDATE subjects
+        SET chapters = chapters || jsonb_build_array(
+              jsonb_build_object('id', nextval('subject_chapter_id_seq'), 'name', $1::text)
+            )
+      WHERE id = $2 AND tenant_id = $3 AND is_active = true
+      RETURNING chapters`,
+    [name, subjectId, tenantId]
   );
-  return rows[0];
+  if (!rows.length) throw ApiError.badRequest('INVALID_SUBJECT');
+  const added = rows[0].chapters[rows[0].chapters.length - 1];
+  return { id: added.id, subjectId, name: added.name };
 }
 
 export async function listSubjects(tenantId: number): Promise<{ id: number; name: string }[]> {
@@ -387,12 +412,16 @@ export interface ContentItem {
 
 export async function listContent(tenantId: number, teacherId: number, chapterId?: number): Promise<ContentItem[]> {
   const params: any[] = [tenantId, teacherId];
+  // Chapters live inside subjects.chapters (JSONB, see migration 0033) —
+  // join by unnesting each subject's array and matching the content's
+  // chapter_id against an element's id, same shape as the old FK join.
   let q = `
     SELECT c.id, c.title, c.file_url AS "fileUrl", c.content_type AS "contentType",
-           c.chapter_id AS "chapterId", ch.name AS "chapterName", ch.subject_id AS "subjectId",
+           c.chapter_id AS "chapterId", ch->>'name' AS "chapterName", s.id AS "subjectId",
            c.batch_id AS "batchId", c.duration_minutes AS "durationMinutes", c.duration_seconds AS "durationSeconds"
       FROM content c
-      JOIN chapters ch ON ch.id = c.chapter_id
+      JOIN subjects s ON s.tenant_id = c.tenant_id
+      JOIN LATERAL jsonb_array_elements(s.chapters) ch ON (ch->>'id')::int = c.chapter_id
      WHERE c.tenant_id=$1 AND c.created_by=$2
   `;
   if (chapterId) {
@@ -422,7 +451,11 @@ export async function createContent(
     const b = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
     if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH');
   }
-  const ch = await query(`SELECT 1 FROM chapters WHERE id=$1 AND tenant_id=$2`, [chapterId, tenantId]);
+  const ch = await query(
+    `SELECT 1 FROM subjects, jsonb_array_elements(chapters) e
+      WHERE tenant_id=$2 AND (e->>'id')::int = $1`,
+    [chapterId, tenantId]
+  );
   if (!ch.rowCount) throw ApiError.badRequest('INVALID_CHAPTER');
 
   // duration_seconds is the exact, source-of-truth value (used for mm:ss

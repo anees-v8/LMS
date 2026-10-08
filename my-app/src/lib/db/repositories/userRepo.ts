@@ -58,3 +58,24 @@ export async function acceptTerms(userId: number, version: string): Promise<Publ
   );
   return toPublicUser(rows[0]);
 }
+
+/** Looks up a user by email (case-insensitive) — used to check an email
+ *  isn't already claimed by a different account before an OTP is sent to
+ *  confirm it. */
+export async function findByEmail(email: string): Promise<UserRow | null> {
+  const { rows } = await query<UserRow>(`SELECT * FROM users WHERE lower(email) = lower($1)`, [email]);
+  return rows[0] || null;
+}
+
+/** Sets a verified email on the given user. Only called after the OTP sent
+ *  to that exact email has been confirmed — never from unverified input. */
+export async function setEmail(userId: number, email: string): Promise<PublicUser | null> {
+  const { rows } = await query<UserRow>(`UPDATE users SET email = $1 WHERE id = $2 RETURNING *`, [email, userId]);
+  return toPublicUser(rows[0]);
+}
+
+/** Sets a new password hash. Only called after the relevant OTP flow
+ *  (forgot-password or logged-in password-change) has verified its code. */
+export async function setPasswordHash(userId: number, passwordHash: string): Promise<void> {
+  await query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [passwordHash, userId]);
+}

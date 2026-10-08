@@ -107,10 +107,13 @@ export async function dashboard(tenantId: number, userId: number): Promise<Stude
 
   const recentVideos = (
     await query<VideoItem & { chapterId: number }>(
-      `SELECT c.id, c.title, c.file_url AS "fileUrl", c.content_type AS "contentType", ch.name AS chapter, ch.id AS "chapterId", sub.name AS subject
+      `SELECT c.id, c.title, c.file_url AS "fileUrl", c.content_type AS "contentType",
+              (SELECT ch->>'name' FROM subjects s, jsonb_array_elements(s.chapters) ch
+                WHERE s.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS chapter,
+              c.chapter_id AS "chapterId",
+              (SELECT s.name FROM subjects s, jsonb_array_elements(s.chapters) ch
+                WHERE s.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS subject
        FROM content c
-       LEFT JOIN chapters ch ON ch.id = c.chapter_id
-       LEFT JOIN subjects sub ON sub.id = ch.subject_id
        WHERE c.tenant_id=$1 AND (c.batch_id = ANY($2::int[]) OR c.batch_id IS NULL)
       ORDER BY c.created_at DESC LIMIT 5`,
       [tenantId, safeBatches]
@@ -165,12 +168,14 @@ export async function dashboard(tenantId: number, userId: number): Promise<Stude
     await query<ContinuePlaying>(
       `SELECT c.id, c.title, c.file_url AS "fileUrl", c.content_type AS "contentType",
               c.duration_minutes AS "durationMinutes", c.duration_seconds AS "durationSeconds",
-              ch.name AS chapter, ch.id AS "chapterId", sub.name AS subject,
+              (SELECT ch->>'name' FROM subjects s, jsonb_array_elements(s.chapters) ch
+                WHERE s.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS chapter,
+              c.chapter_id AS "chapterId",
+              (SELECT s.name FROM subjects s, jsonb_array_elements(s.chapters) ch
+                WHERE s.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS subject,
               p.progress_seconds AS "progressSeconds"
        FROM user_content_progress p
        JOIN content c ON c.id = p.content_id
-       LEFT JOIN chapters ch ON ch.id = c.chapter_id
-       LEFT JOIN subjects sub ON sub.id = ch.subject_id
        WHERE p.tenant_id=$1 AND p.user_id=$2 AND c.content_type = 'video'
        ORDER BY p.updated_at DESC LIMIT 1`,
       [tenantId, userId]
@@ -211,13 +216,18 @@ export async function listVideos(
   let subFilter = '';
   if (subjectId) {
     params.push(subjectId);
-    subFilter = `AND ch.subject_id = $3`;
+    subFilter = `AND EXISTS (
+      SELECT 1 FROM subjects s, jsonb_array_elements(s.chapters) ch
+       WHERE s.tenant_id = c.tenant_id AND s.id = $3 AND (ch->>'id')::int = c.chapter_id
+    )`;
   }
   const { rows } = await query<VideoItem>(
-    `SELECT c.id, c.title, c.file_url AS "fileUrl", c.content_type AS "contentType", ch.name AS chapter, sub.name AS subject
+    `SELECT c.id, c.title, c.file_url AS "fileUrl", c.content_type AS "contentType",
+            (SELECT ch->>'name' FROM subjects s, jsonb_array_elements(s.chapters) ch
+              WHERE s.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS chapter,
+            (SELECT s.name FROM subjects s, jsonb_array_elements(s.chapters) ch
+              WHERE s.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS subject
        FROM content c
-       LEFT JOIN chapters ch ON ch.id = c.chapter_id
-       LEFT JOIN subjects sub ON sub.id=ch.subject_id
       WHERE c.tenant_id=$1 AND (c.batch_id = ANY($2::int[]) OR c.batch_id IS NULL) ${subFilter}
       ORDER BY c.created_at DESC`,
     params
@@ -404,17 +414,17 @@ export async function listSubjects(tenantId: number, userId: number): Promise<Su
   // still shows up here, which is the whole point.
   const { rows } = await query<SubjectWithStats>(
     `SELECT s.id, s.name,
-            COUNT(DISTINCT ch.id)::int AS "totalChapters",
+            jsonb_array_length(s.chapters)::int AS "totalChapters",
             COUNT(DISTINCT c.id) FILTER (WHERE c.content_type = 'video')::int AS "totalVideos"
        FROM subjects s
-       LEFT JOIN chapters ch ON ch.subject_id = s.id AND ch.tenant_id = s.tenant_id
-       LEFT JOIN content c ON c.chapter_id = ch.id
-      WHERE s.tenant_id=$1
+       LEFT JOIN LATERAL jsonb_array_elements(s.chapters) ch ON true
+       LEFT JOIN content c ON (ch->>'id')::int = c.chapter_id
+      WHERE s.tenant_id=$1 AND s.is_active = true
         AND s.id = ANY(
           SELECT DISTINCT unnest(b.subject_ids) FROM batches b
           WHERE b.tenant_id=$1 AND b.id = ANY($2::int[])
         )
-      GROUP BY s.id, s.name
+      GROUP BY s.id, s.name, s.chapters
       ORDER BY s.name`,
     [tenantId, safeBatches]
   );
@@ -436,18 +446,29 @@ export async function listChapters(
   userId: number,
   subjectId: number
 ): Promise<ChapterWithCounts[]> {
-  await getStudentId(tenantId, userId); // auth check
+  const studentId = await getStudentId(tenantId, userId);
+  const batchIds = await enrolledBatchIds(tenantId, studentId);
+  const safeBatches = batchIds.length ? batchIds : [-1];
+
+  // Only chapters of a subject the student is actually enrolled in via one
+  // of their batches — previously missing, letting any student in the
+  // tenant read any subject's chapter list by id.
   const { rows } = await query<ChapterWithCounts>(
-    `SELECT ch.id, ch.name,
+    `SELECT (ch->>'id')::int AS "id", ch->>'name' AS "name",
             COUNT(c.id) FILTER (WHERE c.content_type = 'video')::int AS "videoCount",
             COUNT(c.id) FILTER (WHERE c.content_type != 'video')::int AS "docCount",
-            ROW_NUMBER() OVER (ORDER BY ch.created_at)::int AS "sortOrder"
-       FROM chapters ch
-       LEFT JOIN content c ON c.chapter_id = ch.id
-      WHERE ch.tenant_id=$1 AND ch.subject_id=$2
-      GROUP BY ch.id, ch.name, ch.created_at
-      ORDER BY ch.created_at`,
-    [tenantId, subjectId]
+            ROW_NUMBER() OVER (ORDER BY (ch->>'id')::int)::int AS "sortOrder"
+       FROM subjects s
+       JOIN LATERAL jsonb_array_elements(s.chapters) ch ON true
+       LEFT JOIN content c ON c.chapter_id = (ch->>'id')::int
+      WHERE s.tenant_id=$1 AND s.id=$2 AND s.is_active = true
+        AND s.id = ANY(
+          SELECT DISTINCT unnest(b.subject_ids) FROM batches b
+          WHERE b.tenant_id=$1 AND b.id = ANY($3::int[])
+        )
+      GROUP BY ch->>'id', ch->>'name'
+      ORDER BY (ch->>'id')::int`,
+    [tenantId, subjectId, safeBatches]
   );
   return rows;
 }
@@ -468,7 +489,25 @@ export async function listChapterContent(
   userId: number,
   chapterId: number
 ): Promise<ContentItem[]> {
-  await getStudentId(tenantId, userId); // auth check
+  const studentId = await getStudentId(tenantId, userId);
+  const batchIds = await enrolledBatchIds(tenantId, studentId);
+  const safeBatches = batchIds.length ? batchIds : [-1];
+
+  // Resolve chapterId -> its owning subject, then confirm that subject is
+  // taught in one of the student's enrolled batches — previously missing,
+  // letting any student in the tenant read any chapter's content by id.
+  const owning = await query<{ subjectId: number }>(
+    `SELECT s.id AS "subjectId"
+       FROM subjects s, jsonb_array_elements(s.chapters) ch
+      WHERE s.tenant_id=$1 AND s.is_active = true AND (ch->>'id')::int = $2
+        AND s.id = ANY(
+          SELECT DISTINCT unnest(b.subject_ids) FROM batches b
+          WHERE b.tenant_id=$1 AND b.id = ANY($3::int[])
+        )`,
+    [tenantId, chapterId, safeBatches]
+  );
+  if (!owning.rowCount) throw ApiError.notFound('CHAPTER_NOT_FOUND');
+
   const { rows } = await query<ContentItem>(
     `SELECT id, title, file_url AS "fileUrl", content_type AS "contentType",
             duration_minutes AS "durationMinutes", duration_seconds AS "durationSeconds"
@@ -611,6 +650,8 @@ export async function submitTest(
   payload: QuizSubmitPayload
 ): Promise<QuizResult> {
   const studentId = await getStudentId(tenantId, userId);
+  const batchIds = await enrolledBatchIds(tenantId, studentId);
+  const safeBatches = batchIds.length ? batchIds : [-1];
 
   // Verify not already submitted
   const existing = await query(
@@ -619,13 +660,33 @@ export async function submitTest(
   );
   if (existing.rows[0]) throw ApiError.badRequest('TEST_ALREADY_SUBMITTED');
 
+  // Same batch-enrollment scoping getTestQuestions already applies —
+  // previously missing here, letting a student submit answers for a test
+  // belonging to a batch they aren't enrolled in if they guessed/knew its id.
   const test = (
-    await query<{ max_marks: number; questions: StoredQuestion[] }>(
-      `SELECT max_marks, questions FROM tests WHERE id=$1 AND tenant_id=$2`,
-      [testId, tenantId]
+    await query<{
+      max_marks: number;
+      questions: StoredQuestion[];
+      scheduled_at: Date | null;
+      duration_minutes: number | null;
+    }>(
+      `SELECT max_marks, questions, scheduled_at, duration_minutes
+         FROM tests WHERE id=$1 AND tenant_id=$2 AND batch_id = ANY($3::int[])`,
+      [testId, tenantId, safeBatches]
     )
   ).rows[0];
   if (!test) throw ApiError.notFound('TEST_NOT_FOUND');
+
+  // A test with both a scheduled time and a duration has a real deadline —
+  // submitting after it closes previously succeeded regardless of the
+  // app's client-side timer. A test missing either field has no enforced
+  // window (nothing to compare against), same as today's behavior.
+  if (test.scheduled_at && test.duration_minutes) {
+    const closesAt = new Date(test.scheduled_at.getTime() + test.duration_minutes * 60_000);
+    if (new Date() > closesAt) {
+      throw ApiError.badRequest('TEST_WINDOW_CLOSED', 'This test is no longer accepting submissions.');
+    }
+  }
 
   const questions = test.questions || [];
   if (questions.length === 0) throw ApiError.notFound('TEST_HAS_NO_QUESTIONS');
@@ -729,11 +790,14 @@ export async function scanAttendanceQr(
   const session = await query<{
     id: number;
     batchId: number;
+    subjectId: number;
+    batchScheduleId: number | null;
     date: string;
     createdBy: number;
     expired: boolean;
   }>(
-    `SELECT id, batch_id AS "batchId", date, created_by AS "createdBy", (now() > expires_at) AS expired
+    `SELECT id, batch_id AS "batchId", subject_id AS "subjectId", batch_schedule_id AS "batchScheduleId",
+            date, created_by AS "createdBy", (now() > expires_at) AS expired
        FROM attendance_sessions WHERE token=$1 AND tenant_id=$2`,
     [token, tenantId]
   );
@@ -748,8 +812,8 @@ export async function scanAttendanceQr(
   if (!enrolled.rowCount) throw ApiError.forbidden('NOT_YOUR_BATCH', 'You are not enrolled in this batch.');
 
   const existing = await query<{ status: 'present' | 'absent' | 'late' }>(
-    `SELECT status FROM attendance WHERE student_id=$1 AND date=$2 AND batch_id=$3`,
-    [studentId, s.date, s.batchId]
+    `SELECT status FROM attendance WHERE student_id=$1 AND date=$2 AND batch_id=$3 AND subject_id=$4`,
+    [studentId, s.date, s.batchId, s.subjectId]
   );
   if (existing.rows[0]) {
     return { alreadyMarked: true, status: existing.rows[0].status, batchId: s.batchId, date: s.date };
@@ -757,20 +821,21 @@ export async function scanAttendanceQr(
 
   // ON CONFLICT DO NOTHING covers the rare race where two scans/taps for
   // the same student land between the check above and this insert — the
-  // table's UNIQUE(student_id, date, batch_id) would otherwise surface as
-  // a raw constraint-violation error instead of a graceful "already marked".
+  // table's UNIQUE(student_id, date, batch_id, subject_id) would otherwise
+  // surface as a raw constraint-violation error instead of a graceful
+  // "already marked".
   const inserted = await query<{ id: number }>(
-    `INSERT INTO attendance (tenant_id, batch_id, student_id, date, status, marked_by, session_id)
-     VALUES ($1,$2,$3,$4,'present',$5,$6)
-     ON CONFLICT (student_id, date, batch_id) DO NOTHING
+    `INSERT INTO attendance (tenant_id, batch_id, subject_id, batch_schedule_id, student_id, date, status, marked_by, session_id)
+     VALUES ($1,$2,$3,$4,$5,$6,'present',$7,$8)
+     ON CONFLICT (student_id, date, batch_id, subject_id) DO NOTHING
      RETURNING id`,
-    [tenantId, s.batchId, studentId, s.date, s.createdBy, s.id]
+    [tenantId, s.batchId, s.subjectId, s.batchScheduleId, studentId, s.date, s.createdBy, s.id]
   );
 
   if (inserted.rows.length === 0) {
     const raced = await query<{ status: 'present' | 'absent' | 'late' }>(
-      `SELECT status FROM attendance WHERE student_id=$1 AND date=$2 AND batch_id=$3`,
-      [studentId, s.date, s.batchId]
+      `SELECT status FROM attendance WHERE student_id=$1 AND date=$2 AND batch_id=$3 AND subject_id=$4`,
+      [studentId, s.date, s.batchId, s.subjectId]
     );
     return { alreadyMarked: true, status: raced.rows[0]?.status ?? 'present', batchId: s.batchId, date: s.date };
   }

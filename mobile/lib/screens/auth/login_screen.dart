@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/role_router.dart';
 import '../../utils/constants.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -234,6 +235,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           isPassword: true,
                           prefixIcon: Icons.lock_outline,
                           controller: _passwordController,
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ForgotPasswordScreen(),
+                              ),
+                            ),
+                            child: const Text(
+                              'Forgot password?',
+                              style: TextStyle(
+                                color: Color(0xFFA87D26),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
                         ),
                         AnimatedSize(
                           duration: const Duration(milliseconds: 200),

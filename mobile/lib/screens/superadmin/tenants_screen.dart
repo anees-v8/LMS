@@ -674,6 +674,7 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
   final _contactPhone = TextEditingController();
   final _adminName = TextEditingController();
   final _adminPhone = TextEditingController();
+  final _adminEmail = TextEditingController();
   final _adminPassword = TextEditingController();
   bool _saving = false;
   String? _error;
@@ -686,6 +687,7 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
     _contactPhone.dispose();
     _adminName.dispose();
     _adminPhone.dispose();
+    _adminEmail.dispose();
     _adminPassword.dispose();
     super.dispose();
   }
@@ -695,10 +697,11 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
         _slug.text.trim().isEmpty ||
         _adminName.text.trim().isEmpty ||
         _adminPhone.text.trim().isEmpty ||
+        _adminEmail.text.trim().isEmpty ||
         _adminPassword.text.isEmpty) {
       setState(
-        () =>
-            _error = 'Name, slug, admin name, phone and password are required.',
+        () => _error =
+            'Name, slug, admin name, phone, email and password are required.',
       );
       return;
     }
@@ -713,6 +716,7 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
         slug: _slug.text.trim(),
         adminName: _adminName.text.trim(),
         adminPhone: _adminPhone.text.trim(),
+        adminEmail: _adminEmail.text.trim(),
         adminPassword: _adminPassword.text,
         city: _city.text.trim(),
         contactPhone: _contactPhone.text.trim(),
@@ -829,6 +833,14 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
                 hint: '10-15 digit login phone',
                 controller: _adminPhone,
                 prefixIcon: Icons.phone_android_outlined,
+              ),
+              const SizedBox(height: 16),
+              CustomTextField(
+                label: 'Admin Email',
+                hint: 'Required for password reset',
+                controller: _adminEmail,
+                prefixIcon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
               CustomTextField(

@@ -70,6 +70,7 @@ Future<Map<String, dynamic>> registerTenant(
   required String slug,
   required String adminName,
   required String adminPhone,
+  required String adminEmail,
   required String adminPassword,
   String? city,
   String? contactPhone,
@@ -79,6 +80,7 @@ Future<Map<String, dynamic>> registerTenant(
     'slug': slug,
     'adminName': adminName,
     'adminPhone': adminPhone,
+    'adminEmail': adminEmail,
     'adminPassword': adminPassword,
     if (city != null && city.isNotEmpty) 'city': city,
     if (contactPhone != null && contactPhone.isNotEmpty)

@@ -33,6 +33,12 @@ export class ApiError extends Error {
   static conflict(code = 'CONFLICT', message?: string): ApiError {
     return new ApiError(409, code, message);
   }
+  static tooManyRequests(code = 'TOO_MANY_REQUESTS', message?: string): ApiError {
+    return new ApiError(429, code, message);
+  }
+  static internal(code = 'INTERNAL_ERROR', message?: string): ApiError {
+    return new ApiError(500, code, message);
+  }
 }
 
 export default ApiError;

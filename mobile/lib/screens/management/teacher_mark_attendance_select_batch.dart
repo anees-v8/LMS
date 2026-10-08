@@ -5,18 +5,22 @@ import '../../providers/teacher_providers.dart';
 import '../../services/api_service.dart';
 import 'teacher_attendance_screen.dart';
 
+/// Attendance is per subject now (a batch can have 2+ subjects scheduled
+/// the same day), so this picks from TODAY'S scheduled classes — each one
+/// already carries the batch, subject and schedule slot together — rather
+/// than a bare batch list that can't say which subject's attendance it is.
 class TeacherMarkAttendanceSelectBatchScreen extends ConsumerWidget {
   const TeacherMarkAttendanceSelectBatchScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final batchesAsync = ref.watch(myBatchesProvider);
+    final scheduleAsync = ref.watch(todayScheduleProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
-          'Select Batch for Attendance',
+          'Select Class for Attendance',
           style: TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -26,32 +30,35 @@ class TeacherMarkAttendanceSelectBatchScreen extends ConsumerWidget {
         backgroundColor: AppColors.primaryDark,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: batchesAsync.when(
+      body: scheduleAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text(friendlyErrorMessage(err))),
-        data: (batches) {
-          if (batches.isEmpty) {
+        data: (schedule) {
+          final classes = (schedule['classes'] as List? ?? []);
+          if (classes.isEmpty) {
             return const Center(
               child: Text(
-                'No batches assigned to you.',
+                'No classes scheduled for you today.',
                 style: TextStyle(color: Colors.grey),
               ),
             );
           }
           return ListView.separated(
             padding: const EdgeInsets.all(16),
-            itemCount: batches.length,
+            itemCount: classes.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              final batch = batches[index];
+              final c = classes[index] as Map<String, dynamic>;
               return InkWell(
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => TeacherAttendanceScreen(
-                        batchId: batch['id'],
-                        batchName: batch['name'] ?? 'Batch',
+                        batchId: c['batchId'],
+                        batchName: c['batch'] ?? 'Batch',
+                        subjectId: c['subjectId'],
+                        batchScheduleId: c['batchScheduleId'],
                       ),
                     ),
                   );
@@ -83,7 +90,7 @@ class TeacherMarkAttendanceSelectBatchScreen extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              batch['name'] ?? 'Unknown Batch',
+                              c['batch'] ?? 'Unknown Batch',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -92,7 +99,7 @@ class TeacherMarkAttendanceSelectBatchScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Tap to mark attendance',
+                              '${c['subject'] ?? 'Subject'} · ${c['startTime'] ?? ''} - ${c['endTime'] ?? ''}',
                               style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontSize: 12,

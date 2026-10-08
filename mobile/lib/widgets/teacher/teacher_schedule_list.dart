@@ -85,6 +85,7 @@ class TeacherScheduleList extends ConsumerWidget {
                       time: '${c['startTime']} - ${c['endTime']}',
                       batchName: c['batch'] ?? 'Unknown Batch',
                       subject: c['subject'] ?? 'General',
+                      subjectId: c['subjectId'],
                       isLive: isLive,
                       batchId: c['batchId'],
                       batchScheduleId: c['batchScheduleId'],
@@ -106,6 +107,7 @@ class TeacherScheduleList extends ConsumerWidget {
     required String time,
     required String batchName,
     required String subject,
+    required int subjectId,
     required bool isLive,
     required int batchId,
     required int batchScheduleId,
@@ -235,6 +237,7 @@ class TeacherScheduleList extends ConsumerWidget {
                                   builder: (_) => TeacherAttendanceScreen(
                                     batchId: batchId,
                                     batchName: batchName,
+                                    subjectId: subjectId,
                                     batchScheduleId: batchScheduleId,
                                   ),
                                 ),

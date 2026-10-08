@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/teacher_providers.dart';
 import '../../services/api_service.dart';
-import 'teacher_attendance_screen.dart';
+import 'teacher_mark_attendance_select_batch.dart';
 
 class TeacherBatchDetailsScreen extends ConsumerWidget {
   final int batchId;
@@ -63,16 +63,14 @@ class TeacherBatchDetailsScreen extends ConsumerWidget {
                     ),
                     TextButton.icon(
                       onPressed: () {
-                        // For quick attendance access from batch details
+                        // This screen has no subject context (a batch can
+                        // teach 2+ subjects) — route through today's
+                        // schedule so the specific class is picked first.
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => TeacherAttendanceScreen(
-                              batchId: batchId,
-                              batchName: batchName,
-                              batchScheduleId:
-                                  0, // No specific batch schedule ID if just doing ad-hoc attendance
-                            ),
+                            builder: (_) =>
+                                const TeacherMarkAttendanceSelectBatchScreen(),
                           ),
                         );
                       },

@@ -12,6 +12,7 @@ export interface RegisterTenantInput {
   contactPhone?: string;
   adminName: string;
   adminPhone: string;
+  adminEmail: string;
   adminPassword: string;
   plan?: string;
   amount?: number;
@@ -47,6 +48,7 @@ export async function registerTenant(
     contactPhone,
     adminName,
     adminPhone,
+    adminEmail,
     adminPassword,
     plan = 'flat',
     amount = env.billing.defaultAmount,
@@ -57,6 +59,9 @@ export async function registerTenant(
   return withTransaction(async (client) => {
     const existing = await client.query(`SELECT 1 FROM tenants WHERE slug = $1`, [slug]);
     if (existing.rowCount) throw ApiError.conflict('SLUG_TAKEN', 'This slug is already in use');
+
+    const emailTaken = await client.query(`SELECT 1 FROM users WHERE lower(email) = lower($1)`, [adminEmail]);
+    if (emailTaken.rowCount) throw ApiError.conflict('EMAIL_TAKEN', 'This email is already in use by another account');
 
     const tenant = (
       await client.query<TenantResult>(
@@ -75,10 +80,10 @@ export async function registerTenant(
 
     const admin = (
       await client.query<AdminResult>(
-        `INSERT INTO users (tenant_id, role, full_name, phone, password_hash)
-       VALUES ($1,'coaching_admin',$2,$3,$4)
+        `INSERT INTO users (tenant_id, role, full_name, phone, email, password_hash)
+       VALUES ($1,'coaching_admin',$2,$3,$4,$5)
        RETURNING id, full_name AS "fullName", phone, role`,
-        [tenant.id, adminName, adminPhone, hash]
+        [tenant.id, adminName, adminPhone, adminEmail, hash]
       )
     ).rows[0];
 

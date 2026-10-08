@@ -11,8 +11,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ batc
     const user = requireAuth(req, 'teacher');
     const { batchId } = validateBody(batchIdParamSchema, await params);
     const query = Object.fromEntries(req.nextUrl.searchParams);
-    const { date } = validateBody(batchStudentsQuerySchema, query);
-    const result = await svc.batchStudents(requireTenantId(user), batchId, date);
+    const { date, subjectId } = validateBody(batchStudentsQuerySchema, query);
+    const result = await svc.batchStudents(requireTenantId(user), batchId, date, subjectId);
     return NextResponse.json(result);
   } catch (err) {
     return handleApiError(err);

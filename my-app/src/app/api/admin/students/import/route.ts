@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 import * as svc from '@/lib/services/admin.service';
 import { requireAuth, requireTenantId } from '@/lib/middleware/auth';
+import { requireActiveSubscription } from '@/lib/middleware/subscriptionGuard';
 import ApiError from '@/lib/utils/ApiError';
 import { handleApiError } from '@/lib/utils/apiResponse';
 
@@ -13,6 +14,7 @@ export async function POST(req: NextRequest) {
   try {
     const user = requireAuth(req, 'coaching_admin');
     const tenantId = requireTenantId(user);
+    await requireActiveSubscription(tenantId);
 
     const form = await req.formData();
     const file = form.get('file');

@@ -10,6 +10,7 @@ export const registerTenantSchema = z
     contactPhone: phone.optional(),
     adminName: z.string().trim().min(2).max(120),
     adminPhone: phone,
+    adminEmail: z.string().trim().email().max(120),
     adminPassword: z.string().min(6).max(100),
     plan: z.enum(['flat', 'per_student']).optional(),
     amount: z.coerce.number().int().min(0).max(1000000).optional(),

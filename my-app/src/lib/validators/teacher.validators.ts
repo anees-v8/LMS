@@ -5,6 +5,7 @@ export const idParamSchema = z.object({ id: z.coerce.number().int().positive() }
 export const markAttendanceSchema = z
   .object({
     batchId: z.coerce.number().int().positive(),
+    subjectId: z.coerce.number().int().positive(),
     batchScheduleId: z.coerce.number().int().positive().optional(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD'),
     records: z
@@ -23,6 +24,7 @@ export const markAttendanceSchema = z
 export const createQrSessionSchema = z
   .object({
     batchId: z.coerce.number().int().positive(),
+    subjectId: z.coerce.number().int().positive(),
     batchScheduleId: z.coerce.number().int().positive().optional(),
     validForMinutes: z.coerce.number().int().min(1).max(120),
   })
@@ -64,7 +66,10 @@ export const createLiveClassSchema = z
 
 export const batchIdParamSchema = z.object({ batchId: z.coerce.number().int().positive() }).strict();
 export const batchStudentsQuerySchema = z
-  .object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD').optional() })
+  .object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD').optional(),
+    subjectId: z.coerce.number().int().positive().optional(),
+  })
   .strict();
 export const studentIdParamSchema = z.object({ studentId: z.coerce.number().int().positive() }).strict();
 export const doubtLinkQuerySchema = z.object({ text: z.string().trim().max(500).optional() }).strict();

@@ -240,6 +240,15 @@ class AuthNotifier extends Notifier<AuthState> {
     state = state.copyWith(needsTermsAcceptance: false);
   }
 
+  /// Re-fetches /auth/me and re-applies the result — used after a profile
+  /// field (email, etc.) changes server-side via its own OTP-confirmed
+  /// endpoint, so every screen watching [authProvider] picks up the new
+  /// value immediately without needing a full logout/login.
+  Future<void> refreshProfile() async {
+    final me = await _api.get('/auth/me');
+    await _applyUserAndTenant(me['user'], me['tenant']);
+  }
+
   /// Uploads happen client-side (Cloudinary) first; this just tells the
   /// backend the resulting URL and updates local state so every screen
   /// watching [authProvider] reflects the new photo immediately.

@@ -48,14 +48,16 @@ final batchStudentsProvider = FutureProvider.family<List<dynamic>, int>((
 });
 
 final attendanceBatchStudentsProvider =
-    FutureProvider.family<List<dynamic>, ({int batchId, String date})>((
-      ref,
-      params,
-    ) async {
+    FutureProvider.family<
+      List<dynamic>,
+      ({int batchId, String date, int subjectId})
+    >((ref, params) async {
       final api = ref.read(apiServiceProvider);
       final batchId = params.batchId;
       final date = params.date;
-      return await api.get('/teacher/batches/$batchId/students?date=$date');
+      return await api.get(
+        '/teacher/batches/$batchId/students?date=$date&subjectId=${params.subjectId}',
+      );
     });
 
 final testsProvider = FutureProvider<List<dynamic>>((ref) async {
@@ -99,11 +101,13 @@ final teacherChaptersProvider = FutureProvider.family<List<dynamic>, int?>((
 Future<Map<String, dynamic>> createQrAttendanceSession(
   ApiService api, {
   required int batchId,
+  required int subjectId,
   int? batchScheduleId,
   required int validForMinutes,
 }) async {
   final body = <String, dynamic>{
     'batchId': batchId,
+    'subjectId': subjectId,
     if (batchScheduleId != null) 'batchScheduleId': batchScheduleId,
     'validForMinutes': validForMinutes,
   };

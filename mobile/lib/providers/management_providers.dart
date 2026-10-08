@@ -334,29 +334,19 @@ Future<Map<String, dynamic>> deleteBatch(ApiService api, int id) async {
 Future<Map<String, dynamic>> createSubject(
   ApiService api, {
   required String name,
-  int totalChapters = 0,
 }) async {
-  return await api.post('/admin/subjects', {
-        'name': name,
-        'totalChapters': totalChapters,
-      })
+  return await api.post('/admin/subjects', {'name': name})
       as Map<String, dynamic>;
 }
 
-Future<void> updateSubject(
-  ApiService api,
-  int id, {
-  required String name,
-  int? totalChapters,
-}) async {
-  await api.put('/admin/subjects/$id', {
-    'name': name,
-    if (totalChapters != null) 'totalChapters': totalChapters,
-  });
+Future<void> updateSubject(ApiService api, int id, {required String name}) async {
+  await api.put('/admin/subjects/$id', {'name': name});
 }
 
-Future<void> deleteSubject(ApiService api, int id) async {
-  await api.delete('/admin/subjects/$id');
+/// Returns `{softDeleted: bool}` — soft-deleted when the subject still has
+/// content/tests/schedule/assignments referencing it, hard-deleted otherwise.
+Future<Map<String, dynamic>> deleteSubject(ApiService api, int id) async {
+  return await api.delete('/admin/subjects/$id') as Map<String, dynamic>;
 }
 
 /// Fully replaces a batch's weekly schedule template with [scheduleEntries]

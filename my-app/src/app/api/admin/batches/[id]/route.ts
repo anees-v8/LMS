@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as svc from '@/lib/services/admin.service';
 import { requireAuth, requireTenantId } from '@/lib/middleware/auth';
+import { requireActiveSubscription } from '@/lib/middleware/subscriptionGuard';
 import { validateBody } from '@/lib/middleware/validate';
 import { updateBatchSchema, idParamSchema } from '@/lib/validators/admin.validators';
 import { handleApiError } from '@/lib/utils/apiResponse';
@@ -9,9 +10,11 @@ import { handleApiError } from '@/lib/utils/apiResponse';
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = requireAuth(req, 'coaching_admin');
+    const tenantId = requireTenantId(user);
+    await requireActiveSubscription(tenantId);
     const { id } = validateBody(idParamSchema, await params);
     const body = validateBody(updateBatchSchema, await req.json());
-    const result = await svc.updateBatch(requireTenantId(user), id, user.userId, body);
+    const result = await svc.updateBatch(tenantId, id, user.userId, body);
     return NextResponse.json(result);
   } catch (err) {
     return handleApiError(err);
@@ -24,8 +27,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = requireAuth(req, 'coaching_admin');
+    const tenantId = requireTenantId(user);
+    await requireActiveSubscription(tenantId);
     const { id } = validateBody(idParamSchema, await params);
-    const result = await svc.deleteBatch(requireTenantId(user), id, user.userId);
+    const result = await svc.deleteBatch(tenantId, id, user.userId);
     return NextResponse.json(result);
   } catch (err) {
     return handleApiError(err);

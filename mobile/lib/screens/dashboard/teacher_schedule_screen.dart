@@ -380,6 +380,7 @@ class _TeacherScheduleScreenState extends ConsumerState<TeacherScheduleScreen> {
                                                 batchId: c['batchId'],
                                                 batchName:
                                                     c['batch'] ?? 'Batch',
+                                                subjectId: c['subjectId'],
                                                 batchScheduleId:
                                                     c['batchScheduleId'],
                                               ),
