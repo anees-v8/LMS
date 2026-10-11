@@ -12,7 +12,20 @@
           "package_name": "com.campusweb.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "618925709812-58919ni8tdlh2bqi625qcno6dt6mvd2i.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.campusweb.app",
+            "certificate_hash": "c48f6eb69ba0e92830e9015562b58f005551628a"
+          }
+        },
+        {
+          "client_id": "618925709812-vvv9jm990fqe35cmj0hkhuc3v7e6igmn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDLr7iiWexG-SiLB1_gtRVLfuALk2gFnBQ"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "618925709812-vvv9jm990fqe35cmj0hkhuc3v7e6igmn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
