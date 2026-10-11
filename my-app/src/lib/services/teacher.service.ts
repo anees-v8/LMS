@@ -355,43 +355,110 @@ export async function getQrAttendanceSessionStatus(
   };
 }
 
-/* Chapters — live inside subjects.chapters (JSONB), see migration 0033 */
+/* Chapters — live in batch_subject_chapters (JSONB per batch+subject),
+ * see migration 0036. A subject like "Maths" is a tenant-wide tag reused
+ * across unrelated batches/grades, so curriculum is scoped to the
+ * specific (batch, subject) "offering", not the subject itself. */
 export interface ChapterItem {
   id: number;
+  batchId: number;
   subjectId: number;
   name: string;
+  chapterNumber: number;
 }
 
-export async function listChapters(tenantId: number, subjectId?: number): Promise<ChapterItem[]> {
-  const params: any[] = [tenantId];
-  let q = `SELECT id, chapters FROM subjects WHERE tenant_id=$1 AND is_active = true`;
-  if (subjectId) {
-    params.push(subjectId);
-    q += ` AND id=$2`;
-  }
-  const { rows } = await query<{ id: number; chapters: { id: number; name: string }[] }>(q, params);
-  return rows.flatMap((s) => s.chapters.map((ch) => ({ id: ch.id, subjectId: s.id, name: ch.name })));
-}
-
-export async function createChapter(tenantId: number, subjectId: number, name: string): Promise<ChapterItem> {
-  const { rows } = await query<{ chapters: { id: number; name: string }[] }>(
-    `UPDATE subjects
-        SET chapters = chapters || jsonb_build_array(
-              jsonb_build_object('id', nextval('subject_chapter_id_seq'), 'name', $1::text)
-            )
-      WHERE id = $2 AND tenant_id = $3 AND is_active = true
-      RETURNING chapters`,
-    [name, subjectId, tenantId]
+async function ensureTeacherAssignedToBatchSubject(
+  tenantId: number,
+  teacherId: number,
+  batchId: number,
+  subjectId: number
+): Promise<void> {
+  const { rowCount } = await query(
+    `SELECT 1 FROM teacher_assignments WHERE tenant_id=$1 AND teacher_user_id=$2 AND batch_id=$3 AND subject_id=$4`,
+    [tenantId, teacherId, batchId, subjectId]
   );
-  if (!rows.length) throw ApiError.badRequest('INVALID_SUBJECT');
+  if (!rowCount) throw ApiError.forbidden('NOT_ASSIGNED', 'You are not assigned to teach this subject in this batch.');
+}
+
+export async function listChapters(
+  tenantId: number,
+  teacherId: number,
+  batchId: number,
+  subjectId: number
+): Promise<ChapterItem[]> {
+  await ensureTeacherAssignedToBatchSubject(tenantId, teacherId, batchId, subjectId);
+
+  const { rows } = await query<{ chapters: { id: number; name: string }[] }>(
+    `SELECT chapters FROM batch_subject_chapters WHERE tenant_id=$1 AND batch_id=$2 AND subject_id=$3`,
+    [tenantId, batchId, subjectId]
+  );
+  const chapters = rows[0]?.chapters ?? [];
+  // chapterNumber is the chapter's 1-based position — derived fresh every
+  // read, never stored, so removing/reordering chapters never leaves
+  // stale or gapped numbers.
+  return chapters.map((ch, i) => ({ id: ch.id, batchId, subjectId, name: ch.name, chapterNumber: i + 1 }));
+}
+
+export async function createChapter(
+  tenantId: number,
+  teacherId: number,
+  batchId: number,
+  subjectId: number,
+  name: string
+): Promise<ChapterItem> {
+  await ensureTeacherAssignedToBatchSubject(tenantId, teacherId, batchId, subjectId);
+
+  const trimmed = name.trim();
+  const existing = await query<{ chapters: { id: number; name: string }[] }>(
+    `SELECT chapters FROM batch_subject_chapters WHERE tenant_id=$1 AND batch_id=$2 AND subject_id=$3`,
+    [tenantId, batchId, subjectId]
+  );
+  const normalizedNew = trimmed.toLowerCase();
+  const isDuplicate = (existing.rows[0]?.chapters ?? []).some(
+    (ch) => ch.name.trim().toLowerCase() === normalizedNew
+  );
+  if (isDuplicate) {
+    throw ApiError.conflict('CHAPTER_ALREADY_EXISTS', `A chapter named "${trimmed}" already exists in this subject for this batch.`);
+  }
+
+  const { rows } = await query<{ chapters: { id: number; name: string }[] }>(
+    `INSERT INTO batch_subject_chapters (tenant_id, batch_id, subject_id, chapters)
+     VALUES ($1, $2, $3, jsonb_build_array(jsonb_build_object('id', nextval('subject_chapter_id_seq'), 'name', $4::text)))
+     ON CONFLICT (batch_id, subject_id) DO UPDATE
+       SET chapters = batch_subject_chapters.chapters || jsonb_build_array(
+             jsonb_build_object('id', nextval('subject_chapter_id_seq'), 'name', $4::text)
+           )
+     RETURNING chapters`,
+    [tenantId, batchId, subjectId, trimmed]
+  );
   const added = rows[0].chapters[rows[0].chapters.length - 1];
-  return { id: added.id, subjectId, name: added.name };
+  return { id: added.id, batchId, subjectId, name: added.name, chapterNumber: rows[0].chapters.length };
 }
 
 export async function listSubjects(tenantId: number): Promise<{ id: number; name: string }[]> {
   const { rows } = await query<{ id: number; name: string }>(
     `SELECT id, name FROM subjects WHERE tenant_id=$1 ORDER BY name`,
     [tenantId]
+  );
+  return rows;
+}
+
+/** Subjects this teacher is actually assigned to teach within ONE batch —
+ *  used to pick which (batch, subject) chapter list to manage, since
+ *  chapters live per batch+subject (see migration 0036), not per subject
+ *  tenant-wide. */
+export async function listMySubjectsForBatch(
+  tenantId: number,
+  teacherId: number,
+  batchId: number
+): Promise<{ id: number; name: string }[]> {
+  const { rows } = await query<{ id: number; name: string }>(
+    `SELECT s.id, s.name
+       FROM teacher_assignments ta
+       JOIN subjects s ON s.id = ta.subject_id
+      WHERE ta.tenant_id=$1 AND ta.teacher_user_id=$2 AND ta.batch_id=$3
+      ORDER BY s.name`,
+    [tenantId, teacherId, batchId]
   );
   return rows;
 }
@@ -412,16 +479,22 @@ export interface ContentItem {
 
 export async function listContent(tenantId: number, teacherId: number, chapterId?: number): Promise<ContentItem[]> {
   const params: any[] = [tenantId, teacherId];
-  // Chapters live inside subjects.chapters (JSONB, see migration 0033) —
-  // join by unnesting each subject's array and matching the content's
-  // chapter_id against an element's id, same shape as the old FK join.
+  // Chapters live in batch_subject_chapters (JSONB per batch+subject, see
+  // migration 0036) — resolved via a correlated subquery, not a join,
+  // since a plain join against every batch_subject_chapters row would
+  // produce one result row per non-matching row too (LEFT JOIN) or
+  // silently miss content whose chapter row doesn't resolve (INNER JOIN
+  // dropping real rows). The subquery returns exactly one row per content
+  // item regardless.
   let q = `
     SELECT c.id, c.title, c.file_url AS "fileUrl", c.content_type AS "contentType",
-           c.chapter_id AS "chapterId", ch->>'name' AS "chapterName", s.id AS "subjectId",
+           c.chapter_id AS "chapterId",
+           (SELECT ch->>'name' FROM batch_subject_chapters bsc, jsonb_array_elements(bsc.chapters) ch
+             WHERE bsc.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS "chapterName",
+           (SELECT bsc.subject_id FROM batch_subject_chapters bsc, jsonb_array_elements(bsc.chapters) ch
+             WHERE bsc.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS "subjectId",
            c.batch_id AS "batchId", c.duration_minutes AS "durationMinutes", c.duration_seconds AS "durationSeconds"
       FROM content c
-      JOIN subjects s ON s.tenant_id = c.tenant_id
-      JOIN LATERAL jsonb_array_elements(s.chapters) ch ON (ch->>'id')::int = c.chapter_id
      WHERE c.tenant_id=$1 AND c.created_by=$2
   `;
   if (chapterId) {
@@ -452,8 +525,8 @@ export async function createContent(
     if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH');
   }
   const ch = await query(
-    `SELECT 1 FROM subjects, jsonb_array_elements(chapters) e
-      WHERE tenant_id=$2 AND (e->>'id')::int = $1`,
+    `SELECT 1 FROM batch_subject_chapters bsc, jsonb_array_elements(bsc.chapters) e
+      WHERE bsc.tenant_id=$2 AND (e->>'id')::int = $1`,
     [chapterId, tenantId]
   );
   if (!ch.rowCount) throw ApiError.badRequest('INVALID_CHAPTER');

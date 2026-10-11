@@ -26,7 +26,6 @@ const FEATURE_ROWS: { key: string; label: string }[] = [
   { key: "performance_reports", label: "Performance Reports" },
   { key: "online_tests", label: "Online Tests" },
   { key: "doubt_solving", label: "Doubt Solving" },
-  { key: "teacher_accounts", label: "Teacher Accounts" },
 ];
 
 function CellValue({ included }: { included: boolean }) {

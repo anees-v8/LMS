@@ -6,11 +6,13 @@ import '../../services/api_service.dart';
 import 'teacher_content_screen.dart';
 
 class TeacherChaptersScreen extends ConsumerStatefulWidget {
+  final int batchId;
   final int subjectId;
   final String subjectName;
 
   const TeacherChaptersScreen({
     super.key,
+    required this.batchId,
     required this.subjectId,
     required this.subjectName,
   });
@@ -32,13 +34,19 @@ class _TeacherChaptersScreenState extends ConsumerState<TeacherChaptersScreen> {
     try {
       final api = ref.read(apiServiceProvider);
       await api.post('/teacher/chapters', {
+        'batchId': widget.batchId,
         'subjectId': widget.subjectId,
         'name': name,
       });
       _nameController.clear();
       if (mounted) {
         Navigator.pop(context); // close modal
-        ref.invalidate(teacherChaptersProvider(widget.subjectId));
+        ref.invalidate(
+          teacherChaptersProvider((
+            batchId: widget.batchId,
+            subjectId: widget.subjectId,
+          )),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -156,7 +164,12 @@ class _TeacherChaptersScreenState extends ConsumerState<TeacherChaptersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final chaptersAsync = ref.watch(teacherChaptersProvider(widget.subjectId));
+    final chaptersAsync = ref.watch(
+      teacherChaptersProvider((
+        batchId: widget.batchId,
+        subjectId: widget.subjectId,
+      )),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -213,25 +226,45 @@ class _TeacherChaptersScreenState extends ConsumerState<TeacherChaptersScreen> {
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: Colors.orange.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
-                          Icons.folder,
-                          color: Colors.orange,
-                          size: 28,
+                        child: Text(
+                          '${chapter['chapterNumber'] ?? index + 1}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.orange,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: Text(
-                          chapter['name'] ?? 'Untitled Chapter',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Chapter ${chapter['chapterNumber'] ?? index + 1}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade500,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              chapter['name'] ?? 'Untitled Chapter',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const Icon(Icons.chevron_right, color: Colors.grey),

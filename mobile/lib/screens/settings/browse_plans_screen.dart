@@ -233,6 +233,7 @@ class _PlanCard extends StatelessWidget {
     final features = (plan['features'] as List<dynamic>? ?? []).cast<String>();
     final isPopular = name.toLowerCase() == 'pro';
     final flatStudentLimit = plan['flatStudentLimit'] as int?;
+    final flatTeacherLimit = plan['flatTeacherLimit'] as int?;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -348,6 +349,13 @@ class _PlanCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 'Up to $flatStudentLimit students',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
+            ],
+            if (flatTeacherLimit != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Up to $flatTeacherLimit teacher${flatTeacherLimit == 1 ? '' : 's'}',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
               ),
             ],

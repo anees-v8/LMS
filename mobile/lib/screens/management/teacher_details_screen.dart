@@ -950,9 +950,22 @@ class _EditTeacherBottomSheetState
     super.dispose();
   }
 
+  static final _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
   Future<void> _submit() async {
     if (_name.text.trim().isEmpty) {
       setState(() => _error = 'Name is required.');
+      return;
+    }
+    if (_email.text.trim().isEmpty) {
+      setState(
+        () => _error =
+            'Email is required — used to verify password resets and changes.',
+      );
+      return;
+    }
+    if (!_emailRegex.hasMatch(_email.text.trim())) {
+      setState(() => _error = 'Enter a valid email address.');
       return;
     }
     setState(() {
@@ -964,7 +977,7 @@ class _EditTeacherBottomSheetState
       final res = await api.put('/admin/teachers/${widget.teacher['id']}', {
         'fullName': _name.text.trim(),
         'phone': _phone.text.trim(),
-        'email': _email.text.trim().isNotEmpty ? _email.text.trim() : null,
+        'email': _email.text.trim(),
       });
       final data = res as Map<String, dynamic>;
       final updatedData = Map<String, dynamic>.from(widget.teacher);
@@ -1050,10 +1063,11 @@ class _EditTeacherBottomSheetState
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
-                    label: 'Email Address (Optional)',
+                    label: 'Email Address',
                     hint: 'e.g. teacher@school.com',
                     controller: _email,
                     prefixIcon: Icons.email_outlined,
+                    keyboardType: TextInputType.emailAddress,
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 16),

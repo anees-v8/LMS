@@ -16,8 +16,7 @@ export type FeatureKey =
   | 'live_classes'
   | 'performance_reports'
   | 'online_tests'
-  | 'doubt_solving'
-  | 'teacher_accounts';
+  | 'doubt_solving';
 
 interface PlanRow {
   features: string[];

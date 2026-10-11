@@ -168,7 +168,7 @@ class PlansScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Flat: ₹${plan['flatPriceMonthly']}/mo  •  up to ${plan['flatStudentLimit']} students',
+                                    'Flat: ₹${plan['flatPriceMonthly']}/mo  •  up to ${plan['flatStudentLimit']} students  •  up to ${plan['flatTeacherLimit']} teachers',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       color: Colors.grey.shade600,
@@ -322,6 +322,7 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
   late final TextEditingController _priceYearly;
   late final TextEditingController _flatPriceMonthly;
   late final TextEditingController _flatStudentLimit;
+  late final TextEditingController _flatTeacherLimit;
   late final TextEditingController _displayOrder;
   late final Set<String> _selectedFeatures;
   bool _saving = false;
@@ -350,6 +351,9 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
     _flatStudentLimit = TextEditingController(
       text: e?['flatStudentLimit']?.toString() ?? '',
     );
+    _flatTeacherLimit = TextEditingController(
+      text: e?['flatTeacherLimit']?.toString() ?? '',
+    );
     _displayOrder = TextEditingController(
       text: e?['displayOrder']?.toString() ?? '',
     );
@@ -366,6 +370,7 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
     _priceYearly.dispose();
     _flatPriceMonthly.dispose();
     _flatStudentLimit.dispose();
+    _flatTeacherLimit.dispose();
     _displayOrder.dispose();
     super.dispose();
   }
@@ -376,6 +381,7 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
     final yearly = int.tryParse(_priceYearly.text.trim());
     final flatMonthly = int.tryParse(_flatPriceMonthly.text.trim());
     final flatStudentLimit = int.tryParse(_flatStudentLimit.text.trim());
+    final flatTeacherLimit = int.tryParse(_flatTeacherLimit.text.trim());
 
     if (_name.text.trim().isEmpty ||
         monthly == null ||
@@ -383,10 +389,11 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
         yearly == null ||
         flatMonthly == null ||
         flatStudentLimit == null ||
+        flatTeacherLimit == null ||
         _selectedFeatures.isEmpty) {
       setState(
         () => _error =
-            'Name, all prices, the flat-plan student limit, and at least one feature are required.',
+            'Name, all prices, the flat-plan student/teacher limits, and at least one feature are required.',
       );
       return;
     }
@@ -407,6 +414,7 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
           priceYearly: yearly,
           flatPriceMonthly: flatMonthly,
           flatStudentLimit: flatStudentLimit,
+          flatTeacherLimit: flatTeacherLimit,
           features: _selectedFeatures.toList(),
           displayOrder: displayOrder,
         );
@@ -419,6 +427,7 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
           priceYearly: yearly,
           flatPriceMonthly: flatMonthly,
           flatStudentLimit: flatStudentLimit,
+          flatTeacherLimit: flatTeacherLimit,
           features: _selectedFeatures.toList(),
           tagline: _tagline.text.trim(),
           displayOrder: displayOrder,
@@ -543,6 +552,13 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
                 hint: 'e.g. 150',
                 controller: _flatStudentLimit,
                 prefixIcon: Icons.groups_outlined,
+              ),
+              const SizedBox(height: 16),
+              CustomTextField(
+                label: 'Teacher Limit',
+                hint: 'e.g. 5',
+                controller: _flatTeacherLimit,
+                prefixIcon: Icons.badge_outlined,
               ),
               const SizedBox(height: 16),
               CustomTextField(

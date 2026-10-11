@@ -23,7 +23,6 @@ const formatFeatureName = (key: string) => {
     online_tests: "Online Tests",
     doubt_solving: "Doubt Solving",
     custom_branding: "Custom Branding",
-    teacher_accounts: "Teacher Accounts",
   };
 
   if (customMappings[key]) return customMappings[key];

@@ -8,7 +8,10 @@ export const createTeacherSchema = z
     fullName: z.string().trim().min(2).max(120),
     phone,
     password: z.string().min(6).max(100),
-    email: z.string().email().optional(),
+    // Required: teacher password-change/reset is OTP-verified via email
+    // (see /auth/password/*, /auth/forgot-password) — without an email on
+    // file a teacher would have no way to recover or change their password.
+    email: z.string().trim().email(),
   })
   .strict();
 
@@ -77,6 +80,29 @@ export const updateBatchSchema = z
 export const createSubjectSchema = z
   .object({
     name: z.string().trim().min(1).max(80),
+  })
+  .strict();
+
+export const chapterNameSchema = z
+  .object({
+    name: z.string().trim().min(1).max(150),
+  })
+  .strict();
+
+// `id` (not `batchId`) to match Next.js's requirement that every route
+// under batches/[id]/... use the same dynamic segment name.
+export const batchSubjectParamSchema = z
+  .object({
+    id: z.coerce.number().int().positive(),
+    subjectId: z.coerce.number().int().positive(),
+  })
+  .strict();
+
+export const batchSubjectChapterParamSchema = z
+  .object({
+    id: z.coerce.number().int().positive(),
+    subjectId: z.coerce.number().int().positive(),
+    chapterId: z.coerce.number().int().positive(),
   })
   .strict();
 

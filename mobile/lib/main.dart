@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -238,6 +239,18 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           backgroundColor: const Color(0xFF2E6656).withValues(alpha: 0.1),
           labelStyle: const TextStyle(color: Color(0xFF2E6656)),
           selectedColor: const Color(0xFF2E6656),
+        ),
+        // --- Page transitions ---
+        // Android's Material 3 default (ZoomPageTransitionsBuilder) reads as
+        // an abrupt fade+scale, especially jarring on back-navigation with
+        // this app's dark headers. A consistent horizontal slide on every
+        // platform looks smoother and more predictable going both forward
+        // and back — the same transition iOS already used by default.
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: <TargetPlatform, PageTransitionsBuilder>{
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
         ),
       ),
       home: const SplashScreen(),

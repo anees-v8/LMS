@@ -5,8 +5,10 @@ import '../../services/api_service.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/batch_schedule_bottom_sheet.dart';
+import '../../widgets/action_menu_bottom_sheet.dart';
 
 import 'batch_students_screen.dart';
+import 'batch_subjects_screen.dart';
 
 class BatchesScreen extends ConsumerWidget {
   const BatchesScreen({super.key});
@@ -338,17 +340,70 @@ class BatchesScreen extends ConsumerWidget {
                                                     ),
                                                   ),
                                                 ),
-                                              PopupMenuButton<String>(
+                                              IconButton(
                                                 icon: Icon(
                                                   Icons.more_vert,
                                                   color: Colors.grey.shade600,
                                                 ),
-                                                onSelected: (action) {
+                                                onPressed: () async {
+                                                  final action =
+                                                      await showActionMenuBottomSheet(
+                                                        context,
+                                                        title:
+                                                            batch['name'] ??
+                                                            'Batch',
+                                                        options: const [
+                                                          ActionMenuOption(
+                                                            icon: Icons
+                                                                .edit_outlined,
+                                                            label: 'Edit',
+                                                            value: 'edit',
+                                                          ),
+                                                          ActionMenuOption(
+                                                            icon: Icons
+                                                                .menu_book_outlined,
+                                                            label:
+                                                                'Manage Chapters',
+                                                            value: 'chapters',
+                                                          ),
+                                                          ActionMenuOption(
+                                                            icon: Icons
+                                                                .delete_outline,
+                                                            label: 'Delete',
+                                                            value: 'delete',
+                                                            color: Colors.red,
+                                                          ),
+                                                        ],
+                                                      );
+                                                  if (!context.mounted) {
+                                                    return;
+                                                  }
                                                   if (action == 'edit') {
                                                     showBatchFormBottomSheet(
                                                       context,
                                                       ref,
                                                       existing: batch,
+                                                    );
+                                                  } else if (action ==
+                                                      'chapters') {
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            BatchSubjectsScreen(
+                                                              batchId:
+                                                                  batch['id'],
+                                                              batchName:
+                                                                  batch['name'] ??
+                                                                  'Batch',
+                                                              subjects:
+                                                                  (batch['subjects']
+                                                                      as List<
+                                                                        dynamic
+                                                                      >?) ??
+                                                                  const [],
+                                                            ),
+                                                      ),
                                                     );
                                                   } else if (action ==
                                                       'delete') {
@@ -359,40 +414,6 @@ class BatchesScreen extends ConsumerWidget {
                                                     );
                                                   }
                                                 },
-                                                itemBuilder: (context) => [
-                                                  const PopupMenuItem(
-                                                    value: 'edit',
-                                                    child: Row(
-                                                      children: [
-                                                        Icon(
-                                                          Icons.edit_outlined,
-                                                          size: 18,
-                                                        ),
-                                                        SizedBox(width: 8),
-                                                        Text('Edit'),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  const PopupMenuItem(
-                                                    value: 'delete',
-                                                    child: Row(
-                                                      children: [
-                                                        Icon(
-                                                          Icons.delete_outline,
-                                                          size: 18,
-                                                          color: Colors.red,
-                                                        ),
-                                                        SizedBox(width: 8),
-                                                        Text(
-                                                          'Delete',
-                                                          style: TextStyle(
-                                                            color: Colors.red,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
                                               ),
                                             ],
                                           ),

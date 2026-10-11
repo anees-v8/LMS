@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/profile/profile_header.dart';
 import '../../widgets/profile/profile_info_card.dart';
 import '../../widgets/profile/profile_menu_list.dart';
+import '../../widgets/profile/profile_security_card.dart';
 import '../../widgets/profile/profile_notification_toggle.dart';
 import '../../widgets/profile/profile_logout_button.dart';
 
@@ -12,6 +13,8 @@ import '../management/teacher_mark_attendance_select_batch.dart';
 import '../management/teacher_subjects_screen.dart';
 import '../management/teacher_manage_tests_screen.dart';
 import '../management/teacher_student_reports_screen.dart';
+import '../management/change_email_screen.dart';
+import '../management/change_password_screen.dart';
 
 /// Same visual shell as the student profile — the menu below is exactly
 /// Home's "Quick Actions" (Mark Attendance / Upload Material / Manage
@@ -113,6 +116,56 @@ class TeacherProfileScreen extends ConsumerWidget {
                         builder: (_) => const TeacherStudentReportsScreen(),
                       ),
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ProfileSecurityCard(
+                actions: [
+                  ProfileSecurityAction(
+                    icon: Icons.email_outlined,
+                    title: email != null && email.isNotEmpty
+                        ? 'Change Email'
+                        : 'Add Email',
+                    subtitle: email == null || email.isEmpty
+                        ? 'Required for password reset'
+                        : null,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ChangeEmailScreen(),
+                      ),
+                    ),
+                  ),
+                  ProfileSecurityAction(
+                    icon: Icons.lock_outline,
+                    title: 'Change Password',
+                    subtitle: email == null || email.isEmpty
+                        ? 'Add an email first'
+                        : null,
+                    onTap: () {
+                      if (email == null || email.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Add an email first — it\'s where the confirmation code will be sent.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ChangePasswordScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

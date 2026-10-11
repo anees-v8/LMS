@@ -45,6 +45,7 @@ export const createContentSchema = z
 export const createChapterSchema = z
   .object({
     name: z.string().trim().min(1).max(150),
+    batchId: z.coerce.number().int().positive(),
     subjectId: z.coerce.number().int().positive(),
   })
   .strict();

@@ -4,6 +4,7 @@ import '../../providers/management_providers.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
+import '../../widgets/action_menu_bottom_sheet.dart';
 
 class SubjectsScreen extends ConsumerWidget {
   const SubjectsScreen({super.key});
@@ -178,63 +179,41 @@ class SubjectsScreen extends ConsumerWidget {
                                   color: Color(0xFF1F2E27),
                                 ),
                               ),
-                              subtitle:
-                                  ((subject['chapters'] as List?)?.length ??
-                                              0) >
-                                          0
-                                      ? Text(
-                                          '${(subject['chapters'] as List).length} chapters',
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                            fontSize: 12,
+                              trailing: IconButton(
+                                icon: Icon(
+                                  Icons.more_vert,
+                                  color: Colors.grey.shade600,
+                                ),
+                                onPressed: () async {
+                                  final action =
+                                      await showActionMenuBottomSheet(
+                                        context,
+                                        title: subject['name'] ?? 'Subject',
+                                        options: const [
+                                          ActionMenuOption(
+                                            icon: Icons.edit_outlined,
+                                            label: 'Edit',
+                                            value: 'edit',
                                           ),
-                                        )
-                                      : null,
-                              trailing: PopupMenuButton<String>(
-                                onSelected: (value) {
-                                  if (value == 'edit') {
+                                          ActionMenuOption(
+                                            icon: Icons.delete_outline,
+                                            label: 'Delete',
+                                            value: 'delete',
+                                            color: Colors.red,
+                                          ),
+                                        ],
+                                      );
+                                  if (!context.mounted) return;
+                                  if (action == 'edit') {
                                     _showEditSubjectBottomSheet(
                                       context,
                                       ref,
                                       subject,
                                     );
-                                  } else if (value == 'delete') {
+                                  } else if (action == 'delete') {
                                     _deleteSubject(context, ref, subject);
                                   }
                                 },
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'edit',
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.edit,
-                                          size: 20,
-                                          color: Colors.blue,
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text('Edit'),
-                                      ],
-                                    ),
-                                  ),
-                                  const PopupMenuItem(
-                                    value: 'delete',
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.delete,
-                                          size: 20,
-                                          color: Colors.red,
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Delete',
-                                          style: TextStyle(color: Colors.red),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
                               ),
                             ),
                           );

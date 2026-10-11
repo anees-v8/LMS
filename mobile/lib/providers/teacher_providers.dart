@@ -87,14 +87,25 @@ final teacherSubjectsProvider = FutureProvider<List<dynamic>>((ref) async {
   return await api.get('/teacher/subjects');
 });
 
-final teacherChaptersProvider = FutureProvider.family<List<dynamic>, int?>((
-  ref,
-  subjectId,
-) async {
-  final api = ref.read(apiServiceProvider);
-  final query = subjectId != null ? '?subjectId=$subjectId' : '';
-  return await api.get('/teacher/chapters$query');
-});
+/// Subjects this teacher is assigned to teach within ONE batch — used for
+/// chapter management, since chapters live per (batch, subject).
+final teacherBatchSubjectsProvider = FutureProvider.family<List<dynamic>, int>(
+  (ref, batchId) async {
+    final api = ref.read(apiServiceProvider);
+    return await api.get('/teacher/batches/$batchId/subjects');
+  },
+);
+
+final teacherChaptersProvider =
+    FutureProvider.family<List<dynamic>, ({int batchId, int subjectId})>((
+      ref,
+      params,
+    ) async {
+      final api = ref.read(apiServiceProvider);
+      return await api.get(
+        '/teacher/chapters?batchId=${params.batchId}&subjectId=${params.subjectId}',
+      );
+    });
 
 /// Creates a time-limited QR attendance session for a batch. Returns
 /// `{id, token, batchId, date, expiresAt}`.

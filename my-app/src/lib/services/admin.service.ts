@@ -63,25 +63,34 @@ export async function createTeacher(
   actorUserId: number,
   { fullName, phone, password, email }: CreateTeacherInput
 ): Promise<TeacherItem> {
-  const planInfo = await query(`
-    SELECT pc.name AS "planName"
-    FROM subscriptions s
-    LEFT JOIN plan_catalog pc ON pc.id = s.plan_catalog_id
-    WHERE s.tenant_id = $1
-  `, [tenantId]);
-  
-  const planName = planInfo.rows[0]?.planName || 'Basic';
-  let allowedTeachers = 1;
-  
-  if (planName === 'Basic') allowedTeachers = 0;
-  else if (planName === 'Pro') allowedTeachers = 3;
-  else if (planName === 'Elite') allowedTeachers = 15;
+  // Reads the real, superadmin-configured limit from plan_catalog — never
+  // a hardcoded number. A tenant not yet linked to a catalog row (legacy
+  // flat-plan subscriptions, plan_catalog_id IS NULL) falls back to
+  // whatever the "Basic" row itself currently says, so the limit always
+  // tracks what's actually configured on the website, never drifts from it.
+  const planInfo = await query<{ planName: string; teacherLimit: number }>(
+    `SELECT pc.name AS "planName", pc.flat_teacher_limit AS "teacherLimit"
+       FROM subscriptions s
+       LEFT JOIN plan_catalog pc ON pc.id = s.plan_catalog_id
+      WHERE s.tenant_id = $1`,
+    [tenantId]
+  );
+  let planName = planInfo.rows[0]?.planName;
+  let allowedTeachers = planInfo.rows[0]?.teacherLimit;
+
+  if (allowedTeachers === undefined || allowedTeachers === null) {
+    const basic = await query<{ name: string; teacherLimit: number }>(
+      `SELECT name, flat_teacher_limit AS "teacherLimit" FROM plan_catalog WHERE name = 'Basic' AND is_active = true LIMIT 1`
+    );
+    planName = basic.rows[0]?.name ?? 'Basic';
+    allowedTeachers = basic.rows[0]?.teacherLimit ?? 1;
+  }
 
   const teacherCountRes = await query(`SELECT count(*) FROM users WHERE tenant_id = $1 AND role = 'teacher'`, [tenantId]);
   const currentTeachers = parseInt(teacherCountRes.rows[0].count, 10);
 
   if (currentTeachers >= allowedTeachers) {
-    throw ApiError.forbidden('PLAN_LIMIT_REACHED', `Your ${planName} plan only allows up to ${allowedTeachers} teachers.`);
+    throw ApiError.forbidden('PLAN_LIMIT_REACHED', `Your ${planName} plan only allows up to ${allowedTeachers} teacher${allowedTeachers === 1 ? '' : 's'}.`);
   }
 
   const hash = await bcrypt.hash(password, 10);
@@ -122,12 +131,20 @@ export async function updateTeacher(
   const exists = await query(`SELECT 1 FROM users WHERE id=$1 AND tenant_id=$2 AND role='teacher'`, [id, tenantId]);
   if (!exists.rowCount) throw ApiError.notFound('TEACHER_NOT_FOUND');
 
+  // A teacher's email is their only channel for OTP-verified password
+  // reset/change (see /auth/password/*, /auth/forgot-password) — never
+  // allow clearing it to null/empty via an edit, only changing it to
+  // another real address.
+  if (email !== undefined && (!email || !email.trim())) {
+    throw ApiError.badRequest('EMAIL_REQUIRED', 'Email cannot be removed — it is required for password reset.');
+  }
+
   const userUpdates: string[] = [];
   const userValues: any[] = [id, tenantId];
   let ui = 3;
   if (fullName !== undefined) { userUpdates.push(`full_name=$${ui++}`); userValues.push(fullName); }
   if (phone !== undefined) { userUpdates.push(`phone=$${ui++}`); userValues.push(phone); }
-  if (email !== undefined) { userUpdates.push(`email=$${ui++}`); userValues.push(email); }
+  if (email !== undefined) { userUpdates.push(`email=$${ui++}`); userValues.push(email.trim()); }
   // Keep login access in sync with the teacher's status: 'inactive' must
   // actually block login (users.is_active is what auth.service checks),
   // not just change a display badge. 'active'/'on_leave' both keep login.
@@ -820,6 +837,7 @@ export interface BatchItem {
   studentCount: number;
   subjectIds: number[];
   subjectNames: string[];
+  subjects: { id: number; name: string }[];
   feeAmount: number | null;
   billingCycle: 'monthly' | 'quarterly' | 'yearly' | null;
 }
@@ -832,7 +850,15 @@ export async function listBatches(tenantId: number): Promise<BatchItem[]> {
             COALESCE(
               (SELECT array_agg(s.name ORDER BY s.name) FROM subjects s WHERE s.id = ANY(b.subject_ids)),
               ARRAY[]::text[]
-            ) AS "subjectNames"
+            ) AS "subjectNames",
+            -- Paired {id, name} objects — subjectIds/subjectNames above
+            -- are two separately-ordered arrays and must never be zipped
+            -- by index; this is the correctly-paired alternative.
+            COALESCE(
+              (SELECT jsonb_agg(jsonb_build_object('id', s.id, 'name', s.name) ORDER BY s.name)
+                 FROM subjects s WHERE s.id = ANY(b.subject_ids)),
+              '[]'::jsonb
+            ) AS "subjects"
        FROM batches b WHERE b.tenant_id=$1 AND b.is_active = true ORDER BY b.created_at DESC`,
     [tenantId]
   );
@@ -863,7 +889,7 @@ export async function createBatch(
      RETURNING id, name, grade, subject_ids AS "subjectIds", fee_amount AS "feeAmount", billing_cycle AS "billingCycle"`,
     [tenantId, name, grade || null, ids, feeAmount ?? null, billingCycle ?? null]
   );
-  return { ...rows[0], studentCount: 0, subjectNames: [] };
+  return { ...rows[0], studentCount: 0, subjectNames: [], subjects: [] };
 }
 
 export async function updateBatch(
@@ -951,20 +977,14 @@ export async function deleteBatch(tenantId: number, id: number, actorUserId: num
 }
 
 /* ─────────────── Subjects ─────────────── */
-export interface SubjectChapter {
-  id: number;
-  name: string;
-}
-
 export interface SubjectItem {
   id: number;
   name: string;
-  chapters: SubjectChapter[];
 }
 
 export async function listSubjects(tenantId: number): Promise<SubjectItem[]> {
   const { rows } = await query<SubjectItem>(
-    `SELECT id, name, chapters FROM subjects WHERE tenant_id=$1 AND is_active = true ORDER BY name`,
+    `SELECT id, name FROM subjects WHERE tenant_id=$1 AND is_active = true ORDER BY name`,
     [tenantId]
   );
   return rows;
@@ -976,7 +996,7 @@ export async function createSubject(
 ): Promise<SubjectItem> {
   const { rows } = await query<SubjectItem>(
     `INSERT INTO subjects (tenant_id, name) VALUES ($1,$2)
-     RETURNING id, name, chapters`,
+     RETURNING id, name`,
     [tenantId, name]
   );
   return rows[0];
@@ -990,11 +1010,164 @@ export async function updateSubject(
   const { rows } = await query<SubjectItem>(
     `UPDATE subjects SET name = $1
       WHERE id = $2 AND tenant_id = $3 AND is_active = true
-      RETURNING id, name, chapters`,
+      RETURNING id, name`,
     [name, subjectId, tenantId]
   );
   if (rows.length === 0) throw ApiError.notFound('SUBJECT_NOT_FOUND');
   return rows[0];
+}
+
+/* ─────────────── Batch-Subject Chapters ───────────────
+ * Curriculum (chapters) is owned by the (batch, subject) pair, not the
+ * subject itself — a subject like "Maths" is a tenant-wide tag reused
+ * across unrelated batches/grades (Class 5 "Maths" and Class 10 "Maths"
+ * have unrelated curricula despite sharing a subject name). This mirrors
+ * the (batch_id, subject_id) junction shape batch_schedule and
+ * teacher_assignments already use. See migration 0036.
+ */
+export interface BatchSubjectChapterItem {
+  id: number;
+  name: string;
+}
+
+/** Adds `chapterNumber` (1-based, by array position) to each chapter for
+ *  display — always derived fresh, never stored, so removing/reordering
+ *  chapters never leaves stale/gapped numbers behind. */
+export interface BatchSubjectChapterWithNumber extends BatchSubjectChapterItem {
+  chapterNumber: number;
+}
+
+function withChapterNumbers(chapters: BatchSubjectChapterItem[]): BatchSubjectChapterWithNumber[] {
+  return chapters.map((ch, i) => ({ ...ch, chapterNumber: i + 1 }));
+}
+
+async function ensureBatchTeachesSubject(tenantId: number, batchId: number, subjectId: number): Promise<void> {
+  const { rowCount } = await query(
+    `SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2 AND is_active = true AND $3 = ANY(subject_ids)`,
+    [batchId, tenantId, subjectId]
+  );
+  if (!rowCount) throw ApiError.badRequest('INVALID_BATCH_SUBJECT', 'This subject is not part of this batch');
+}
+
+export async function listBatchSubjectChapters(
+  tenantId: number,
+  batchId: number,
+  subjectId: number
+): Promise<BatchSubjectChapterWithNumber[]> {
+  const { rows } = await query<{ chapters: BatchSubjectChapterItem[] }>(
+    `SELECT chapters FROM batch_subject_chapters WHERE tenant_id=$1 AND batch_id=$2 AND subject_id=$3`,
+    [tenantId, batchId, subjectId]
+  );
+  return withChapterNumbers(rows[0]?.chapters ?? []);
+}
+
+/** Adds a chapter to this batch+subject's chapter list. Id comes from
+ *  `subject_chapter_id_seq` (tenant-wide unique, shared with the
+ *  identical teacher-side function) so content.chapter_id values stay
+ *  unambiguous — there's no FK to enforce this since chapters live in a
+ *  JSONB array, not their own table. Blocks a duplicate name (case/space
+ *  insensitive) within the same batch+subject — "Chapter 1" can't be
+ *  added twice to the same offering by mistake. Its chapterNumber is
+ *  simply its new position (end of the list), appended, not stored. */
+export async function addBatchSubjectChapter(
+  tenantId: number,
+  batchId: number,
+  subjectId: number,
+  { name }: { name: string }
+): Promise<BatchSubjectChapterWithNumber[]> {
+  await ensureBatchTeachesSubject(tenantId, batchId, subjectId);
+
+  const existing = await query<{ chapters: BatchSubjectChapterItem[] }>(
+    `SELECT chapters FROM batch_subject_chapters WHERE tenant_id=$1 AND batch_id=$2 AND subject_id=$3`,
+    [tenantId, batchId, subjectId]
+  );
+  const normalizedNew = name.trim().toLowerCase();
+  const isDuplicate = (existing.rows[0]?.chapters ?? []).some(
+    (ch) => ch.name.trim().toLowerCase() === normalizedNew
+  );
+  if (isDuplicate) {
+    throw ApiError.conflict('CHAPTER_ALREADY_EXISTS', `A chapter named "${name.trim()}" already exists in this subject for this batch.`);
+  }
+
+  const { rows } = await query<{ chapters: BatchSubjectChapterItem[] }>(
+    `INSERT INTO batch_subject_chapters (tenant_id, batch_id, subject_id, chapters)
+     VALUES ($1, $2, $3, jsonb_build_array(jsonb_build_object('id', nextval('subject_chapter_id_seq'), 'name', $4::text)))
+     ON CONFLICT (batch_id, subject_id) DO UPDATE
+       SET chapters = batch_subject_chapters.chapters || jsonb_build_array(
+             jsonb_build_object('id', nextval('subject_chapter_id_seq'), 'name', $4::text)
+           )
+     RETURNING chapters`,
+    [tenantId, batchId, subjectId, name.trim()]
+  );
+  return withChapterNumbers(rows[0].chapters);
+}
+
+/** Renames one chapter in place — the array order (and therefore every
+ *  chapter's position-derived number) and every content row's chapter_id
+ *  are untouched, only that element's name changes. Blocks renaming to a
+ *  name that duplicates another chapter already in this batch+subject. */
+export async function renameBatchSubjectChapter(
+  tenantId: number,
+  batchId: number,
+  subjectId: number,
+  chapterId: number,
+  { name }: { name: string }
+): Promise<BatchSubjectChapterWithNumber[]> {
+  const existing = await query<{ chapters: BatchSubjectChapterItem[] }>(
+    `SELECT chapters FROM batch_subject_chapters WHERE tenant_id=$1 AND batch_id=$2 AND subject_id=$3`,
+    [tenantId, batchId, subjectId]
+  );
+  const normalizedNew = name.trim().toLowerCase();
+  const isDuplicate = (existing.rows[0]?.chapters ?? []).some(
+    (ch) => ch.id !== chapterId && ch.name.trim().toLowerCase() === normalizedNew
+  );
+  if (isDuplicate) {
+    throw ApiError.conflict('CHAPTER_ALREADY_EXISTS', `A chapter named "${name.trim()}" already exists in this subject for this batch.`);
+  }
+
+  const { rows } = await query<{ chapters: BatchSubjectChapterItem[] }>(
+    `UPDATE batch_subject_chapters
+        SET chapters = (
+          SELECT jsonb_agg(
+            CASE WHEN (ch->>'id')::int = $1 THEN jsonb_set(ch, '{name}', to_jsonb($2::text)) ELSE ch END
+          )
+          FROM jsonb_array_elements(chapters) ch
+        )
+      WHERE tenant_id = $3 AND batch_id = $4 AND subject_id = $5
+        AND EXISTS (SELECT 1 FROM jsonb_array_elements(chapters) ch WHERE (ch->>'id')::int = $1)
+      RETURNING chapters`,
+    [chapterId, name.trim(), tenantId, batchId, subjectId]
+  );
+  if (!rows.length) throw ApiError.notFound('CHAPTER_NOT_FOUND');
+  return withChapterNumbers(rows[0].chapters);
+}
+
+/** Removes a chapter — blocked if any content was ever uploaded under it,
+ *  since content.chapter_id would otherwise dangle with nothing (no FK,
+ *  no table) left to catch the orphan. */
+export async function removeBatchSubjectChapter(
+  tenantId: number,
+  batchId: number,
+  subjectId: number,
+  chapterId: number
+): Promise<BatchSubjectChapterWithNumber[]> {
+  const { rowCount: hasContent } = await query(`SELECT 1 FROM content WHERE tenant_id=$1 AND chapter_id=$2`, [
+    tenantId,
+    chapterId,
+  ]);
+  if (hasContent) throw ApiError.conflict('CHAPTER_HAS_CONTENT', 'This chapter has content under it and cannot be removed.');
+
+  const { rows } = await query<{ chapters: BatchSubjectChapterItem[] }>(
+    `UPDATE batch_subject_chapters
+        SET chapters = COALESCE((
+          SELECT jsonb_agg(ch) FROM jsonb_array_elements(chapters) ch WHERE (ch->>'id')::int != $1
+        ), '[]'::jsonb)
+      WHERE tenant_id = $2 AND batch_id = $3 AND subject_id = $4
+      RETURNING chapters`,
+    [chapterId, tenantId, batchId, subjectId]
+  );
+  if (!rows.length) throw ApiError.notFound('SUBJECT_NOT_FOUND');
+  return withChapterNumbers(rows[0].chapters);
 }
 
 /**
@@ -1002,9 +1175,10 @@ export async function updateSubject(
  * pattern deleteStudent/deleteTeacher/deleteBatch already use — subjects
  * used to be the one entity that hard-deleted unconditionally, silently
  * cascading away content attached via a chapter and raw-erroring on
- * content/tests attached directly. Checks every real reference: content,
- * tests, batch_schedule, teacher_assignments, and batches.subject_ids
- * (a plain INT[] with no FK, so it needs its own manual check).
+ * content/tests attached directly. Checks every real reference: tests,
+ * batch_schedule, teacher_assignments, batch_subject_chapters, and
+ * batches.subject_ids (a plain INT[] with no FK, so it needs its own
+ * manual check).
  */
 export async function deleteSubject(tenantId: number, subjectId: number, actorUserId: number): Promise<{ softDeleted: boolean }> {
   const { rowCount: exists } = await query(`SELECT 1 FROM subjects WHERE id=$1 AND tenant_id=$2`, [subjectId, tenantId]);
@@ -1012,18 +1186,13 @@ export async function deleteSubject(tenantId: number, subjectId: number, actorUs
 
   const { rows: depRows } = await query<{ has_dependents: boolean }>(
     `SELECT EXISTS(
-       SELECT 1 FROM content c
-        WHERE c.tenant_id = $2
-          AND EXISTS (
-            SELECT 1 FROM subjects s, jsonb_array_elements(s.chapters) ch
-             WHERE s.id = $1 AND (ch->>'id')::int = c.chapter_id
-          )
-       UNION ALL SELECT 1 FROM tests WHERE subject_id=$1
+       SELECT 1 FROM tests WHERE subject_id=$1
        UNION ALL SELECT 1 FROM batch_schedule WHERE subject_id=$1
        UNION ALL SELECT 1 FROM teacher_assignments WHERE subject_id=$1
+       UNION ALL SELECT 1 FROM batch_subject_chapters WHERE subject_id=$1
        UNION ALL SELECT 1 FROM batches WHERE $1 = ANY(subject_ids)
      ) AS has_dependents`,
-    [subjectId, tenantId]
+    [subjectId]
   );
   const hasDependents = depRows[0]?.has_dependents ?? false;
 

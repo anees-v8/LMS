@@ -108,11 +108,12 @@ export async function dashboard(tenantId: number, userId: number): Promise<Stude
   const recentVideos = (
     await query<VideoItem & { chapterId: number }>(
       `SELECT c.id, c.title, c.file_url AS "fileUrl", c.content_type AS "contentType",
-              (SELECT ch->>'name' FROM subjects s, jsonb_array_elements(s.chapters) ch
-                WHERE s.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS chapter,
+              (SELECT ch->>'name' FROM batch_subject_chapters bsc, jsonb_array_elements(bsc.chapters) ch
+                WHERE bsc.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS chapter,
               c.chapter_id AS "chapterId",
-              (SELECT s.name FROM subjects s, jsonb_array_elements(s.chapters) ch
-                WHERE s.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS subject
+              (SELECT s.name FROM batch_subject_chapters bsc
+                JOIN subjects s ON s.id = bsc.subject_id, jsonb_array_elements(bsc.chapters) ch
+                WHERE bsc.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS subject
        FROM content c
        WHERE c.tenant_id=$1 AND (c.batch_id = ANY($2::int[]) OR c.batch_id IS NULL)
       ORDER BY c.created_at DESC LIMIT 5`,
@@ -168,11 +169,12 @@ export async function dashboard(tenantId: number, userId: number): Promise<Stude
     await query<ContinuePlaying>(
       `SELECT c.id, c.title, c.file_url AS "fileUrl", c.content_type AS "contentType",
               c.duration_minutes AS "durationMinutes", c.duration_seconds AS "durationSeconds",
-              (SELECT ch->>'name' FROM subjects s, jsonb_array_elements(s.chapters) ch
-                WHERE s.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS chapter,
+              (SELECT ch->>'name' FROM batch_subject_chapters bsc, jsonb_array_elements(bsc.chapters) ch
+                WHERE bsc.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS chapter,
               c.chapter_id AS "chapterId",
-              (SELECT s.name FROM subjects s, jsonb_array_elements(s.chapters) ch
-                WHERE s.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS subject,
+              (SELECT s.name FROM batch_subject_chapters bsc
+                JOIN subjects s ON s.id = bsc.subject_id, jsonb_array_elements(bsc.chapters) ch
+                WHERE bsc.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS subject,
               p.progress_seconds AS "progressSeconds"
        FROM user_content_progress p
        JOIN content c ON c.id = p.content_id
@@ -216,17 +218,23 @@ export async function listVideos(
   let subFilter = '';
   if (subjectId) {
     params.push(subjectId);
+    // Matches on (batch_id, subject_id) jointly — a subject can be taught
+    // in multiple batches with unrelated curricula, so "this chapter
+    // belongs to subject X" alone isn't enough; it must also belong to
+    // one of THIS student's enrolled batches.
     subFilter = `AND EXISTS (
-      SELECT 1 FROM subjects s, jsonb_array_elements(s.chapters) ch
-       WHERE s.tenant_id = c.tenant_id AND s.id = $3 AND (ch->>'id')::int = c.chapter_id
+      SELECT 1 FROM batch_subject_chapters bsc, jsonb_array_elements(bsc.chapters) ch
+       WHERE bsc.tenant_id = c.tenant_id AND bsc.subject_id = $3 AND bsc.batch_id = c.batch_id
+         AND (ch->>'id')::int = c.chapter_id
     )`;
   }
   const { rows } = await query<VideoItem>(
     `SELECT c.id, c.title, c.file_url AS "fileUrl", c.content_type AS "contentType",
-            (SELECT ch->>'name' FROM subjects s, jsonb_array_elements(s.chapters) ch
-              WHERE s.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS chapter,
-            (SELECT s.name FROM subjects s, jsonb_array_elements(s.chapters) ch
-              WHERE s.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS subject
+            (SELECT ch->>'name' FROM batch_subject_chapters bsc, jsonb_array_elements(bsc.chapters) ch
+              WHERE bsc.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS chapter,
+            (SELECT s.name FROM batch_subject_chapters bsc
+              JOIN subjects s ON s.id = bsc.subject_id, jsonb_array_elements(bsc.chapters) ch
+              WHERE bsc.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS subject
        FROM content c
       WHERE c.tenant_id=$1 AND (c.batch_id = ANY($2::int[]) OR c.batch_id IS NULL) ${subFilter}
       ORDER BY c.created_at DESC`,
@@ -411,20 +419,26 @@ export async function listSubjects(tenantId: number, userId: number): Promise<Su
   // Subjects come from the student's batches' subject_ids — set once at
   // batch-create time — not from timetable entries. A batch with no
   // timetable slots yet (or a subject with no class scheduled this week)
-  // still shows up here, which is the whole point.
+  // still shows up here, which is the whole point. Chapter/video counts
+  // are summed across every enrolled batch that teaches this subject
+  // (batch_subject_chapters, see migration 0036) — the normal case is one
+  // batch per subject per student, so this is just that count; a student
+  // in two batches teaching the same subject sees the combined total.
   const { rows } = await query<SubjectWithStats>(
     `SELECT s.id, s.name,
-            jsonb_array_length(s.chapters)::int AS "totalChapters",
+            COALESCE(SUM(jsonb_array_length(bsc.chapters)), 0)::int AS "totalChapters",
             COUNT(DISTINCT c.id) FILTER (WHERE c.content_type = 'video')::int AS "totalVideos"
        FROM subjects s
-       LEFT JOIN LATERAL jsonb_array_elements(s.chapters) ch ON true
+       LEFT JOIN batch_subject_chapters bsc ON bsc.tenant_id = s.tenant_id AND bsc.subject_id = s.id
+                                            AND bsc.batch_id = ANY($2::int[])
+       LEFT JOIN LATERAL jsonb_array_elements(bsc.chapters) ch ON true
        LEFT JOIN content c ON (ch->>'id')::int = c.chapter_id
       WHERE s.tenant_id=$1 AND s.is_active = true
         AND s.id = ANY(
           SELECT DISTINCT unnest(b.subject_ids) FROM batches b
           WHERE b.tenant_id=$1 AND b.id = ANY($2::int[])
         )
-      GROUP BY s.id, s.name, s.chapters
+      GROUP BY s.id, s.name
       ORDER BY s.name`,
     [tenantId, safeBatches]
   );
@@ -450,22 +464,20 @@ export async function listChapters(
   const batchIds = await enrolledBatchIds(tenantId, studentId);
   const safeBatches = batchIds.length ? batchIds : [-1];
 
-  // Only chapters of a subject the student is actually enrolled in via one
-  // of their batches — previously missing, letting any student in the
-  // tenant read any subject's chapter list by id.
+  // Chapters live per (batch, subject) — see migration 0036 — so this
+  // resolves to whichever of the student's own enrolled batches actually
+  // teaches this subject (normally exactly one), not the subject alone.
+  // Still blocks a student from reading another subject's/batch's
+  // chapters by id, same as before.
   const { rows } = await query<ChapterWithCounts>(
     `SELECT (ch->>'id')::int AS "id", ch->>'name' AS "name",
             COUNT(c.id) FILTER (WHERE c.content_type = 'video')::int AS "videoCount",
             COUNT(c.id) FILTER (WHERE c.content_type != 'video')::int AS "docCount",
             ROW_NUMBER() OVER (ORDER BY (ch->>'id')::int)::int AS "sortOrder"
-       FROM subjects s
-       JOIN LATERAL jsonb_array_elements(s.chapters) ch ON true
+       FROM batch_subject_chapters bsc
+       JOIN LATERAL jsonb_array_elements(bsc.chapters) ch ON true
        LEFT JOIN content c ON c.chapter_id = (ch->>'id')::int
-      WHERE s.tenant_id=$1 AND s.id=$2 AND s.is_active = true
-        AND s.id = ANY(
-          SELECT DISTINCT unnest(b.subject_ids) FROM batches b
-          WHERE b.tenant_id=$1 AND b.id = ANY($3::int[])
-        )
+      WHERE bsc.tenant_id=$1 AND bsc.subject_id=$2 AND bsc.batch_id = ANY($3::int[])
       GROUP BY ch->>'id', ch->>'name'
       ORDER BY (ch->>'id')::int`,
     [tenantId, subjectId, safeBatches]
@@ -493,17 +505,14 @@ export async function listChapterContent(
   const batchIds = await enrolledBatchIds(tenantId, studentId);
   const safeBatches = batchIds.length ? batchIds : [-1];
 
-  // Resolve chapterId -> its owning subject, then confirm that subject is
-  // taught in one of the student's enrolled batches — previously missing,
-  // letting any student in the tenant read any chapter's content by id.
-  const owning = await query<{ subjectId: number }>(
-    `SELECT s.id AS "subjectId"
-       FROM subjects s, jsonb_array_elements(s.chapters) ch
-      WHERE s.tenant_id=$1 AND s.is_active = true AND (ch->>'id')::int = $2
-        AND s.id = ANY(
-          SELECT DISTINCT unnest(b.subject_ids) FROM batches b
-          WHERE b.tenant_id=$1 AND b.id = ANY($3::int[])
-        )`,
+  // Resolve chapterId -> its owning (batch, subject), then confirm that
+  // batch is one of the student's own enrolled batches — previously
+  // missing, letting any student in the tenant read any chapter's
+  // content by id.
+  const owning = await query<{ batchId: number; subjectId: number }>(
+    `SELECT bsc.batch_id AS "batchId", bsc.subject_id AS "subjectId"
+       FROM batch_subject_chapters bsc, jsonb_array_elements(bsc.chapters) ch
+      WHERE bsc.tenant_id=$1 AND (ch->>'id')::int = $2 AND bsc.batch_id = ANY($3::int[])`,
     [tenantId, chapterId, safeBatches]
   );
   if (!owning.rowCount) throw ApiError.notFound('CHAPTER_NOT_FOUND');

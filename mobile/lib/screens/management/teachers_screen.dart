@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_dropdown.dart';
+import '../../widgets/action_menu_bottom_sheet.dart';
 
 import 'teacher_details_screen.dart';
 
@@ -162,6 +163,7 @@ class TeachersScreen extends ConsumerWidget {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
                               ),
                               child: Row(
                                 children: [
@@ -420,22 +422,27 @@ class TeachersScreen extends ConsumerWidget {
                 Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    PopupMenuButton<String>(
+                    IconButton(
                       icon: const Icon(Icons.more_vert, color: Colors.grey),
                       padding: EdgeInsets.zero,
-                      onSelected: (val) {
-                        if (val == 'delete')
+                      onPressed: () async {
+                        final action = await showActionMenuBottomSheet(
+                          context,
+                          title: teacher['fullName'] ?? 'Teacher',
+                          options: const [
+                            ActionMenuOption(
+                              icon: Icons.person_remove_outlined,
+                              label: 'Remove Teacher',
+                              value: 'delete',
+                              color: Colors.red,
+                            ),
+                          ],
+                        );
+                        if (!context.mounted) return;
+                        if (action == 'delete') {
                           _confirmDelete(context, ref, teacher);
+                        }
                       },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text(
-                            'Remove Teacher',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
                     ),
                     const SizedBox(height: 24),
                     const Icon(Icons.chevron_right, color: Colors.black87),
@@ -562,11 +569,20 @@ class _AddTeacherBottomSheetState
     ];
   }
 
+  static final _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
   Future<void> _submit() async {
     if (_fullName.text.trim().isEmpty ||
         _phone.text.trim().isEmpty ||
-        _password.text.isEmpty) {
-      setState(() => _error = 'Full name, phone and password are required.');
+        _password.text.isEmpty ||
+        _email.text.trim().isEmpty) {
+      setState(
+        () => _error = 'Full name, phone, password and email are required.',
+      );
+      return;
+    }
+    if (!_emailRegex.hasMatch(_email.text.trim())) {
+      setState(() => _error = 'Enter a valid email address.');
       return;
     }
     if (_batchId != null && _subjectId == null) {
@@ -702,10 +718,18 @@ class _AddTeacherBottomSheetState
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
-                    label: 'Email Address (Optional)',
+                    label: 'Email Address',
                     hint: 'teacher@example.com',
                     controller: _email,
                     prefixIcon: Icons.email_outlined,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Required — used to verify password resets and changes.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
                   ),
                   const SizedBox(height: 20),
                   const Text(

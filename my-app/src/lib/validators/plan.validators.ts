@@ -12,7 +12,6 @@ const featureKeySchema = z.enum([
   'performance_reports',
   'online_tests',
   'doubt_solving',
-  'teacher_accounts',
 ]);
 
 export const createPlanSchema = z
@@ -24,6 +23,7 @@ export const createPlanSchema = z
     priceYearly: z.number().int().min(1).max(10000),
     flatPriceMonthly: z.number().int().min(1).max(1000000),
     flatStudentLimit: z.number().int().min(1).max(100000),
+    flatTeacherLimit: z.number().int().min(0).max(10000),
     features: z.array(featureKeySchema).min(1),
     displayOrder: z.number().int().min(0).max(100).optional(),
   })
@@ -37,6 +37,7 @@ export const updatePlanSchema = z
     priceYearly: z.number().int().min(1).max(10000).optional(),
     flatPriceMonthly: z.number().int().min(1).max(1000000).optional(),
     flatStudentLimit: z.number().int().min(1).max(100000).optional(),
+    flatTeacherLimit: z.number().int().min(0).max(10000).optional(),
     features: z.array(featureKeySchema).min(1).optional(),
     isActive: z.boolean().optional(),
     displayOrder: z.number().int().min(0).max(100).optional(),
