@@ -23,6 +23,65 @@ interface PlanRow {
   planName: string | null;
 }
 
+export interface EffectiveFeatures {
+  /** Feature keys actually unlocked right now — during an active trial this
+   *  is every FeatureKey regardless of the assigned plan. */
+  features: string[];
+  planName: string | null;
+  /** True while an active (non-expired) trial grants every feature. */
+  isTrialUnlocked: boolean;
+}
+
+const ALL_FEATURE_KEYS: FeatureKey[] = [
+  'student_management',
+  'batch_management',
+  'digital_attendance',
+  'fee_management',
+  'video_library',
+  'whatsapp_reminders',
+  'email_notifications',
+  'live_classes',
+  'performance_reports',
+  'online_tests',
+  'doubt_solving',
+];
+
+/**
+ * Resolves which features a tenant actually has access to right now —
+ * the single source of truth `requireFeature` and `/auth/me` both build on,
+ * so the trial/plan logic only lives in one place.
+ */
+export async function getEffectiveFeatures(tenantId: number): Promise<EffectiveFeatures> {
+  const { rows } = await query<PlanRow & { status: string; trialEndsAt: Date | null }>(
+    `SELECT s.status, s.trial_ends_at AS "trialEndsAt",
+            pc.features,
+            pc.name AS "planName"
+       FROM subscriptions s
+       LEFT JOIN plan_catalog pc ON pc.id = s.plan_catalog_id
+      WHERE s.tenant_id = $1`,
+    [tenantId]
+  );
+
+  const sub = rows[0];
+  if (!sub) throw ApiError.forbidden('NO_SUBSCRIPTION', 'No subscription found');
+
+  // During an active trial — every feature is unlocked.
+  if (sub.status === 'trial' && (!sub.trialEndsAt || new Date() <= new Date(sub.trialEndsAt))) {
+    return { features: ALL_FEATURE_KEYS, planName: sub.planName, isTrialUnlocked: true };
+  }
+
+  // No plan_catalog assigned yet (legacy tenant) — allow all (backward compat).
+  if (!sub.features) {
+    return { features: ALL_FEATURE_KEYS, planName: sub.planName, isTrialUnlocked: false };
+  }
+
+  return {
+    features: Array.isArray(sub.features) ? sub.features : [],
+    planName: sub.planName,
+    isTrialUnlocked: false,
+  };
+}
+
 /**
  * Checks whether a tenant's current plan includes the required feature(s).
  * Throws ApiError.forbidden('PLAN_UPGRADE_REQUIRED') if not.
@@ -35,38 +94,9 @@ interface PlanRow {
  *   await requireFeature(requireTenantId(user), 'live_classes');
  */
 export async function requireFeature(tenantId: number, ...requiredFeatures: FeatureKey[]): Promise<void> {
-  const { rows } = await query<PlanRow & { status: string }>(
-    `SELECT s.status,
-            pc.features,
-            pc.name AS "planName"
-       FROM subscriptions s
-       LEFT JOIN plan_catalog pc ON pc.id = s.plan_catalog_id
-      WHERE s.tenant_id = $1`,
-    [tenantId]
-  );
+  const effective = await getEffectiveFeatures(tenantId);
 
-  const sub = rows[0];
-  if (!sub) throw ApiError.forbidden('NO_SUBSCRIPTION', 'No subscription found');
-
-  // During active trial — all features are unlocked (7-day free trial)
-  if (sub.status === 'trial') {
-    const { rows: subRows } = await query<{ trial_ends_at: Date | null }>(
-      `SELECT trial_ends_at FROM subscriptions WHERE tenant_id = $1`,
-      [tenantId]
-    );
-    const trialEndsAt = subRows[0]?.trial_ends_at;
-    if (!trialEndsAt || new Date() <= new Date(trialEndsAt)) {
-      return;
-    }
-    // Trial expired — fall through to plan check
-  }
-
-  // If no plan_catalog assigned yet (old flat plan), allow all (backward compat)
-  if (!sub.features) return;
-
-  const tenantFeatures: string[] = Array.isArray(sub.features) ? sub.features : [];
-
-  const missingFeature = requiredFeatures.find((f) => !tenantFeatures.includes(f));
+  const missingFeature = requiredFeatures.find((f) => !effective.features.includes(f));
   if (missingFeature) {
     const { rows: upgradePlanRows } = await query<{ name: string }>(
       `SELECT name FROM plan_catalog
@@ -80,7 +110,7 @@ export async function requireFeature(tenantId: number, ...requiredFeatures: Feat
 
     throw ApiError.forbidden(
       'PLAN_UPGRADE_REQUIRED',
-      `This feature requires the ${requiredPlan} plan or higher. Current plan: ${sub.planName ?? 'Basic'}.`
+      `This feature requires the ${requiredPlan} plan or higher. Current plan: ${effective.planName ?? 'Basic'}.`
     );
   }
 }

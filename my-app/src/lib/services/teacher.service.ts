@@ -102,21 +102,77 @@ export interface MyBatch {
   name: string;
   studentCount: number;
   progress: number; // Placeholder for now
+  /** Names of the subject(s) this teacher is assigned for in this batch —
+   *  not every subject the batch has, since a batch can have multiple
+   *  teachers covering different subjects. */
+  subjects: string[];
+  /** Human-readable summary of this teacher's own class slots in this
+   *  batch, e.g. "Mon - Fri | 09:00 AM" — derived from batch_schedule rows
+   *  matching their teacher_assignments, not the whole batch's schedule.
+   *  Null when no schedule has been set up yet. */
+  scheduleSummary: string | null;
+}
+
+const DAY_ABBREV = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function formatTime12h(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+function summarizeSchedule(days: number[], earliestStart: string | null): string | null {
+  if (days.length === 0 || !earliestStart) return null;
+  const sorted = [...new Set(days)].sort((a, b) => a - b);
+  const dayLabel =
+    sorted.length === 1
+      ? DAY_ABBREV[sorted[0]]
+      : sorted.length === sorted[sorted.length - 1] - sorted[0] + 1
+        ? `${DAY_ABBREV[sorted[0]]} - ${DAY_ABBREV[sorted[sorted.length - 1]]}`
+        : sorted.map((d) => DAY_ABBREV[d]).join(', ');
+  return `${dayLabel} | ${formatTime12h(earliestStart)}`;
 }
 
 export async function myBatches(tenantId: number, teacherId: number): Promise<MyBatch[]> {
   // Find distinct batches assigned to this teacher via teacher_assignments
-  const { rows } = await query<MyBatch>(
+  const { rows } = await query<{
+    id: number;
+    name: string;
+    studentCount: number;
+    subjects: string[] | null;
+    scheduleDays: number[] | null;
+    earliestStart: string | null;
+  }>(
     `SELECT b.id, b.name,
             (SELECT COUNT(*) FROM batch_enrollments be WHERE be.batch_id = b.id) AS "studentCount",
-            0 AS progress
+            (SELECT array_agg(DISTINCT sub.name ORDER BY sub.name)
+               FROM teacher_assignments ta2
+               JOIN subjects sub ON sub.id = ta2.subject_id
+              WHERE ta2.tenant_id = $1 AND ta2.teacher_user_id = $2 AND ta2.batch_id = b.id) AS subjects,
+            (SELECT array_agg(DISTINCT bs.day_of_week)
+               FROM teacher_assignments ta3
+               JOIN batch_schedule bs ON bs.batch_id = ta3.batch_id AND bs.subject_id = ta3.subject_id
+              WHERE ta3.tenant_id = $1 AND ta3.teacher_user_id = $2 AND ta3.batch_id = b.id) AS "scheduleDays",
+            (SELECT MIN(bs.start_time)::text
+               FROM teacher_assignments ta4
+               JOIN batch_schedule bs ON bs.batch_id = ta4.batch_id AND bs.subject_id = ta4.subject_id
+              WHERE ta4.tenant_id = $1 AND ta4.teacher_user_id = $2 AND ta4.batch_id = b.id) AS "earliestStart"
        FROM batches b
       WHERE b.tenant_id = $1
         AND b.id IN (SELECT DISTINCT batch_id FROM teacher_assignments WHERE tenant_id = $1 AND teacher_user_id = $2)
       ORDER BY b.name`,
     [tenantId, teacherId]
   );
-  return rows;
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    studentCount: Number(r.studentCount),
+    progress: 0,
+    subjects: r.subjects ?? [],
+    scheduleSummary: summarizeSchedule(r.scheduleDays ?? [], r.earliestStart),
+  }));
 }
 
 /** Students of a batch (for attendance). Verifies batch belongs to tenant. */

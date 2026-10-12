@@ -47,7 +47,7 @@ class _TeacherShellState extends ConsumerState<TeacherShell> {
               ref.read(teacherShellTabIndexProvider.notifier).setTab(index),
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
-          selectedItemColor: AppColors.primary,
+          selectedItemColor: AppColors.primaryDark,
           unselectedItemColor: Colors.grey.shade400,
           showSelectedLabels: true,
           showUnselectedLabels: true,

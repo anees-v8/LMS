@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/management_providers.dart';
 import '../../services/api_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/fee_analytic_card.dart';
 import '../../widgets/record_payment_bottom_sheet.dart';
+import '../../widgets/feature_locked_view.dart';
 import 'student_fee_details_screen.dart';
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
@@ -439,6 +441,13 @@ class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen> {
   }
 
   Future<void> _sendReminder(Map<String, dynamic> fee) async {
+    final hasAccess = ref.read(
+      authProvider.select((state) => state.hasFeature('whatsapp_reminders')),
+    );
+    if (!hasAccess) {
+      showUpgradeRequiredSheet(context, featureLabel: 'WhatsApp Reminders');
+      return;
+    }
     try {
       final result = await sendFeeReminder(
         ref.read(apiServiceProvider),

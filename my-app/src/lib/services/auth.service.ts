@@ -4,11 +4,18 @@ import * as tenantRepo from '../db/repositories/tenantRepo';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import ApiError from '../utils/ApiError';
 import * as otpService from './otp.service';
+import { getEffectiveFeatures } from '../middleware/featureGuard';
 import type { PublicUser } from '../db/rows';
 
 export interface TenantInfo {
   name: string;
   slug: string;
+  /** Feature keys unlocked right now (includes everything during an active
+   *  trial) — lets the app show locked/upgrade state without a separate
+   *  coaching_admin-only subscription call, and works for teacher/student
+   *  roles too. */
+  planFeatures: string[];
+  planName: string | null;
 }
 
 /** Bump this whenever the Privacy Policy/Terms content actually changes —
@@ -50,7 +57,8 @@ export async function login({ phone, password }: LoginInput): Promise<LoginResul
     const tenant = await tenantRepo.findById(user.tenant_id);
     if (!tenant) throw ApiError.unauthorized('INVALID_CREDENTIALS', 'Invalid login');
     if (!tenant.is_active) throw ApiError.forbidden('TENANT_SUSPENDED', 'This institute is suspended');
-    tenantInfo = { name: tenant.name, slug: tenant.slug };
+    const effective = await getEffectiveFeatures(user.tenant_id);
+    tenantInfo = { name: tenant.name, slug: tenant.slug, planFeatures: effective.features, planName: effective.planName };
   }
 
   const accessToken = signAccessToken({
@@ -99,7 +107,12 @@ export async function me({ userId }: { userId: number }): Promise<{ user: Public
   if (!user.is_active) throw ApiError.forbidden('USER_SUSPENDED', 'Your ID has been suspended. Please contact your institute.');
   const tenant = user.tenant_id ? await tenantRepo.findById(user.tenant_id) : null;
   if (user.tenant_id && (!tenant || !tenant.is_active)) throw ApiError.forbidden('TENANT_SUSPENDED', 'This institute is suspended');
-  return { user: userRepo.toPublicUser(user), tenant: tenant ? { name: tenant.name, slug: tenant.slug } : null };
+  let tenantInfo: TenantInfo | null = null;
+  if (tenant && user.tenant_id) {
+    const effective = await getEffectiveFeatures(user.tenant_id);
+    tenantInfo = { name: tenant.name, slug: tenant.slug, planFeatures: effective.features, planName: effective.planName };
+  }
+  return { user: userRepo.toPublicUser(user), tenant: tenantInfo };
 }
 
 /** Sets the caller's own profile photo — any role, no ownership check

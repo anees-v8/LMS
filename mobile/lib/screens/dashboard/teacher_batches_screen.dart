@@ -87,12 +87,12 @@ class TeacherBatchesScreen extends ConsumerWidget {
   }
 
   Widget _buildBatchCard(BuildContext context, dynamic batch) {
-    // Mocking some stats since the API only returns id and name for now
-    // In a real scenario, these would come from the backend.
-    final studentCount =
-        (batch['id'] * 12 + 15); // Just a mock formula for distinct numbers
-    final subject = batch['subject'] ?? 'General Subjects';
-    final scheduleStr = batch['schedule'] ?? 'Mon - Fri | 09:00 AM';
+    final studentCount = batch['studentCount'] as int? ?? 0;
+    final subjects = (batch['subjects'] as List<dynamic>? ?? [])
+        .cast<String>();
+    final subject = subjects.isEmpty ? 'No subject assigned' : subjects.join(', ');
+    final scheduleStr =
+        batch['scheduleSummary']?.toString() ?? 'Schedule not set';
 
     return Container(
       decoration: BoxDecoration(

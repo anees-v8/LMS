@@ -22,6 +22,11 @@ class AuthState {
   final String? instituteName;
   final String? avatarUrl;
   final bool needsTermsAcceptance;
+  /// Feature keys unlocked by the tenant's current plan (or everything,
+  /// during an active trial). Null before the first successful login/
+  /// session-restore — treat as "unknown", not "nothing unlocked".
+  final List<String>? planFeatures;
+  final String? planName;
 
   AuthState({
     this.isLoading = false,
@@ -35,7 +40,15 @@ class AuthState {
     this.instituteName,
     this.avatarUrl,
     this.needsTermsAcceptance = false,
+    this.planFeatures,
+    this.planName,
   });
+
+  /// True if [feature] is unlocked for the current tenant. Defaults to
+  /// true while [planFeatures] hasn't loaded yet, so gated UI doesn't
+  /// flash a locked state before the first /auth/me response arrives.
+  bool hasFeature(String feature) =>
+      planFeatures == null || planFeatures!.contains(feature);
 
   AuthState copyWith({
     bool? isLoading,
@@ -49,6 +62,8 @@ class AuthState {
     String? instituteName,
     String? avatarUrl,
     bool? needsTermsAcceptance,
+    List<String>? planFeatures,
+    String? planName,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
@@ -62,6 +77,8 @@ class AuthState {
       instituteName: instituteName ?? this.instituteName,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       needsTermsAcceptance: needsTermsAcceptance ?? this.needsTermsAcceptance,
+      planFeatures: planFeatures ?? this.planFeatures,
+      planName: planName ?? this.planName,
     );
   }
 }
@@ -90,6 +107,8 @@ class AuthNotifier extends Notifier<AuthState> {
       phone: prefs.getString('phone'),
       instituteName: prefs.getString('institute_name'),
       avatarUrl: prefs.getString('avatar_url'),
+      planFeatures: prefs.getStringList('plan_features'),
+      planName: prefs.getString('plan_name'),
     );
   }
 
@@ -211,12 +230,21 @@ class AuthNotifier extends Notifier<AuthState> {
 
     String? tenantSlug;
     String? instituteName;
+    List<String>? planFeatures;
+    String? planName;
     if (tenant is Map) {
       tenantSlug = tenant['slug']?.toString();
       instituteName = tenant['name']?.toString();
+      planFeatures = (tenant['planFeatures'] as List?)?.cast<String>();
+      planName = tenant['planName']?.toString();
       if (tenantSlug != null) await prefs.setString('tenant_slug', tenantSlug);
-      if (instituteName != null)
+      if (instituteName != null) {
         await prefs.setString('institute_name', instituteName);
+      }
+      if (planFeatures != null) {
+        await prefs.setStringList('plan_features', planFeatures);
+      }
+      if (planName != null) await prefs.setString('plan_name', planName);
     }
 
     state = state.copyWith(
@@ -228,6 +256,8 @@ class AuthNotifier extends Notifier<AuthState> {
       tenantSlug: tenantSlug,
       instituteName: instituteName,
       needsTermsAcceptance: needsTermsAcceptance,
+      planFeatures: planFeatures,
+      planName: planName,
     );
   }
 
@@ -278,6 +308,8 @@ class AuthNotifier extends Notifier<AuthState> {
     await prefs.remove('phone');
     await prefs.remove('institute_name');
     await prefs.remove('avatar_url');
+    await prefs.remove('plan_features');
+    await prefs.remove('plan_name');
     state = AuthState();
   }
 }

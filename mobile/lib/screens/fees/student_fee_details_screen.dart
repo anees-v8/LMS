@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../theme/app_colors.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/management_providers.dart' as mgmt;
 import '../../services/api_service.dart';
 import '../../widgets/record_payment_bottom_sheet.dart';
 import '../../widgets/fee_overview_card.dart';
 import '../../widgets/installment_row.dart';
 import '../../widgets/payment_history_row.dart';
+import '../../widgets/feature_locked_view.dart';
 import 'receipt_screen.dart';
 import 'package:intl/intl.dart';
 
@@ -710,6 +712,13 @@ class _StudentFeeDetailsScreenState
   }
 
   Future<void> _sendWhatsAppReminder(Map<String, dynamic> s) async {
+    final hasAccess = ref.read(
+      authProvider.select((state) => state.hasFeature('whatsapp_reminders')),
+    );
+    if (!hasAccess) {
+      showUpgradeRequiredSheet(context, featureLabel: 'WhatsApp Reminders');
+      return;
+    }
     try {
       final studentId = s['id'] as int?;
       if (studentId == null) return;

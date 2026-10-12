@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../theme/app_colors.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/teacher_providers.dart';
 import '../../services/api_service.dart';
 import '../../services/google_auth_service.dart';
 import '../../widgets/create_live_class_bottom_sheet.dart';
+import '../../widgets/feature_locked_view.dart';
 
 class TeacherLiveClassesScreen extends ConsumerStatefulWidget {
   const TeacherLiveClassesScreen({super.key});
@@ -22,6 +24,19 @@ class _TeacherLiveClassesScreenState
 
   @override
   Widget build(BuildContext context) {
+    final hasAccess = ref.watch(
+      authProvider.select((s) => s.hasFeature('live_classes')),
+    );
+    if (!hasAccess) {
+      return const FeatureLockedView(
+        featureLabel: 'Live Classes',
+        description:
+            'Ask your institute admin to upgrade the plan to unlock Google Meet live classes.',
+        icon: Icons.video_camera_front_outlined,
+        showUpgradeButton: false,
+      );
+    }
+
     final liveAsync = ref.watch(teacherLiveClassesProvider);
     final googleStatusAsync = ref.watch(googleConnectionStatusProvider);
     final googleConnected = googleStatusAsync.value?['connected'] == true;

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/management_providers.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_dropdown.dart';
+import '../../widgets/feature_locked_view.dart';
 import 'ranked_students_screen.dart';
 
 class _SelectedBatchNotifier extends Notifier<int?> {
@@ -20,6 +22,18 @@ class ReportsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final hasAccess = ref.watch(
+      authProvider.select((s) => s.hasFeature('performance_reports')),
+    );
+    if (!hasAccess) {
+      return const FeatureLockedView(
+        featureLabel: 'Performance Reports',
+        description:
+            'Detailed batch and student performance analytics are available on the Pro plan and above.',
+        icon: Icons.assessment_outlined,
+      );
+    }
+
     final selectedBatch = ref.watch(_selectedBatchProvider);
     final reportAsync = ref.watch(performanceReportProvider(selectedBatch));
     final batchesAsync = ref.watch(batchesProvider);
