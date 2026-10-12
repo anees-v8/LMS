@@ -14,7 +14,6 @@ export interface RegisterTenantInput {
   adminPhone: string;
   adminEmail: string;
   adminPassword: string;
-  plan?: string;
   amount?: number;
 }
 
@@ -50,7 +49,6 @@ export async function registerTenant(
     adminPhone,
     adminEmail,
     adminPassword,
-    plan = 'flat',
     amount = env.billing.defaultAmount,
   } = input;
 
@@ -72,10 +70,21 @@ export async function registerTenant(
       )
     ).rows[0];
 
+    // Every tenant starts on Basic / per-student / monthly during their
+    // trial — there is no "flat" tier to fall back to. Rate is snapshotted
+    // from plan_catalog so it stays correct even if Basic's price changes
+    // later (existing trials keep the rate they started at).
+    const basicPlan = await client.query<{ id: number; priceMonthly: number }>(
+      `SELECT id, price_monthly AS "priceMonthly" FROM plan_catalog WHERE name = 'Basic' AND is_active = true LIMIT 1`
+    );
+    if (!basicPlan.rows[0]) throw ApiError.badRequest('NO_BASIC_PLAN', 'No active Basic plan configured');
+    const { id: basicPlanId, priceMonthly: basicRate } = basicPlan.rows[0];
+
     await client.query(
-      `INSERT INTO subscriptions (tenant_id, plan, amount, status, trial_ends_at)
-       VALUES ($1,$2,$3,'trial', now() + ($4 || ' days')::interval)`,
-      [tenant.id, plan, amount, env.billing.trialDays]
+      `INSERT INTO subscriptions
+         (tenant_id, plan, amount, status, trial_ends_at, plan_catalog_id, billing_cycle, per_student_rate)
+       VALUES ($1,'per_student',$2,'trial', now() + ($3 || ' days')::interval, $4, 'monthly', $5)`,
+      [tenant.id, amount, env.billing.trialDays, basicPlanId, basicRate]
     );
 
     const admin = (
@@ -326,13 +335,18 @@ export async function getTenantDashboard(tenantId: number, month?: number, year?
       (SELECT COALESCE(sum(amount_paid),0)::int FROM fee_payments WHERE tenant_id = $1 AND paid_on >= $2::date AND paid_on < $3::date) AS "feesCollectedThisMonth",
       (SELECT COALESCE(sum(amount_paid),0)::int FROM fee_payments WHERE tenant_id = $1 AND paid_on >= $4::date AND paid_on < $2::date) AS "feesCollectedLastMonth",
       (SELECT COALESCE(sum(amount_paid),0)::int FROM fee_payments WHERE tenant_id = $1 AND paid_on < $2::date) AS "feesCollectedBeforeThisMonth",
-      (SELECT COALESCE(sum(amount),0)::int FROM fee_dues WHERE tenant_id = $1) AS "totalFees"
+      (SELECT COALESCE(sum(amount),0)::int FROM fee_dues WHERE tenant_id = $1 AND due_date < $3::date) AS "totalFees",
+      (SELECT COALESCE(sum(amount),0)::int FROM fee_dues WHERE tenant_id = $1 AND due_date < $2::date) AS "totalFeesBeforeThisMonth"
   `, [tenantId, startDateStr, endDateStr, lastMonthStartDateStr]);
 
   const stats = rows[0];
+  // Dues are now scoped to their own due_date, same as collections are scoped
+  // to paid_on — a due generated after the viewed month (e.g. for a student
+  // who hadn't enrolled yet) no longer inflates "pending" for an earlier month.
   const feesPending = Math.max(0, stats.totalFees - stats.feesCollected);
-  // Pending balance as of the start of this month, i.e. after last month's collections.
-  const feesPendingLastMonth = Math.max(0, stats.totalFees - stats.feesCollectedBeforeThisMonth);
+  // Pending balance as of the start of this month, i.e. after last month's
+  // collections, against dues that existed by then too.
+  const feesPendingLastMonth = Math.max(0, stats.totalFeesBeforeThisMonth - stats.feesCollectedBeforeThisMonth);
 
   const calculateGrowth = (current: number, previous: number) => {
     if (previous === 0) return current > 0 ? 100 : 0;

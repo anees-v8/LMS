@@ -12,8 +12,13 @@ export const registerTenantSchema = z
     adminPhone: phone,
     adminEmail: z.string().trim().email().max(120),
     adminPassword: z.string().min(6).max(100),
-    plan: z.enum(['flat', 'per_student']).optional(),
     amount: z.coerce.number().int().min(0).max(1000000).optional(),
+  })
+  .strict();
+
+export const updatePlatformSettingsSchema = z
+  .object({
+    downgradePenaltyAmount: z.coerce.number().int().min(0).max(1000000),
   })
   .strict();
 

@@ -915,7 +915,6 @@ class _AssignPlanBottomSheetState
     extends ConsumerState<_AssignPlanBottomSheet> {
   int? _planId;
   String _billingCycle = 'monthly';
-  String _billingMode = 'per_student';
   bool _saving = false;
   String? _error;
 
@@ -934,7 +933,6 @@ class _AssignPlanBottomSheetState
         widget.tenantId,
         planCatalogId: _planId!,
         billingCycle: _billingCycle,
-        billingMode: _billingMode,
       );
       ref.invalidate(tenantsProvider);
       ref.invalidate(tenantSubscriptionProvider(widget.tenantId));
@@ -1048,72 +1046,18 @@ class _AssignPlanBottomSheetState
                 },
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Billing Mode',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1F2E27),
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Flat bills a fixed monthly amount regardless of student count.',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: ChoiceChip(
-                      label: const Text('Per Student'),
-                      selected: _billingMode == 'per_student',
-                      onSelected: (v) {
-                        if (v) setState(() => _billingMode = 'per_student');
-                      },
-                      selectedColor: const Color(0xFF2E6656),
-                      labelStyle: TextStyle(
-                        color: _billingMode == 'per_student'
-                            ? Colors.white
-                            : const Color(0xFF1F2E27),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ChoiceChip(
-                      label: const Text('Flat'),
-                      selected: _billingMode == 'flat',
-                      onSelected: (v) {
-                        if (v) setState(() => _billingMode = 'flat');
-                      },
-                      selectedColor: const Color(0xFF2E6656),
-                      labelStyle: TextStyle(
-                        color: _billingMode == 'flat'
-                            ? Colors.white
-                            : const Color(0xFF1F2E27),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+              CustomDropdown<String>(
+                label: 'Billing Cycle',
+                hint: 'Select a billing cycle',
+                value: _billingCycle,
+                options: const [
+                  DropdownOption(value: 'monthly', label: 'Monthly'),
+                  DropdownOption(value: 'quarterly', label: 'Quarterly'),
+                  DropdownOption(value: 'yearly', label: 'Yearly'),
                 ],
+                onChanged: (v) =>
+                    setState(() => _billingCycle = v ?? 'monthly'),
               ),
-              if (_billingMode == 'per_student') ...[
-                const SizedBox(height: 16),
-                CustomDropdown<String>(
-                  label: 'Billing Cycle',
-                  hint: 'Select a billing cycle',
-                  value: _billingCycle,
-                  options: const [
-                    DropdownOption(value: 'monthly', label: 'Monthly'),
-                    DropdownOption(value: 'quarterly', label: 'Quarterly'),
-                    DropdownOption(value: 'yearly', label: 'Yearly'),
-                  ],
-                  onChanged: (v) =>
-                      setState(() => _billingCycle = v ?? 'monthly'),
-                ),
-              ],
               if (_error != null) ...[
                 const SizedBox(height: 16),
                 Container(

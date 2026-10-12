@@ -91,16 +91,20 @@ class PlansScreen extends ConsumerWidget {
                   error: (err, stack) =>
                       Center(child: Text(friendlyErrorMessage(err))),
                   data: (plans) {
-                    if (plans.isEmpty) {
-                      return const Center(child: Text('No plans yet.'));
-                    }
                     return RefreshIndicator(
                       onRefresh: () async => ref.invalidate(plansProvider),
                       child: ListView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 160),
-                        itemCount: plans.length,
+                        itemCount: plans.length + 1,
                         itemBuilder: (context, index) {
-                          final plan = plans[index] as Map<String, dynamic>;
+                          if (index == 0) {
+                            return const Padding(
+                              padding: EdgeInsets.only(bottom: 12),
+                              child: _DowngradePenaltyCard(),
+                            );
+                          }
+                          if (plans.isEmpty) return const SizedBox.shrink();
+                          final plan = plans[index - 1] as Map<String, dynamic>;
                           final isActive = plan['isActive'] == true;
                           final features =
                               (plan['features'] as List?)?.cast<String>() ?? [];
@@ -168,7 +172,7 @@ class PlansScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Flat: ₹${plan['flatPriceMonthly']}/mo  •  up to ${plan['flatStudentLimit']} students  •  up to ${plan['flatTeacherLimit']} teachers',
+                                    'Up to ${plan['flatTeacherLimit']} teacher${plan['flatTeacherLimit'] == 1 ? '' : 's'}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       color: Colors.grey.shade600,
@@ -320,8 +324,6 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
   late final TextEditingController _priceMonthly;
   late final TextEditingController _priceQuarterly;
   late final TextEditingController _priceYearly;
-  late final TextEditingController _flatPriceMonthly;
-  late final TextEditingController _flatStudentLimit;
   late final TextEditingController _flatTeacherLimit;
   late final TextEditingController _displayOrder;
   late final Set<String> _selectedFeatures;
@@ -345,12 +347,6 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
     _priceYearly = TextEditingController(
       text: e?['priceYearly']?.toString() ?? '',
     );
-    _flatPriceMonthly = TextEditingController(
-      text: e?['flatPriceMonthly']?.toString() ?? '',
-    );
-    _flatStudentLimit = TextEditingController(
-      text: e?['flatStudentLimit']?.toString() ?? '',
-    );
     _flatTeacherLimit = TextEditingController(
       text: e?['flatTeacherLimit']?.toString() ?? '',
     );
@@ -368,8 +364,6 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
     _priceMonthly.dispose();
     _priceQuarterly.dispose();
     _priceYearly.dispose();
-    _flatPriceMonthly.dispose();
-    _flatStudentLimit.dispose();
     _flatTeacherLimit.dispose();
     _displayOrder.dispose();
     super.dispose();
@@ -379,21 +373,17 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
     final monthly = int.tryParse(_priceMonthly.text.trim());
     final quarterly = int.tryParse(_priceQuarterly.text.trim());
     final yearly = int.tryParse(_priceYearly.text.trim());
-    final flatMonthly = int.tryParse(_flatPriceMonthly.text.trim());
-    final flatStudentLimit = int.tryParse(_flatStudentLimit.text.trim());
     final flatTeacherLimit = int.tryParse(_flatTeacherLimit.text.trim());
 
     if (_name.text.trim().isEmpty ||
         monthly == null ||
         quarterly == null ||
         yearly == null ||
-        flatMonthly == null ||
-        flatStudentLimit == null ||
         flatTeacherLimit == null ||
         _selectedFeatures.isEmpty) {
       setState(
         () => _error =
-            'Name, all prices, the flat-plan student/teacher limits, and at least one feature are required.',
+            'Name, all prices, the teacher limit, and at least one feature are required.',
       );
       return;
     }
@@ -412,8 +402,6 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
           priceMonthly: monthly,
           priceQuarterly: quarterly,
           priceYearly: yearly,
-          flatPriceMonthly: flatMonthly,
-          flatStudentLimit: flatStudentLimit,
           flatTeacherLimit: flatTeacherLimit,
           features: _selectedFeatures.toList(),
           displayOrder: displayOrder,
@@ -425,8 +413,6 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
           priceMonthly: monthly,
           priceQuarterly: quarterly,
           priceYearly: yearly,
-          flatPriceMonthly: flatMonthly,
-          flatStudentLimit: flatStudentLimit,
           flatTeacherLimit: flatTeacherLimit,
           features: _selectedFeatures.toList(),
           tagline: _tagline.text.trim(),
@@ -527,31 +513,10 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'Yearly ₹',
-                      hint: '9999',
-                      controller: _priceYearly,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'Flat Monthly ₹',
-                      hint: '2499',
-                      controller: _flatPriceMonthly,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
               CustomTextField(
-                label: 'Flat Plan Student Limit',
-                hint: 'e.g. 150',
-                controller: _flatStudentLimit,
-                prefixIcon: Icons.groups_outlined,
+                label: 'Yearly ₹',
+                hint: '9999',
+                controller: _priceYearly,
               ),
               const SizedBox(height: 16),
               CustomTextField(
@@ -657,6 +622,131 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Global, platform-wide fixed penalty charged to a tenant only when they
+/// downgrade plan/cycle mid-cycle (never on upgrade) — set here once for
+/// all tenants rather than per-tenant, since there's exactly one value.
+class _DowngradePenaltyCard extends ConsumerStatefulWidget {
+  const _DowngradePenaltyCard();
+
+  @override
+  ConsumerState<_DowngradePenaltyCard> createState() =>
+      _DowngradePenaltyCardState();
+}
+
+class _DowngradePenaltyCardState extends ConsumerState<_DowngradePenaltyCard> {
+  final _controller = TextEditingController();
+  bool _saving = false;
+  bool _initialized = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final amount = int.tryParse(_controller.text.trim());
+    if (amount == null || amount < 0) return;
+    setState(() => _saving = true);
+    try {
+      await updateDowngradePenaltyAmount(ref.read(apiServiceProvider), amount);
+      ref.invalidate(platformSettingsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Downgrade penalty updated.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(friendlyErrorMessage(e)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settingsAsync = ref.watch(platformSettingsProvider);
+    return settingsAsync.when(
+      loading: () => const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: LinearProgressIndicator(),
+        ),
+      ),
+      error: (err, _) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(friendlyErrorMessage(err)),
+        ),
+      ),
+      data: (settings) {
+        if (!_initialized) {
+          _controller.text = '${settings['downgradePenaltyAmount'] ?? 0}';
+          _initialized = true;
+        }
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Downgrade Penalty',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Fixed amount charged when a tenant downgrades plan or '
+                  'billing cycle mid-cycle. Never charged on upgrade.',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: CustomTextField(
+                        label: 'Amount (₹)',
+                        hint: 'e.g. 500',
+                        controller: _controller,
+                        keyboardType: TextInputType.number,
+                        prefixIcon: Icons.currency_rupee,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _saving
+                        ? const Padding(
+                            padding: EdgeInsets.only(top: 20),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 20),
+                            child: TextButton(
+                              onPressed: _save,
+                              child: const Text('Save'),
+                            ),
+                          ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

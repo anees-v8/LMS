@@ -76,36 +76,29 @@ export async function subscriptionStatus(tenantId: number): Promise<Subscription
   return getSubscription(tenantId);
 }
 
-/** Create a Razorpay order.
- *  - If per_student_rate is set: calculates amount = rate × students × months
- *  - Falls back to flat amount for legacy flat-plan tenants
- */
+/** Create a Razorpay order for the tenant's current plan: amount = rate x
+ *  active students x months in the billing cycle. */
 export async function createOrder(tenantId: number): Promise<CreateOrderResult> {
   const sub = await getSubscription(tenantId);
 
-  let finalAmountRupees: number;
-  let studentCount = 0;
-  let perStudentRate = 0;
   const billingCycle = sub.billingCycle ?? 'monthly';
   const cycleMonths = CYCLE_MONTHS[billingCycle] ?? 1;
 
-  if (sub.perStudentRate && sub.planCatalogId) {
-    // Per-student pricing: count active students for this tenant
-    const { rows: countRows } = await query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM students WHERE tenant_id = $1`,
-      [tenantId]
-    );
-    studentCount = parseInt(countRows[0]?.count ?? '0', 10);
-    if (studentCount === 0) {
-      throw ApiError.badRequest('NO_STUDENTS', 'Cannot create subscription order: no students enrolled yet.');
-    }
-    perStudentRate = sub.perStudentRate;
-    finalAmountRupees = perStudentRate * studentCount * cycleMonths;
-  } else {
-    // Legacy flat plan
-    finalAmountRupees = sub.amount;
-    perStudentRate = sub.amount;
+  if (!sub.perStudentRate || !sub.planCatalogId) {
+    throw ApiError.badRequest('NO_PLAN_ASSIGNED', 'No plan assigned to this subscription yet.');
   }
+
+  const { rows: countRows } = await query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM students s JOIN users u ON u.id = s.user_id
+      WHERE s.tenant_id = $1 AND u.is_active = true`,
+    [tenantId]
+  );
+  const studentCount = parseInt(countRows[0]?.count ?? '0', 10);
+  if (studentCount === 0) {
+    throw ApiError.badRequest('NO_STUDENTS', 'Cannot create subscription order: no active students enrolled yet.');
+  }
+  const perStudentRate = sub.perStudentRate;
+  const finalAmountRupees = perStudentRate * studentCount * cycleMonths;
 
   const amountPaise = finalAmountRupees * 100;
 
@@ -171,9 +164,10 @@ export async function verifyPayment(
   const sub = await getSubscription(tenantId);
   const cycleMonths = CYCLE_MONTHS[sub.billingCycle ?? 'monthly'] ?? 1;
 
-  // Snapshot current student count at payment time
+  // Snapshot current active student count at payment time
   const { rows: countRows } = await query<{ count: string }>(
-    `SELECT count(*)::text AS count FROM students WHERE tenant_id = $1`,
+    `SELECT count(*)::text AS count FROM students s JOIN users u ON u.id = s.user_id
+      WHERE s.tenant_id = $1 AND u.is_active = true`,
     [tenantId]
   );
   const studentCountSnapshot = parseInt(countRows[0]?.count ?? '0', 10);
@@ -183,7 +177,9 @@ export async function verifyPayment(
         SET status = 'active',
             next_billing_date = now() + ($2 || ' months')::interval,
             student_count_snapshot = $3,
-            amount = COALESCE(per_student_rate, amount) * GREATEST($3, 1) * $4
+            amount = COALESCE(per_student_rate, amount) * GREATEST($3, 1) * $4,
+            current_cycle_started_at = now(),
+            current_cycle_amount = COALESCE(per_student_rate, amount) * GREATEST($3, 1) * $4
       WHERE tenant_id = $1
       RETURNING status, next_billing_date AS "nextBillingDate"`,
     [tenantId, cycleMonths, studentCountSnapshot, cycleMonths]

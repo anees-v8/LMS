@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/payment_providers.dart';
 import '../../services/api_service.dart';
+import 'plan_change_screen.dart';
 
 /// Human-readable labels for the backend's feature-key strings
 /// (plan_catalog.features), so the comparison list reads naturally.
@@ -17,7 +18,6 @@ const Map<String, String> _featureLabels = {
   'performance_reports': 'Performance Reports',
   'online_tests': 'Online Tests',
   'doubt_solving': 'Doubt Solving',
-  'teacher_accounts': 'Teacher Accounts',
 };
 
 class BrowsePlansScreen extends ConsumerStatefulWidget {
@@ -27,7 +27,7 @@ class BrowsePlansScreen extends ConsumerStatefulWidget {
   ConsumerState<BrowsePlansScreen> createState() => _BrowsePlansScreenState();
 }
 
-enum _Cycle { monthly, quarterly, yearly, flat }
+enum _Cycle { monthly, quarterly, yearly }
 
 class _BrowsePlansScreenState extends ConsumerState<BrowsePlansScreen> {
   _Cycle _cycle = _Cycle.monthly;
@@ -36,7 +36,7 @@ class _BrowsePlansScreenState extends ConsumerState<BrowsePlansScreen> {
   Widget build(BuildContext context) {
     final plansAsync = ref.watch(publicPlansProvider);
     final subAsync = ref.watch(subscriptionStatusProvider);
-    final currentPlanName = subAsync.value?['plan']?.toString();
+    final currentPlanId = subAsync.value?['planCatalogId'] as int?;
 
     return Scaffold(
       backgroundColor: const Color(0xFF1F2E27),
@@ -68,7 +68,7 @@ class _BrowsePlansScreenState extends ConsumerState<BrowsePlansScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Compare and upgrade your subscription',
+                    'Compare, subscribe, upgrade or downgrade',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 13,
@@ -107,8 +107,10 @@ class _BrowsePlansScreenState extends ConsumerState<BrowsePlansScreen> {
                       );
                     }
                     return RefreshIndicator(
-                      onRefresh: () async =>
-                          ref.invalidate(publicPlansProvider),
+                      onRefresh: () async {
+                        ref.invalidate(publicPlansProvider);
+                        ref.invalidate(subscriptionStatusProvider);
+                      },
                       child: ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
@@ -118,11 +120,20 @@ class _BrowsePlansScreenState extends ConsumerState<BrowsePlansScreen> {
                             (p) => _PlanCard(
                               plan: p as Map<String, dynamic>,
                               cycle: _cycle,
-                              isCurrent:
-                                  currentPlanName != null &&
-                                  currentPlanName.toLowerCase() ==
-                                      (p['name']?.toString().toLowerCase() ??
-                                          ''),
+                              isCurrent: currentPlanId != null &&
+                                  currentPlanId == (p['id'] as int?),
+                              onSelect: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => PlanChangeScreen(
+                                      planCatalogId: p['id'] as int,
+                                      planName: p['name']?.toString() ?? 'Plan',
+                                      billingCycle: _cycleValue(_cycle),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         ],
@@ -136,6 +147,17 @@ class _BrowsePlansScreenState extends ConsumerState<BrowsePlansScreen> {
         ),
       ),
     );
+  }
+
+  String _cycleValue(_Cycle c) {
+    switch (c) {
+      case _Cycle.monthly:
+        return 'monthly';
+      case _Cycle.quarterly:
+        return 'quarterly';
+      case _Cycle.yearly:
+        return 'yearly';
+    }
   }
 
   Widget _buildCycleToggle() {
@@ -194,8 +216,6 @@ class _BrowsePlansScreenState extends ConsumerState<BrowsePlansScreen> {
         return 'Quarterly';
       case _Cycle.yearly:
         return 'Yearly';
-      case _Cycle.flat:
-        return 'Flat Rate';
     }
   }
 }
@@ -204,10 +224,12 @@ class _PlanCard extends StatelessWidget {
   final Map<String, dynamic> plan;
   final _Cycle cycle;
   final bool isCurrent;
+  final VoidCallback onSelect;
   const _PlanCard({
     required this.plan,
     required this.cycle,
     required this.isCurrent,
+    required this.onSelect,
   });
 
   int get _price {
@@ -218,13 +240,8 @@ class _PlanCard extends StatelessWidget {
         return plan['priceQuarterly'] as int? ?? 0;
       case _Cycle.yearly:
         return plan['priceYearly'] as int? ?? 0;
-      case _Cycle.flat:
-        return plan['flatPriceMonthly'] as int? ?? 0;
     }
   }
-
-  String get _priceSuffix =>
-      cycle == _Cycle.flat ? '/ month' : '/ student / month';
 
   @override
   Widget build(BuildContext context) {
@@ -232,7 +249,6 @@ class _PlanCard extends StatelessWidget {
     final tagline = plan['tagline']?.toString();
     final features = (plan['features'] as List<dynamic>? ?? []).cast<String>();
     final isPopular = name.toLowerCase() == 'pro';
-    final flatStudentLimit = plan['flatStudentLimit'] as int?;
     final flatTeacherLimit = plan['flatTeacherLimit'] as int?;
 
     return Container(
@@ -340,18 +356,11 @@ class _PlanCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  _priceSuffix,
+                  '/ student / month',
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                 ),
               ],
             ),
-            if (cycle == _Cycle.flat && flatStudentLimit != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Up to $flatStudentLimit students',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-              ),
-            ],
             if (flatTeacherLimit != null) ...[
               const SizedBox(height: 4),
               Text(
@@ -381,6 +390,23 @@ class _PlanCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: isCurrent ? null : onSelect,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E6656),
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(isCurrent ? 'Current Plan' : 'Select Plan'),
               ),
             ),
           ],

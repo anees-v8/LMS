@@ -15,6 +15,15 @@ final plansProvider = FutureProvider<List<dynamic>>((ref) async {
   return await api.get('/superadmin/plans') as List<dynamic>;
 });
 
+/// Global platform settings — currently just the fixed downgrade penalty
+/// amount, charged to a tenant only when downgrading plan/cycle mid-cycle.
+final platformSettingsProvider = FutureProvider<Map<String, dynamic>>((
+  ref,
+) async {
+  final api = ref.watch(apiServiceProvider);
+  return await api.get('/superadmin/settings') as Map<String, dynamic>;
+});
+
 final subscriptionsProvider = FutureProvider<List<dynamic>>((ref) async {
   final api = ref.watch(apiServiceProvider);
   return await api.get('/superadmin/subscriptions') as List<dynamic>;
@@ -105,12 +114,10 @@ Future<Map<String, dynamic>> assignPlanToTenant(
   int tenantId, {
   required int planCatalogId,
   required String billingCycle,
-  String? billingMode, // 'per_student' (default) | 'flat'
 }) async {
   final body = <String, dynamic>{
     'planCatalogId': planCatalogId,
     'billingCycle': billingCycle,
-    'billingMode': ?billingMode,
   };
   return await api.put('/superadmin/tenants/$tenantId/subscription', body)
       as Map<String, dynamic>;
@@ -122,8 +129,6 @@ Future<Map<String, dynamic>> createPlan(
   required int priceMonthly,
   required int priceQuarterly,
   required int priceYearly,
-  required int flatPriceMonthly,
-  required int flatStudentLimit,
   required int flatTeacherLimit,
   required List<String> features,
   String? tagline,
@@ -134,8 +139,6 @@ Future<Map<String, dynamic>> createPlan(
     'priceMonthly': priceMonthly,
     'priceQuarterly': priceQuarterly,
     'priceYearly': priceYearly,
-    'flatPriceMonthly': flatPriceMonthly,
-    'flatStudentLimit': flatStudentLimit,
     'flatTeacherLimit': flatTeacherLimit,
     'features': features,
     if (tagline != null && tagline.isNotEmpty) 'tagline': tagline,
@@ -151,8 +154,6 @@ Future<Map<String, dynamic>> updatePlan(
   int? priceMonthly,
   int? priceQuarterly,
   int? priceYearly,
-  int? flatPriceMonthly,
-  int? flatStudentLimit,
   int? flatTeacherLimit,
   List<String>? features,
   bool? isActive,
@@ -163,8 +164,6 @@ Future<Map<String, dynamic>> updatePlan(
     'priceMonthly': ?priceMonthly,
     'priceQuarterly': ?priceQuarterly,
     'priceYearly': ?priceYearly,
-    'flatPriceMonthly': ?flatPriceMonthly,
-    'flatStudentLimit': ?flatStudentLimit,
     'flatTeacherLimit': ?flatTeacherLimit,
     'features': ?features,
     'isActive': ?isActive,
@@ -175,6 +174,13 @@ Future<Map<String, dynamic>> updatePlan(
 
 Future<void> deactivatePlan(ApiService api, int id) async {
   await api.delete('/superadmin/plans/$id');
+}
+
+Future<int> updateDowngradePenaltyAmount(ApiService api, int amount) async {
+  final result = await api.put('/superadmin/settings', {
+    'downgradePenaltyAmount': amount,
+  }) as Map<String, dynamic>;
+  return result['downgradePenaltyAmount'] as int;
 }
 
 Future<void> markLeadRead(ApiService api, int id) async {

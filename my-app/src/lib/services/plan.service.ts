@@ -9,8 +9,6 @@ export interface PlanCatalogItem {
   priceMonthly: number;
   priceQuarterly: number;
   priceYearly: number;
-  flatPriceMonthly: number;
-  flatStudentLimit: number;
   flatTeacherLimit: number;
   features: string[];
   isActive: boolean;
@@ -25,8 +23,6 @@ export interface CreatePlanInput {
   priceMonthly: number;
   priceQuarterly: number;
   priceYearly: number;
-  flatPriceMonthly: number;
-  flatStudentLimit: number;
   flatTeacherLimit: number;
   features: string[];
   displayOrder?: number;
@@ -37,8 +33,6 @@ export interface UpdatePlanInput {
   priceMonthly?: number;
   priceQuarterly?: number;
   priceYearly?: number;
-  flatPriceMonthly?: number;
-  flatStudentLimit?: number;
   flatTeacherLimit?: number;
   features?: string[];
   isActive?: boolean;
@@ -53,8 +47,6 @@ export async function listPlans(activeOnly = false): Promise<PlanCatalogItem[]> 
             price_monthly AS "priceMonthly",
             price_quarterly AS "priceQuarterly",
             price_yearly AS "priceYearly",
-            flat_price_monthly AS "flatPriceMonthly",
-            flat_student_limit AS "flatStudentLimit",
             flat_teacher_limit AS "flatTeacherLimit",
             features,
             is_active AS "isActive",
@@ -75,8 +67,6 @@ export async function getPlanById(id: number): Promise<PlanCatalogItem> {
             price_monthly AS "priceMonthly",
             price_quarterly AS "priceQuarterly",
             price_yearly AS "priceYearly",
-            flat_price_monthly AS "flatPriceMonthly",
-            flat_student_limit AS "flatStudentLimit",
             flat_teacher_limit AS "flatTeacherLimit",
             features,
             is_active AS "isActive",
@@ -95,25 +85,23 @@ export async function createPlan(
   input: CreatePlanInput,
   actorUserId: number | null = null
 ): Promise<PlanCatalogItem> {
-  const { name, tagline, priceMonthly, priceQuarterly, priceYearly, flatPriceMonthly, flatStudentLimit, flatTeacherLimit, features, displayOrder = 0 } = input;
+  const { name, tagline, priceMonthly, priceQuarterly, priceYearly, flatTeacherLimit, features, displayOrder = 0 } = input;
 
   const { rows } = await query<PlanCatalogItem>(
     `INSERT INTO plan_catalog
-       (name, tagline, price_monthly, price_quarterly, price_yearly, flat_price_monthly, flat_student_limit, flat_teacher_limit, features, display_order)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+       (name, tagline, price_monthly, price_quarterly, price_yearly, flat_teacher_limit, features, display_order)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
      RETURNING id, name, tagline,
                price_monthly AS "priceMonthly",
                price_quarterly AS "priceQuarterly",
                price_yearly AS "priceYearly",
-               flat_price_monthly AS "flatPriceMonthly",
-               flat_student_limit AS "flatStudentLimit",
                flat_teacher_limit AS "flatTeacherLimit",
                features,
                is_active AS "isActive",
                display_order AS "displayOrder",
                created_at AS "createdAt",
                updated_at AS "updatedAt"`,
-    [name, tagline ?? null, priceMonthly, priceQuarterly, priceYearly, flatPriceMonthly, flatStudentLimit, flatTeacherLimit, JSON.stringify(features), displayOrder]
+    [name, tagline ?? null, priceMonthly, priceQuarterly, priceYearly, flatTeacherLimit, JSON.stringify(features), displayOrder]
   );
 
   await writeAudit({
@@ -143,8 +131,6 @@ export async function updatePlan(
   if (input.priceMonthly !== undefined)    { setClauses.push(`price_monthly = $${paramIdx++}`);      values.push(input.priceMonthly); }
   if (input.priceQuarterly !== undefined)  { setClauses.push(`price_quarterly = $${paramIdx++}`);    values.push(input.priceQuarterly); }
   if (input.priceYearly !== undefined)     { setClauses.push(`price_yearly = $${paramIdx++}`);       values.push(input.priceYearly); }
-  if (input.flatPriceMonthly !== undefined){ setClauses.push(`flat_price_monthly = $${paramIdx++}`); values.push(input.flatPriceMonthly); }
-  if (input.flatStudentLimit !== undefined){ setClauses.push(`flat_student_limit = $${paramIdx++}`); values.push(input.flatStudentLimit); }
   if (input.flatTeacherLimit !== undefined){ setClauses.push(`flat_teacher_limit = $${paramIdx++}`); values.push(input.flatTeacherLimit); }
   if (input.features !== undefined)        { setClauses.push(`features = $${paramIdx++}::jsonb`);    values.push(JSON.stringify(input.features)); }
   if (input.isActive !== undefined)        { setClauses.push(`is_active = $${paramIdx++}`);          values.push(input.isActive); }
@@ -160,8 +146,6 @@ export async function updatePlan(
                 price_monthly AS "priceMonthly",
                 price_quarterly AS "priceQuarterly",
                 price_yearly AS "priceYearly",
-                flat_price_monthly AS "flatPriceMonthly",
-                flat_student_limit AS "flatStudentLimit",
                 flat_teacher_limit AS "flatTeacherLimit",
                 features,
                 is_active AS "isActive",
@@ -249,60 +233,42 @@ export async function getTenantSubscription(tenantId: number): Promise<TenantSub
 export interface AssignPlanInput {
   planCatalogId: number;
   billingCycle: 'monthly' | 'quarterly' | 'yearly';
-  /** 'per_student' (default) rates the tenant by student_count x cycle rate;
-   *  'flat' bills the tier's fixed flat_price_monthly instead, regardless
-   *  of student count. Only 'monthly' billingCycle makes sense with 'flat'
-   *  today (flat_price_monthly has no quarterly/yearly variant) — flat mode
-   *  ignores billingCycle beyond that and always bills monthly. */
-  billingMode?: 'per_student' | 'flat';
 }
 
-/** Super Admin assigns / changes a tenant's plan, billing cycle, and mode */
+/** Super Admin override: assigns / changes a tenant's plan and billing cycle
+ *  directly, with no proration or penalty — use the tenant-facing
+ *  upgrade/downgrade flow (subscription.service.ts) for that. This is for
+ *  support/manual-correction use only. */
 export async function assignPlanToTenant(
   tenantId: number,
   input: AssignPlanInput,
   actorUserId: number | null = null
 ): Promise<TenantSubscriptionDetail> {
   const plan = await getPlanById(input.planCatalogId);
-  const billingMode = input.billingMode ?? 'per_student';
 
-  if (billingMode === 'flat') {
-    await query(
-      `UPDATE subscriptions
-          SET plan_catalog_id = $2,
-              plan = 'flat',
-              billing_cycle = 'monthly',
-              per_student_rate = NULL,
-              amount = $3
-        WHERE tenant_id = $1`,
-      [tenantId, input.planCatalogId, plan.flatPriceMonthly]
-    );
-  } else {
-    // Determine per-student rate based on billing cycle
-    const rateMap = {
-      monthly: plan.priceMonthly,
-      quarterly: plan.priceQuarterly,
-      yearly: plan.priceYearly,
-    };
-    const perStudentRate = rateMap[input.billingCycle];
+  const rateMap = {
+    monthly: plan.priceMonthly,
+    quarterly: plan.priceQuarterly,
+    yearly: plan.priceYearly,
+  };
+  const perStudentRate = rateMap[input.billingCycle];
 
-    await query(
-      `UPDATE subscriptions
-          SET plan_catalog_id = $2,
-              plan = 'per_student',
-              billing_cycle = $3,
-              per_student_rate = $4
-        WHERE tenant_id = $1`,
-      [tenantId, input.planCatalogId, input.billingCycle, perStudentRate]
-    );
-  }
+  await query(
+    `UPDATE subscriptions
+        SET plan_catalog_id = $2,
+            plan = 'per_student',
+            billing_cycle = $3,
+            per_student_rate = $4
+      WHERE tenant_id = $1`,
+    [tenantId, input.planCatalogId, input.billingCycle, perStudentRate]
+  );
 
   await writeAudit({
     tenantId,
     actorUserId,
     action: 'plan_assigned',
     entity: 'subscription',
-    meta: { planName: plan.name, billingCycle: input.billingCycle, billingMode },
+    meta: { planName: plan.name, billingCycle: input.billingCycle },
   });
 
   return getTenantSubscription(tenantId);

@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_button.dart';
 import 'package:intl/intl.dart';
+import 'browse_plans_screen.dart';
 
 class SubscriptionScreen extends ConsumerStatefulWidget {
   const SubscriptionScreen({super.key});
@@ -321,16 +322,10 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                                     billingCycle.toString().toUpperCase(),
                                   ),
                                   const Divider(height: 32),
-                                  if (sub['perStudentRate'] != null)
-                                    _buildInfoRow(
-                                      'Rate Per Student',
-                                      '₹${sub['perStudentRate']} / cycle',
-                                    ),
-                                  if (sub['perStudentRate'] == null)
-                                    _buildInfoRow(
-                                      'Flat Plan Amount',
-                                      '₹${sub['amount']}',
-                                    ),
+                                  _buildInfoRow(
+                                    'Rate Per Student',
+                                    '₹${sub['perStudentRate']} / cycle',
+                                  ),
                                   const Divider(height: 32),
                                   if (isTrial && trialEndsAt != null)
                                     _buildInfoRow(
@@ -353,7 +348,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                           const SizedBox(height: 32),
                           if (_isProcessing)
                             const Center(child: CircularProgressIndicator())
-                          else
+                          else ...[
                             SizedBox(
                               width: double.infinity,
                               height: 52,
@@ -362,6 +357,31 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                                 onPressed: () => _startPaymentFlow(),
                               ),
                             ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const BrowsePlansScreen(),
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF1F2E27),
+                                  side: BorderSide(color: Colors.grey.shade300),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Upgrade / Downgrade Plan',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     );

@@ -211,6 +211,7 @@ export interface StudentItem {
   parentPhone: string | null;
   phone: string;
   batchName: string | null;
+  isActive: boolean;
   pendingFees: number;
   attendance: number;
 }
@@ -255,6 +256,7 @@ export async function listStudents(tenantId: number, batchId: number | null): Pr
              s.parent_phone AS "parentPhone",
              u.phone,
              b.name AS "batchName",
+             u.is_active AS "isActive",
              GREATEST(0, COALESCE(sd.total_due, 0) - COALESCE(sf.total_paid, 0)) AS "pendingFees",
              CASE
                WHEN sa.total_days > 0 THEN ROUND((sa.present_days::numeric / sa.total_days::numeric) * 100)

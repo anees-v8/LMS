@@ -21,8 +21,6 @@ export const createPlanSchema = z
     priceMonthly: z.number().int().min(1).max(10000),
     priceQuarterly: z.number().int().min(1).max(10000),
     priceYearly: z.number().int().min(1).max(10000),
-    flatPriceMonthly: z.number().int().min(1).max(1000000),
-    flatStudentLimit: z.number().int().min(1).max(100000),
     flatTeacherLimit: z.number().int().min(0).max(10000),
     features: z.array(featureKeySchema).min(1),
     displayOrder: z.number().int().min(0).max(100).optional(),
@@ -35,8 +33,6 @@ export const updatePlanSchema = z
     priceMonthly: z.number().int().min(1).max(10000).optional(),
     priceQuarterly: z.number().int().min(1).max(10000).optional(),
     priceYearly: z.number().int().min(1).max(10000).optional(),
-    flatPriceMonthly: z.number().int().min(1).max(1000000).optional(),
-    flatStudentLimit: z.number().int().min(1).max(100000).optional(),
     flatTeacherLimit: z.number().int().min(0).max(10000).optional(),
     features: z.array(featureKeySchema).min(1).optional(),
     isActive: z.boolean().optional(),
@@ -48,7 +44,6 @@ export const assignPlanSchema = z
   .object({
     planCatalogId: z.number().int().positive(),
     billingCycle: z.enum(['monthly', 'quarterly', 'yearly']),
-    billingMode: z.enum(['per_student', 'flat']).optional(),
   })
   .strict();
 
