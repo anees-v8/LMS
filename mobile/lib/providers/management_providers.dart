@@ -292,14 +292,18 @@ Future<Map<String, dynamic>> createBatch(
   String? grade,
   List<int> subjectIds = const [],
   int? feeAmount,
-  String? billingCycle,
+  int? installmentCount,
+  required String startDate,
+  String? endDate,
 }) async {
   final body = <String, dynamic>{
     'name': name,
     if (grade != null && grade.isNotEmpty) 'grade': grade,
     'subjectIds': subjectIds,
     if (feeAmount != null) 'feeAmount': feeAmount,
-    if (billingCycle != null) 'billingCycle': billingCycle,
+    if (installmentCount != null) 'installmentCount': installmentCount,
+    'startDate': startDate,
+    if (endDate != null) 'endDate': endDate,
   };
   return await api.post('/admin/batches', body) as Map<String, dynamic>;
 }
@@ -311,14 +315,21 @@ Future<Map<String, dynamic>> updateBatch(
   String? grade,
   List<int>? subjectIds,
   int? feeAmount,
-  String? billingCycle,
+  int? installmentCount,
+  String? startDate,
+  // Explicit sentinel: pass '' to clear endDate back to open-ended, null to
+  // leave it untouched — mirrors the backend's nullable-vs-omitted field.
+  String? endDate,
+  bool clearEndDate = false,
 }) async {
   final body = <String, dynamic>{
     if (name != null && name.isNotEmpty) 'name': name,
     if (grade != null) 'grade': grade,
     if (subjectIds != null) 'subjectIds': subjectIds,
     if (feeAmount != null) 'feeAmount': feeAmount,
-    if (billingCycle != null) 'billingCycle': billingCycle,
+    if (installmentCount != null) 'installmentCount': installmentCount,
+    if (startDate != null) 'startDate': startDate,
+    if (clearEndDate) 'endDate': null else if (endDate != null) 'endDate': endDate,
   };
   return await api.put('/admin/batches/$id', body) as Map<String, dynamic>;
 }

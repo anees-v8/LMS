@@ -453,6 +453,10 @@ export interface ChapterWithCounts {
   videoCount: number;
   docCount: number;
   sortOrder: number;
+  /** Whether the teacher has marked this chapter as taught/complete — lets
+   *  a student see exactly how much of the subject has been covered. */
+  completedAt: string | null;
+  completedByName: string | null;
 }
 
 export async function listChapters(
@@ -469,20 +473,36 @@ export async function listChapters(
   // teaches this subject (normally exactly one), not the subject alone.
   // Still blocks a student from reading another subject's/batch's
   // chapters by id, same as before.
-  const { rows } = await query<ChapterWithCounts>(
+  const { rows } = await query<ChapterWithCounts & { completedByUserId: number | null }>(
     `SELECT (ch->>'id')::int AS "id", ch->>'name' AS "name",
             COUNT(c.id) FILTER (WHERE c.content_type = 'video')::int AS "videoCount",
             COUNT(c.id) FILTER (WHERE c.content_type != 'video')::int AS "docCount",
-            ROW_NUMBER() OVER (ORDER BY (ch->>'id')::int)::int AS "sortOrder"
+            ROW_NUMBER() OVER (ORDER BY (ch->>'id')::int)::int AS "sortOrder",
+            (ch->>'completedAt') AS "completedAt",
+            (ch->>'completedByUserId')::int AS "completedByUserId"
        FROM batch_subject_chapters bsc
        JOIN LATERAL jsonb_array_elements(bsc.chapters) ch ON true
        LEFT JOIN content c ON c.chapter_id = (ch->>'id')::int
       WHERE bsc.tenant_id=$1 AND bsc.subject_id=$2 AND bsc.batch_id = ANY($3::int[])
-      GROUP BY ch->>'id', ch->>'name'
+      GROUP BY ch->>'id', ch->>'name', ch->>'completedAt', ch->>'completedByUserId'
       ORDER BY (ch->>'id')::int`,
     [tenantId, subjectId, safeBatches]
   );
-  return rows;
+
+  const completerIds = [...new Set(rows.map((r) => r.completedByUserId).filter((id): id is number => !!id))];
+  let namesById = new Map<number, string>();
+  if (completerIds.length) {
+    const { rows: userRows } = await query<{ id: number; fullName: string }>(
+      `SELECT id, full_name AS "fullName" FROM users WHERE tenant_id=$1 AND id = ANY($2::int[])`,
+      [tenantId, completerIds]
+    );
+    namesById = new Map(userRows.map((r) => [r.id, r.fullName]));
+  }
+
+  return rows.map(({ completedByUserId, ...r }) => ({
+    ...r,
+    completedByName: completedByUserId ? (namesById.get(completedByUserId) ?? null) : null,
+  }));
 }
 
 // ─── CHAPTER CONTENT ─────────────────────────────────────────────────────────

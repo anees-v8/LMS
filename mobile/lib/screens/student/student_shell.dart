@@ -48,7 +48,7 @@ class _StudentShellState extends State<StudentShell> {
             type: BottomNavigationBarType.fixed,
             backgroundColor: Colors.white,
             selectedItemColor: AppColors.primaryDark,
-            unselectedItemColor: Colors.grey.shade400,
+            unselectedItemColor: AppColors.primary,
             selectedLabelStyle: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 11,

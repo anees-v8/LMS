@@ -616,11 +616,22 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
   late final _feeAmount = TextEditingController(
     text: widget.existing?['feeAmount']?.toString() ?? '',
   );
-  late String? _billingCycle = widget.existing?['billingCycle']?.toString();
+  late int? _installmentCount = widget.existing?['installmentCount'] as int?;
+  late DateTime _startDate = _parseDate(widget.existing?['startDate']) ??
+      DateTime.now();
+  late DateTime? _endDate = _parseDate(widget.existing?['endDate']);
   bool _saving = false;
   String? _error;
 
   bool get _isEdit => widget.existing != null;
+
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    return DateTime.tryParse(value.toString());
+  }
+
+  static String _formatDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
   void dispose() {
@@ -645,6 +656,10 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
       );
       return;
     }
+    if (_endDate != null && _endDate!.isBefore(_startDate)) {
+      setState(() => _error = 'End date cannot be before start date.');
+      return;
+    }
     final feeAmountText = _feeAmount.text.trim();
     int? feeAmount;
     if (feeAmountText.isNotEmpty) {
@@ -653,8 +668,8 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
         setState(() => _error = 'Enter a valid fee amount.');
         return;
       }
-      if (_billingCycle == null) {
-        setState(() => _error = 'Select a billing cycle for the batch fee.');
+      if (_installmentCount == null) {
+        setState(() => _error = 'Select how many installments this fee is split into.');
         return;
       }
     }
@@ -673,7 +688,10 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
           grade: _grade.text.trim(),
           subjectIds: _selectedSubjectIds.toList(),
           feeAmount: feeAmount,
-          billingCycle: feeAmount != null ? _billingCycle : null,
+          installmentCount: feeAmount != null ? _installmentCount : null,
+          startDate: _formatDate(_startDate),
+          endDate: _endDate != null ? _formatDate(_endDate!) : null,
+          clearEndDate: _endDate == null,
         );
       } else {
         savedBatch = await createBatch(
@@ -682,7 +700,9 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
           grade: _grade.text.trim(),
           subjectIds: _selectedSubjectIds.toList(),
           feeAmount: feeAmount,
-          billingCycle: feeAmount != null ? _billingCycle : null,
+          installmentCount: feeAmount != null ? _installmentCount : null,
+          startDate: _formatDate(_startDate),
+          endDate: _endDate != null ? _formatDate(_endDate!) : null,
         );
       }
       ref.invalidate(batchesProvider);
@@ -847,6 +867,40 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
                   ),
                   const SizedBox(height: 20),
                   const Text(
+                    'Duration',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1F2E27),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'When this batch starts, and optionally when it ends. '
+                    'Fee installments are spaced out across this range.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(child: _buildDatePicker(
+                        label: 'Start Date',
+                        value: _startDate,
+                        onPick: (d) => setState(() => _startDate = d),
+                      )),
+                      const SizedBox(width: 12),
+                      Expanded(child: _buildDatePicker(
+                        label: 'End Date (Optional)',
+                        value: _endDate,
+                        onPick: (d) => setState(() => _endDate = d),
+                        onClear: _endDate != null
+                            ? () => setState(() => _endDate = null)
+                            : null,
+                      )),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
                     'Fee',
                     style: TextStyle(
                       fontSize: 14,
@@ -869,7 +923,7 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 10),
-                  _buildBillingCycleChips(),
+                  _buildInstallmentChips(),
                   if (_isEdit) ...[
                     const SizedBox(height: 20),
                     const Text(
@@ -974,23 +1028,19 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
     );
   }
 
-  Widget _buildBillingCycleChips() {
-    const cycles = [
-      ('monthly', 'Monthly'),
-      ('quarterly', 'Quarterly'),
-      ('yearly', 'Yearly'),
-    ];
+  Widget _buildInstallmentChips() {
+    const counts = [1, 2, 3, 4, 6, 12];
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: cycles.map((c) {
-        final (value, label) = c;
-        final selected = _billingCycle == value;
+      children: counts.map((count) {
+        final selected = _installmentCount == count;
+        final label = count == 1 ? 'One-time' : '$count installments';
         return FilterChip(
           label: Text(label),
           selected: selected,
           onSelected: (val) =>
-              setState(() => _billingCycle = val ? value : null),
+              setState(() => _installmentCount = val ? count : null),
           selectedColor: const Color(0xFF2E6656),
           backgroundColor: Colors.white,
           checkmarkColor: Colors.white,
@@ -1007,6 +1057,67 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildDatePicker({
+    required String label,
+    required DateTime? value,
+    required ValueChanged<DateTime> onPick,
+    VoidCallback? onClear,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1F2E27),
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: value ?? DateTime.now(),
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2100),
+            );
+            if (picked != null) onPick(picked);
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.calendar_today, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    value != null ? _formatDate(value) : 'Select date',
+                    style: TextStyle(
+                      color: value != null ? const Color(0xFF1F2E27) : Colors.grey.shade500,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                if (onClear != null)
+                  GestureDetector(
+                    onTap: onClear,
+                    child: Icon(Icons.close, size: 16, color: Colors.grey.shade500),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

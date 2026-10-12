@@ -27,7 +27,7 @@ export const createStudentSchema = z
     // Required: a student must be enrolled in a batch at creation time.
     batchId: z.coerce.number().int().positive(),
     // Total fee for this student, overriding the batch's default fee_amount
-    // (split by the batch's billing_cycle the same way) — e.g. a scholarship.
+    // (split into the same number of installments) — e.g. a scholarship.
     // Omit to use the batch's default.
     feeOverrideAmount: z.coerce.number().int().nonnegative().optional(),
   })
@@ -39,11 +39,13 @@ export const updateStudentFeeOverrideSchema = z
   .object({ feeOverrideAmount: z.coerce.number().int().nonnegative().nullable() })
   .strict();
 
+const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD');
+
 const feeFields = {
   // Both-or-neither — enforced below via .refine, mirroring the DB CHECK
-  // (batches.fee_amount IS NULL) = (billing_cycle IS NULL).
+  // (batches.fee_amount IS NULL) = (installment_count IS NULL).
   feeAmount: z.coerce.number().int().nonnegative().optional(),
-  billingCycle: z.enum(['monthly', 'quarterly', 'yearly']).optional(),
+  installmentCount: z.coerce.number().int().min(1).max(12).optional(),
 };
 
 export const createBatchSchema = z
@@ -54,12 +56,14 @@ export const createBatchSchema = z
     // in the batch (now or later) automatically has these subjects. Required:
     // a batch with none leaves every enrolled student's Learn tab empty.
     subjectIds: z.array(z.coerce.number().int().positive()).min(1, 'Select at least one subject'),
+    startDate: dateStr,
+    endDate: dateStr.optional(),
     ...feeFields,
   })
   .strict()
-  .refine((v) => (v.feeAmount === undefined) === (v.billingCycle === undefined), {
-    message: 'feeAmount and billingCycle must be provided together',
-    path: ['billingCycle'],
+  .refine((v) => (v.feeAmount === undefined) === (v.installmentCount === undefined), {
+    message: 'feeAmount and installmentCount must be provided together',
+    path: ['installmentCount'],
   });
 
 export const updateBatchSchema = z
@@ -69,12 +73,16 @@ export const updateBatchSchema = z
     // If provided at all it must still be non-empty — same reasoning as
     // createBatchSchema; omit the field entirely to leave subjects unchanged.
     subjectIds: z.array(z.coerce.number().int().positive()).min(1, 'Select at least one subject').optional(),
+    startDate: dateStr.optional(),
+    // null explicitly clears an existing end date back to open-ended;
+    // omitting the field entirely leaves it untouched.
+    endDate: dateStr.nullable().optional(),
     ...feeFields,
   })
   .strict()
-  .refine((v) => (v.feeAmount === undefined) === (v.billingCycle === undefined), {
-    message: 'feeAmount and billingCycle must be provided together',
-    path: ['billingCycle'],
+  .refine((v) => (v.feeAmount === undefined) === (v.installmentCount === undefined), {
+    message: 'feeAmount and installmentCount must be provided together',
+    path: ['installmentCount'],
   });
 
 export const createSubjectSchema = z
@@ -86,6 +94,12 @@ export const createSubjectSchema = z
 export const chapterNameSchema = z
   .object({
     name: z.string().trim().min(1).max(150),
+  })
+  .strict();
+
+export const chapterCompleteSchema = z
+  .object({
+    completed: z.boolean(),
   })
   .strict();
 

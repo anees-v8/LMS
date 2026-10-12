@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../widgets/action_menu_bottom_sheet.dart';
+
+String _formatDate(String isoString) {
+  final date = DateTime.tryParse(isoString);
+  if (date == null) return '';
+  return DateFormat('MMM d, yyyy').format(date.toLocal());
+}
 
 final batchSubjectChaptersProvider = FutureProvider.family<
   List<dynamic>,
@@ -66,6 +73,24 @@ class _BatchSubjectChaptersScreenState
       await api.put(
         '/admin/batches/${widget.batchId}/subjects/${widget.subjectId}/chapters/${chapter['id']}',
         {'name': name.trim()},
+      );
+      ref.invalidate(batchSubjectChaptersProvider(_key));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
+      }
+    }
+  }
+
+  Future<void> _toggleComplete(Map<String, dynamic> chapter) async {
+    final isCompleted = chapter['completedAt'] != null;
+    try {
+      final api = ref.read(apiServiceProvider);
+      await api.patch(
+        '/admin/batches/${widget.batchId}/subjects/${widget.subjectId}/chapters/${chapter['id']}/complete',
+        {'completed': !isCompleted},
       );
       ref.invalidate(batchSubjectChaptersProvider(_key));
     } catch (e) {
@@ -177,30 +202,45 @@ class _BatchSubjectChaptersScreenState
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final chapter = chapters[index] as Map<String, dynamic>;
+              final isCompleted = chapter['completedAt'] != null;
               return Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isCompleted
+                      ? const Color(0xFF2E6656).withValues(alpha: 0.05)
+                      : Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(
+                    color: isCompleted
+                        ? const Color(0xFF2E6656).withValues(alpha: 0.3)
+                        : Colors.grey.shade200,
+                  ),
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${chapter['chapterNumber'] ?? index + 1}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          color: Colors.orange,
+                    GestureDetector(
+                      onTap: () => _toggleComplete(chapter),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isCompleted
+                              ? const Color(0xFF2E6656)
+                              : Colors.orange.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
                         ),
+                        child: isCompleted
+                            ? const Icon(Icons.check, color: Colors.white, size: 22)
+                            : Text(
+                                '${chapter['chapterNumber'] ?? index + 1}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: Colors.orange,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -226,6 +266,18 @@ class _BatchSubjectChaptersScreenState
                               color: Color(0xFF1F2E27),
                             ),
                           ),
+                          if (isCompleted) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Completed by ${chapter['completedByName'] ?? 'someone'} · '
+                              '${_formatDate(chapter['completedAt'] as String)}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF2E6656),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -235,13 +287,21 @@ class _BatchSubjectChaptersScreenState
                         final action = await showActionMenuBottomSheet(
                           context,
                           title: chapter['name'] ?? 'Chapter',
-                          options: const [
+                          options: [
                             ActionMenuOption(
+                              icon: isCompleted
+                                  ? Icons.replay_outlined
+                                  : Icons.check_circle_outline,
+                              label: isCompleted ? 'Mark Incomplete' : 'Mark Complete',
+                              value: 'toggle_complete',
+                              color: isCompleted ? null : const Color(0xFF2E6656),
+                            ),
+                            const ActionMenuOption(
                               icon: Icons.edit_outlined,
                               label: 'Rename',
                               value: 'rename',
                             ),
-                            ActionMenuOption(
+                            const ActionMenuOption(
                               icon: Icons.delete_outline,
                               label: 'Remove',
                               value: 'remove',
@@ -250,7 +310,9 @@ class _BatchSubjectChaptersScreenState
                           ],
                         );
                         if (!context.mounted) return;
-                        if (action == 'rename') {
+                        if (action == 'toggle_complete') {
+                          _toggleComplete(chapter);
+                        } else if (action == 'rename') {
                           _renameChapter(chapter);
                         } else if (action == 'remove') {
                           _removeChapter(chapter);

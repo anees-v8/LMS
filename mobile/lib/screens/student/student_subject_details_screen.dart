@@ -120,15 +120,38 @@ class _StudentSubjectDetailsScreenState
                 ),
               );
             }
+            final coveredCount = chapters
+                .where((c) => (c as Map<String, dynamic>)['completedAt'] != null)
+                .length;
+
             return ListView.separated(
               padding: const EdgeInsets.all(16),
-              itemCount: chapters.length,
+              itemCount: chapters.length + 1,
               separatorBuilder: (_, i) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
-                final ch = chapters[index];
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.menu_book_outlined, size: 16, color: color),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$coveredCount of ${chapters.length} chapters covered',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                final ch = chapters[index - 1];
                 return _ChapterTile(
                   chapter: ch,
-                  index: index,
+                  index: index - 1,
                   color: color,
                   onTap: () => Navigator.push(
                     context,
@@ -164,7 +187,7 @@ class _ChapterTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCompleted = chapter['isCompleted'] == true;
+    final isCompleted = chapter['completedAt'] != null;
     final title =
         chapter['title'] as String? ??
         (chapter['name'] as String? ?? 'Chapter');
@@ -258,6 +281,30 @@ class _ChapterTile extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (isCompleted) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.verified_outlined,
+                          size: 13,
+                          color: AppColors.success,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Covered in class',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.success,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

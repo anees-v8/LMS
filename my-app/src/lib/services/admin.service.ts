@@ -8,7 +8,7 @@ import { buildWaUrl, feeReminderMessage } from './whatsapp.service';
 import { getTenantDashboard } from './superadmin.service';
 import * as notificationCenter from './notificationCenter.service';
 import logger from '../utils/logger';
-import { nowInIst } from '../utils/istDate';
+import { istDateString } from '../utils/istDate';
 import type { PoolClient } from 'pg';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -292,7 +292,7 @@ export interface CreateStudentInput {
   rollNo?: string;
   batchId: number;
   /** Total fee amount for this student, overriding the batch's default fee_amount
-   *  (split by the batch's billing_cycle the same way). Null clears an existing
+   *  (split into the same number of installments). Null clears an existing
    *  override back to "use batch default"; undefined leaves it untouched. */
   feeOverrideAmount?: number | null;
 }
@@ -329,24 +329,28 @@ async function nextAutoRollNo(client: PoolClient, tenantId: number): Promise<str
   return `${prefix}-${tenantId}${nextSeq}`;
 }
 
-const CYCLE_PERIODS: Record<'monthly' | 'quarterly' | 'yearly', number> = {
-  monthly: 12,
-  quarterly: 4,
-  yearly: 1,
-};
-
 /**
  * Generates a student's fee-due schedule from their batch's fee template
- * (fee_amount/billing_cycle), or the student's own fee_override_amount if
- * set (a total, split the same way as the batch default — e.g. a
- * scholarship student's override still gets divided into 12 monthly rows
- * the same as everyone else, just with a smaller total). A no-op if the
- * batch has no fee configured yet. Due-dates are spaced by the cycle
- * (month/quarter/year) starting from the tenant's configured fee_due_day
- * in the current period, so every student in a tenant bills on the same
- * day of the month regardless of enrollment date. Must run inside the
- * same transaction as the batch_enrollments insert that creates this
- * enrollment.
+ * (fee_amount/installment_count), or the student's own fee_override_amount
+ * if set (a total, split the same way as the batch default — e.g. a
+ * scholarship student's override still gets divided into the same number
+ * of installments as everyone else, just with a smaller total). A no-op if
+ * the batch has no fee configured yet.
+ *
+ * Installment #1 is due on whichever is later of the batch's start_date or
+ * the student's actual enrollment date (a student joining mid-batch owes
+ * their first payment now, not backdated to the batch's original start).
+ * Remaining installments are spaced evenly across the batch's start_date ->
+ * end_date span; an open-ended batch (no end_date) falls back to 1-month
+ * spacing per installment, matching the old monthly cadence.
+ *
+ * This replaces the old "is this month's due-day already past" logic,
+ * which for a 1-installment ('yearly') batch could jump the due-date a
+ * full 12 months ahead instead of ~1 — due-dates are now derived purely
+ * from the batch's own date range, never from "today" vs. a day-of-month.
+ *
+ * Must run inside the same transaction as the batch_enrollments insert
+ * that creates this enrollment.
  */
 async function generateFeeDues(
   client: PoolClient,
@@ -354,12 +358,23 @@ async function generateFeeDues(
   studentId: number,
   batchId: number
 ): Promise<void> {
-  const batchRow = await client.query<{ feeAmount: number | null; billingCycle: 'monthly' | 'quarterly' | 'yearly' | null }>(
-    `SELECT fee_amount AS "feeAmount", billing_cycle AS "billingCycle" FROM batches WHERE id=$1`,
+  // node-postgres parses DATE columns into local-midnight JS Date objects,
+  // not strings — read as Date and normalize to UTC-midnight ourselves
+  // (same approach as dueDateStr elsewhere in this file) rather than
+  // assuming a string shape.
+  const batchRow = await client.query<{
+    feeAmount: number | null;
+    installmentCount: number | null;
+    startDate: Date;
+    endDate: Date | null;
+  }>(
+    `SELECT fee_amount AS "feeAmount", installment_count AS "installmentCount",
+            start_date AS "startDate", end_date AS "endDate"
+       FROM batches WHERE id=$1`,
     [batchId]
   );
-  const { feeAmount, billingCycle } = batchRow.rows[0] || {};
-  if (!feeAmount || !billingCycle) return; // batch has no fee configured yet
+  const { feeAmount, installmentCount, startDate, endDate } = batchRow.rows[0] || {};
+  if (!feeAmount || !installmentCount || !startDate) return; // batch has no fee configured yet
 
   const overrideRow = await client.query<{ feeOverrideAmount: number | null }>(
     `SELECT fee_override_amount AS "feeOverrideAmount" FROM students WHERE id=$1`,
@@ -367,45 +382,39 @@ async function generateFeeDues(
   );
   const total = overrideRow.rows[0]?.feeOverrideAmount ?? feeAmount;
 
-  const tenantRow = await client.query<{ feeDueDay: number }>(
-    `SELECT fee_due_day AS "feeDueDay" FROM tenants WHERE id=$1`,
-    [tenantId]
-  );
-  const dueDay = tenantRow.rows[0]?.feeDueDay ?? 5;
+  const perInstallment = Math.floor(total / installmentCount);
+  const remainder = total - perInstallment * installmentCount;
 
-  const periods = CYCLE_PERIODS[billingCycle];
-  const perPeriod = Math.floor(total / periods);
-  const remainder = total - perPeriod * periods;
-  const cycleMonths = billingCycle === 'monthly' ? 1 : billingCycle === 'quarterly' ? 3 : 12;
-
-  const cycleLabel = billingCycle === 'monthly' ? 'Monthly' : billingCycle === 'quarterly' ? 'Quarterly' : 'Yearly';
-
-  // Built entirely with Date.UTC + UTC getters, never .toISOString() on a
-  // locally-constructed Date — that silently shifts to the previous day
-  // once the server/dev-machine's own timezone is ahead of UTC (e.g. IST).
-  // See istDate.ts for the same pitfall in day-of-week math. Date.UTC
-  // correctly rolls month overflow (e.g. month=13) into the next year, so
-  // no manual year-carrying is needed anywhere below.
-  const now = nowInIst();
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth();
-
-  const dueDateStr = (year: number, month: number, day: number): string => {
-    const d = new Date(Date.UTC(year, month, day));
+  const toUtcMidnight = (d: Date): number => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const dateStr = (ms: number): string => {
+    const d = new Date(ms);
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
   };
 
-  // First due-date: this period's due-day if it hasn't passed yet, else next period's.
-  const dueHasPassedThisPeriod = Date.UTC(y, m, dueDay) < Date.UTC(y, m, now.getUTCDate());
-  const firstDueMonth = dueHasPassedThisPeriod ? m + cycleMonths : m;
+  const startMs = toUtcMidnight(startDate);
+  const todayMs = toUtcMidnight(new Date(`${istDateString()}T00:00:00Z`));
+  const firstDueMs = Math.max(startMs, todayMs);
 
-  for (let i = 0; i < periods; i++) {
-    const amount = i === periods - 1 ? perPeriod + remainder : perPeriod;
-    const dueDate = dueDateStr(y, firstDueMonth + i * cycleMonths, dueDay);
+  // Span the remaining installments across start -> end; an open-ended
+  // batch gets a 1-month-per-installment default instead.
+  const spanDays = endDate
+    ? Math.max(1, Math.round((toUtcMidnight(endDate) - startMs) / 86400000))
+    : (installmentCount - 1) * 30;
+  const stepDays = installmentCount > 1 ? Math.round(spanDays / (installmentCount - 1)) : 0;
+
+  const label = installmentCount === 1 ? 'Full Fee' : 'Installment Fee — Part';
+
+  for (let i = 0; i < installmentCount; i++) {
+    const amount = i === installmentCount - 1 ? perInstallment + remainder : perInstallment;
+    // Installment 1 always uses firstDueMs (enrollment-aware); later
+    // installments are spaced from the batch's own start_date so they land
+    // on consistent calendar dates regardless of when the student joined.
+    const dueMs = i === 0 ? firstDueMs : startMs + stepDays * i * 86400000;
+    const title = installmentCount === 1 ? label : `${label} ${i + 1}/${installmentCount}`;
     await client.query(
       `INSERT INTO fee_dues (tenant_id, student_id, batch_id, title, amount, due_date, period_index)
        VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [tenantId, studentId, batchId, `${cycleLabel} Fee — Period ${i + 1}`, amount, dueDate, i + 1]
+      [tenantId, studentId, batchId, title, amount, dateStr(dueMs), i + 1]
     );
   }
 }
@@ -841,13 +850,20 @@ export interface BatchItem {
   subjectNames: string[];
   subjects: { id: number; name: string }[];
   feeAmount: number | null;
-  billingCycle: 'monthly' | 'quarterly' | 'yearly' | null;
+  /** Number of equal installments the total feeAmount is split into
+   *  (1 = one-time payment). Paired with feeAmount — both set or both
+   *  null, enforced by batches_fee_amount_installments_pair. */
+  installmentCount: number | null;
+  startDate: string;
+  /** Null = ongoing/open-ended batch with no planned end. */
+  endDate: string | null;
 }
 
 export async function listBatches(tenantId: number): Promise<BatchItem[]> {
   const { rows } = await query<BatchItem>(
     `SELECT b.id, b.name, b.grade, b.subject_ids AS "subjectIds",
-            b.fee_amount AS "feeAmount", b.billing_cycle AS "billingCycle",
+            b.fee_amount AS "feeAmount", b.installment_count AS "installmentCount",
+            b.start_date AS "startDate", b.end_date AS "endDate",
             (SELECT count(*)::int FROM batch_enrollments be WHERE be.batch_id=b.id) AS "studentCount",
             COALESCE(
               (SELECT array_agg(s.name ORDER BY s.name) FROM subjects s WHERE s.id = ANY(b.subject_ids)),
@@ -869,12 +885,14 @@ export async function listBatches(tenantId: number): Promise<BatchItem[]> {
 
 export async function createBatch(
   tenantId: number,
-  { name, grade, subjectIds, feeAmount, billingCycle }: {
+  { name, grade, subjectIds, feeAmount, installmentCount, startDate, endDate }: {
     name: string;
     grade?: string;
     subjectIds?: number[];
     feeAmount?: number;
-    billingCycle?: 'monthly' | 'quarterly' | 'yearly';
+    installmentCount?: number;
+    startDate: string;
+    endDate?: string;
   }
 ): Promise<BatchItem> {
   const ids = subjectIds ?? [];
@@ -885,11 +903,19 @@ export async function createBatch(
     );
     if (owned.rows[0].count !== ids.length) throw ApiError.badRequest('INVALID_SUBJECT');
   }
+  if (endDate && endDate < startDate) {
+    throw ApiError.badRequest('INVALID_DATE_RANGE', 'End date cannot be before start date');
+  }
 
-  const { rows } = await query<{ id: number; name: string; grade: string | null; subjectIds: number[]; feeAmount: number | null; billingCycle: 'monthly' | 'quarterly' | 'yearly' | null }>(
-    `INSERT INTO batches (tenant_id, name, grade, subject_ids, fee_amount, billing_cycle) VALUES ($1,$2,$3,$4::int[],$5,$6)
-     RETURNING id, name, grade, subject_ids AS "subjectIds", fee_amount AS "feeAmount", billing_cycle AS "billingCycle"`,
-    [tenantId, name, grade || null, ids, feeAmount ?? null, billingCycle ?? null]
+  const { rows } = await query<{
+    id: number; name: string; grade: string | null; subjectIds: number[];
+    feeAmount: number | null; installmentCount: number | null; startDate: string; endDate: string | null;
+  }>(
+    `INSERT INTO batches (tenant_id, name, grade, subject_ids, fee_amount, installment_count, start_date, end_date)
+     VALUES ($1,$2,$3,$4::int[],$5,$6,$7,$8)
+     RETURNING id, name, grade, subject_ids AS "subjectIds", fee_amount AS "feeAmount",
+               installment_count AS "installmentCount", start_date AS "startDate", end_date AS "endDate"`,
+    [tenantId, name, grade || null, ids, feeAmount ?? null, installmentCount ?? null, startDate, endDate ?? null]
   );
   return { ...rows[0], studentCount: 0, subjectNames: [], subjects: [] };
 }
@@ -898,16 +924,21 @@ export async function updateBatch(
   tenantId: number,
   id: number,
   actorUserId: number,
-  { name, grade, subjectIds, feeAmount, billingCycle }: {
+  { name, grade, subjectIds, feeAmount, installmentCount, startDate, endDate }: {
     name?: string;
     grade?: string;
     subjectIds?: number[];
     feeAmount?: number | null;
-    billingCycle?: 'monthly' | 'quarterly' | 'yearly' | null;
+    installmentCount?: number | null;
+    startDate?: string;
+    endDate?: string | null;
   }
 ): Promise<BatchItem> {
-  const exists = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2 AND is_active = true`, [id, tenantId]);
-  if (!exists.rowCount) throw ApiError.notFound('BATCH_NOT_FOUND');
+  const existing = await query<{ startDate: string; endDate: string | null }>(
+    `SELECT start_date AS "startDate", end_date AS "endDate" FROM batches WHERE id=$1 AND tenant_id=$2 AND is_active = true`,
+    [id, tenantId]
+  );
+  if (!existing.rows[0]) throw ApiError.notFound('BATCH_NOT_FOUND');
 
   if (subjectIds !== undefined && subjectIds.length) {
     const owned = await query<{ count: number }>(
@@ -917,20 +948,28 @@ export async function updateBatch(
     if (owned.rows[0].count !== subjectIds.length) throw ApiError.badRequest('INVALID_SUBJECT');
   }
 
+  const effectiveStart = startDate ?? existing.rows[0].startDate;
+  const effectiveEnd = endDate !== undefined ? endDate : existing.rows[0].endDate;
+  if (effectiveEnd && effectiveEnd < effectiveStart) {
+    throw ApiError.badRequest('INVALID_DATE_RANGE', 'End date cannot be before start date');
+  }
+
   const setClauses: string[] = [];
   const values: unknown[] = [id, tenantId];
   let idx = 3;
   if (name !== undefined) { setClauses.push(`name=$${idx++}`); values.push(name); }
   if (grade !== undefined) { setClauses.push(`grade=$${idx++}`); values.push(grade || null); }
   if (subjectIds !== undefined) { setClauses.push(`subject_ids=$${idx++}::int[]`); values.push(subjectIds); }
-  // fee_amount/billing_cycle are a pair (DB requires both-or-neither) — only
-  // touched when the caller actually sends one of them, and always written
-  // together so an update can never leave one set without the other.
+  if (startDate !== undefined) { setClauses.push(`start_date=$${idx++}`); values.push(startDate); }
+  if (endDate !== undefined) { setClauses.push(`end_date=$${idx++}`); values.push(endDate); }
+  // fee_amount/installment_count are a pair (DB requires both-or-neither) —
+  // only touched when the caller actually sends one of them, and always
+  // written together so an update can never leave one set without the other.
   // This never touches fee_dues already generated for existing students —
   // only NEW enrollments read the batch's fee template going forward.
-  if (feeAmount !== undefined || billingCycle !== undefined) {
+  if (feeAmount !== undefined || installmentCount !== undefined) {
     setClauses.push(`fee_amount=$${idx++}`); values.push(feeAmount ?? null);
-    setClauses.push(`billing_cycle=$${idx++}`); values.push(billingCycle ?? null);
+    setClauses.push(`installment_count=$${idx++}`); values.push(installmentCount ?? null);
   }
 
   if (setClauses.length) {
@@ -1030,17 +1069,42 @@ export async function updateSubject(
 export interface BatchSubjectChapterItem {
   id: number;
   name: string;
+  /** Present only once marked complete — who taught it and when, so a
+   *  teacher picking up a batch mid-year can see exactly where the
+   *  previous teacher left off instead of re-teaching covered ground. */
+  completedAt?: string | null;
+  completedByUserId?: number | null;
 }
 
-/** Adds `chapterNumber` (1-based, by array position) to each chapter for
- *  display — always derived fresh, never stored, so removing/reordering
- *  chapters never leaves stale/gapped numbers behind. */
+/** Adds `chapterNumber` (1-based, by array position) and resolves
+ *  `completedByName` from `completedByUserId` for display — both derived
+ *  fresh on every read, never stored, so reordering/renaming never leaves
+ *  stale data behind. */
 export interface BatchSubjectChapterWithNumber extends BatchSubjectChapterItem {
   chapterNumber: number;
+  completedByName?: string | null;
 }
 
-function withChapterNumbers(chapters: BatchSubjectChapterItem[]): BatchSubjectChapterWithNumber[] {
-  return chapters.map((ch, i) => ({ ...ch, chapterNumber: i + 1 }));
+/** Exported for reuse by teacher.service.ts, which reads/writes the same
+ *  batch_subject_chapters rows under a teacher-scoped authorization check. */
+export async function withChapterNumbers(
+  tenantId: number,
+  chapters: BatchSubjectChapterItem[]
+): Promise<BatchSubjectChapterWithNumber[]> {
+  const completerIds = [...new Set(chapters.map((ch) => ch.completedByUserId).filter((id): id is number => !!id))];
+  let namesById = new Map<number, string>();
+  if (completerIds.length) {
+    const { rows } = await query<{ id: number; fullName: string }>(
+      `SELECT id, full_name AS "fullName" FROM users WHERE tenant_id=$1 AND id = ANY($2::int[])`,
+      [tenantId, completerIds]
+    );
+    namesById = new Map(rows.map((r) => [r.id, r.fullName]));
+  }
+  return chapters.map((ch, i) => ({
+    ...ch,
+    chapterNumber: i + 1,
+    completedByName: ch.completedByUserId ? (namesById.get(ch.completedByUserId) ?? null) : null,
+  }));
 }
 
 async function ensureBatchTeachesSubject(tenantId: number, batchId: number, subjectId: number): Promise<void> {
@@ -1060,7 +1124,7 @@ export async function listBatchSubjectChapters(
     `SELECT chapters FROM batch_subject_chapters WHERE tenant_id=$1 AND batch_id=$2 AND subject_id=$3`,
     [tenantId, batchId, subjectId]
   );
-  return withChapterNumbers(rows[0]?.chapters ?? []);
+  return withChapterNumbers(tenantId, rows[0]?.chapters ?? []);
 }
 
 /** Adds a chapter to this batch+subject's chapter list. Id comes from
@@ -1101,7 +1165,7 @@ export async function addBatchSubjectChapter(
      RETURNING chapters`,
     [tenantId, batchId, subjectId, name.trim()]
   );
-  return withChapterNumbers(rows[0].chapters);
+  return withChapterNumbers(tenantId, rows[0].chapters);
 }
 
 /** Renames one chapter in place — the array order (and therefore every
@@ -1141,7 +1205,7 @@ export async function renameBatchSubjectChapter(
     [chapterId, name.trim(), tenantId, batchId, subjectId]
   );
   if (!rows.length) throw ApiError.notFound('CHAPTER_NOT_FOUND');
-  return withChapterNumbers(rows[0].chapters);
+  return withChapterNumbers(tenantId, rows[0].chapters);
 }
 
 /** Removes a chapter — blocked if any content was ever uploaded under it,
@@ -1169,7 +1233,44 @@ export async function removeBatchSubjectChapter(
     [chapterId, tenantId, batchId, subjectId]
   );
   if (!rows.length) throw ApiError.notFound('SUBJECT_NOT_FOUND');
-  return withChapterNumbers(rows[0].chapters);
+  return withChapterNumbers(tenantId, rows[0].chapters);
+}
+
+/** Marks a chapter taught/complete (or reverts it back to incomplete).
+ *  `completed: true` stamps the acting user + now(); `false` clears both
+ *  back to unset — this is a soft, reversible status (not a lock), so a
+ *  mistaken mark can always be undone. The chapter's name stays editable
+ *  either way; nothing about this blocks renaming or reordering.
+ *  Shared by both the admin and teacher routes — either role may mark
+ *  progress on a chapter they have access to. */
+export async function toggleBatchSubjectChapterComplete(
+  tenantId: number,
+  batchId: number,
+  subjectId: number,
+  chapterId: number,
+  actorUserId: number,
+  completed: boolean
+): Promise<BatchSubjectChapterWithNumber[]> {
+  const { rows } = await query<{ chapters: BatchSubjectChapterItem[] }>(
+    `UPDATE batch_subject_chapters
+        SET chapters = (
+          SELECT jsonb_agg(
+            CASE WHEN (ch->>'id')::int = $1 THEN
+              CASE WHEN $2::boolean
+                THEN ch || jsonb_build_object('completedAt', to_jsonb(now()), 'completedByUserId', to_jsonb($5::int))
+                ELSE (ch - 'completedAt') - 'completedByUserId'
+              END
+            ELSE ch END
+          )
+          FROM jsonb_array_elements(chapters) ch
+        )
+      WHERE tenant_id = $3 AND batch_id = $4 AND subject_id = $6
+        AND EXISTS (SELECT 1 FROM jsonb_array_elements(chapters) ch WHERE (ch->>'id')::int = $1)
+      RETURNING chapters`,
+    [chapterId, completed, tenantId, batchId, actorUserId, subjectId]
+  );
+  if (!rows.length) throw ApiError.notFound('CHAPTER_NOT_FOUND');
+  return withChapterNumbers(tenantId, rows[0].chapters);
 }
 
 /**

@@ -50,6 +50,14 @@ export const createChapterSchema = z
   })
   .strict();
 
+export const toggleChapterCompleteSchema = z
+  .object({
+    batchId: z.coerce.number().int().positive(),
+    subjectId: z.coerce.number().int().positive(),
+    completed: z.boolean(),
+  })
+  .strict();
+
 export const connectGoogleSchema = z
   .object({
     serverAuthCode: z.string().min(10),

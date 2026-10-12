@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/teacher_providers.dart';
 import '../../services/api_service.dart';
 import 'teacher_content_screen.dart';
+
+String _formatDate(String isoString) {
+  final date = DateTime.tryParse(isoString);
+  if (date == null) return '';
+  return DateFormat('MMM d, yyyy').format(date.toLocal());
+}
 
 class TeacherChaptersScreen extends ConsumerStatefulWidget {
   final int batchId;
@@ -56,6 +63,30 @@ class _TeacherChaptersScreenState extends ConsumerState<TeacherChaptersScreen> {
       }
     } finally {
       if (mounted) setState(() => _isCreating = false);
+    }
+  }
+
+  Future<void> _toggleComplete(Map<String, dynamic> chapter) async {
+    final isCompleted = chapter['completedAt'] != null;
+    try {
+      final api = ref.read(apiServiceProvider);
+      await api.patch('/teacher/chapters/${chapter['id']}/complete', {
+        'batchId': widget.batchId,
+        'subjectId': widget.subjectId,
+        'completed': !isCompleted,
+      });
+      ref.invalidate(
+        teacherChaptersProvider((
+          batchId: widget.batchId,
+          subjectId: widget.subjectId,
+        )),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e))));
+      }
     }
   }
 
@@ -203,72 +234,105 @@ class _TeacherChaptersScreenState extends ConsumerState<TeacherChaptersScreen> {
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final chapter = chapters[index];
-              return InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TeacherContentScreen(
-                        chapterId: chapter['id'],
-                        chapterName: chapter['name'],
-                      ),
-                    ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
+              final isCompleted = chapter['completedAt'] != null;
+              return Container(
+                decoration: BoxDecoration(
+                  color: isCompleted
+                      ? AppColors.primary.withValues(alpha: 0.05)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isCompleted
+                        ? AppColors.primary.withValues(alpha: 0.3)
+                        : Colors.grey.shade200,
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                ),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TeacherContentScreen(
+                          chapterId: chapter['id'],
+                          chapterName: chapter['name'],
                         ),
-                        child: Text(
-                          '${chapter['chapterNumber'] ?? index + 1}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            color: Colors.orange,
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        GestureDetector(
+                          onTap: () => _toggleComplete(chapter),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isCompleted
+                                  ? AppColors.primary
+                                  : Colors.orange.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: isCompleted
+                                ? const Icon(Icons.check, color: Colors.white, size: 22)
+                                : Text(
+                                    '${chapter['chapterNumber'] ?? index + 1}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                      color: Colors.orange,
+                                    ),
+                                  ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Chapter ${chapter['chapterNumber'] ?? index + 1}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade500,
-                                letterSpacing: 0.3,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Chapter ${chapter['chapterNumber'] ?? index + 1}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade500,
+                                  letterSpacing: 0.3,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              chapter['name'] ?? 'Untitled Chapter',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                              const SizedBox(height: 2),
+                              Text(
+                                chapter['name'] ?? 'Untitled Chapter',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
-                            ),
-                          ],
+                              if (isCompleted) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Completed by ${chapter['completedByName'] ?? 'someone'} · '
+                                  '${_formatDate(chapter['completedAt'] as String)}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const Icon(Icons.chevron_right, color: Colors.grey),
-                    ],
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );

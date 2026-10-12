@@ -48,7 +48,7 @@ class _TeacherShellState extends ConsumerState<TeacherShell> {
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
           selectedItemColor: AppColors.primaryDark,
-          unselectedItemColor: Colors.grey.shade400,
+          unselectedItemColor: AppColors.primary,
           showSelectedLabels: true,
           showUnselectedLabels: true,
           selectedLabelStyle: const TextStyle(

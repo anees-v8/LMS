@@ -421,6 +421,8 @@ export interface ChapterItem {
   subjectId: number;
   name: string;
   chapterNumber: number;
+  completedAt?: string | null;
+  completedByName?: string | null;
 }
 
 async function ensureTeacherAssignedToBatchSubject(
@@ -444,15 +446,12 @@ export async function listChapters(
 ): Promise<ChapterItem[]> {
   await ensureTeacherAssignedToBatchSubject(tenantId, teacherId, batchId, subjectId);
 
-  const { rows } = await query<{ chapters: { id: number; name: string }[] }>(
+  const { rows } = await query<{ chapters: adminService.BatchSubjectChapterItem[] }>(
     `SELECT chapters FROM batch_subject_chapters WHERE tenant_id=$1 AND batch_id=$2 AND subject_id=$3`,
     [tenantId, batchId, subjectId]
   );
-  const chapters = rows[0]?.chapters ?? [];
-  // chapterNumber is the chapter's 1-based position — derived fresh every
-  // read, never stored, so removing/reordering chapters never leaves
-  // stale or gapped numbers.
-  return chapters.map((ch, i) => ({ id: ch.id, batchId, subjectId, name: ch.name, chapterNumber: i + 1 }));
+  const withNumbers = await adminService.withChapterNumbers(tenantId, rows[0]?.chapters ?? []);
+  return withNumbers.map((ch) => ({ ...ch, batchId, subjectId }));
 }
 
 export async function createChapter(
@@ -489,6 +488,29 @@ export async function createChapter(
   );
   const added = rows[0].chapters[rows[0].chapters.length - 1];
   return { id: added.id, batchId, subjectId, name: added.name, chapterNumber: rows[0].chapters.length };
+}
+
+/** Marks a chapter taught/complete (or reverts it) — see
+ *  admin.service.ts's toggleBatchSubjectChapterComplete, which this wraps
+ *  with a teacher-scoped authorization check in place of the admin one. */
+export async function toggleChapterComplete(
+  tenantId: number,
+  teacherId: number,
+  batchId: number,
+  subjectId: number,
+  chapterId: number,
+  completed: boolean
+): Promise<ChapterItem[]> {
+  await ensureTeacherAssignedToBatchSubject(tenantId, teacherId, batchId, subjectId);
+  const withNumbers = await adminService.toggleBatchSubjectChapterComplete(
+    tenantId,
+    batchId,
+    subjectId,
+    chapterId,
+    teacherId,
+    completed
+  );
+  return withNumbers.map((ch) => ({ ...ch, batchId, subjectId }));
 }
 
 export async function listSubjects(tenantId: number): Promise<{ id: number; name: string }[]> {
