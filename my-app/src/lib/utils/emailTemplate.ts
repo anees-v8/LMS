@@ -162,6 +162,131 @@ export function renderOtpEmail(code: string, purposeLabel: string, expiryMinutes
 </html>`;
 }
 
+/**
+ * Payment receipt email — sent after a tenant's subscription payment
+ * (new subscribe, renewal, or upgrade/downgrade) is verified. Line-item
+ * table mirrors what the mobile quote screen already shows (plan amount,
+ * proration credit, downgrade penalty) so the email matches what the
+ * admin saw before paying. Sent directly via Resend (same as OTP emails),
+ * bypassing the plan-gated notification pipeline — a receipt must reach
+ * every paying tenant regardless of plan tier.
+ */
+export function renderPaymentReceiptEmail(params: {
+  tenantName: string;
+  planName: string;
+  billingCycle: string;
+  studentCount: number;
+  amountPaidRupees: number;
+  prorationCredit?: number;
+  penaltyAmount?: number;
+  paymentId: string;
+  paidOn: Date;
+  nextBillingDate: Date | null;
+}): string {
+  const {
+    tenantName, planName, billingCycle, studentCount, amountPaidRupees,
+    prorationCredit, penaltyAmount, paymentId, paidOn, nextBillingDate,
+  } = params;
+
+  const row = (label: string, value: string, emphasis = false) => `
+    <tr>
+      <td style="padding:10px 0; color:${emphasis ? '#1F2E27' : '#5B6B61'}; font-size:${emphasis ? '15px' : '13px'}; font-weight:${emphasis ? '700' : '400'}; border-top:1px solid #EEF1EC;">${escapeHtml(label)}</td>
+      <td style="padding:10px 0; color:${emphasis ? '#1F2E27' : '#5B6B61'}; font-size:${emphasis ? '15px' : '13px'}; font-weight:${emphasis ? '700' : '400'}; text-align:right; border-top:1px solid #EEF1EC;">${escapeHtml(value)}</td>
+    </tr>`;
+
+  const dateFmt = (d: Date) =>
+    d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const rows = [
+    row('Plan', `${planName} (${billingCycle})`),
+    row('Students billed', String(studentCount)),
+  ];
+  if (prorationCredit && prorationCredit > 0) {
+    rows.push(row('Credit applied', `− ₹${prorationCredit}`));
+  }
+  if (penaltyAmount && penaltyAmount > 0) {
+    rows.push(row('Downgrade fee', `+ ₹${penaltyAmount}`));
+  }
+  rows.push(row('Amount paid', `₹${amountPaidRupees}`, true));
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body style="margin:0; padding:0; background-color:#EEF1EC; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#EEF1EC; padding:40px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; background-color:#FFFFFF; border-radius:20px; overflow:hidden; box-shadow:0 4px 20px rgba(31,46,39,0.08);">
+            <tr>
+              <td style="background-color:#1F2E27; padding:24px 32px;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="vertical-align:middle; padding-right:10px;">
+                      <img src="https://my-app-tau-umber-67.vercel.app/logo-white.png" alt="Campus" width="26" height="26" style="display:block;" />
+                    </td>
+                    <td style="vertical-align:middle;">
+                      <span style="color:#FFFFFF; font-size:17px; font-weight:700; letter-spacing:0.02em;">Campus</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="height:4px; background-color:#A87D26; font-size:0; line-height:0;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding:32px 32px 8px;">
+                <p style="margin:0 0 8px; color:#A87D26; font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;">
+                  Payment Receipt
+                </p>
+                <h1 style="margin:0 0 6px; color:#1F2E27; font-size:21px; font-weight:700; line-height:1.35;">
+                  Payment received — ${escapeHtml(tenantName)}
+                </h1>
+                <p style="margin:0 0 20px; color:#5B6B61; font-size:13px;">
+                  Paid on ${dateFmt(paidOn)}
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  ${rows.join('')}
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 32px 0;">
+                <p style="margin:0 0 4px; color:#8A948D; font-size:12px;">Payment ID</p>
+                <p style="margin:0; color:#1F2E27; font-size:12px; font-family:'SF Mono',Consolas,Menlo,monospace;">${escapeHtml(paymentId)}</p>
+              </td>
+            </tr>
+            ${
+              nextBillingDate
+                ? `<tr><td style="padding:16px 32px 0;"><p style="margin:0; color:#8A948D; font-size:12px;">Next billing date: ${dateFmt(nextBillingDate)}</p></td></tr>`
+                : ''
+            }
+            <tr>
+              <td style="padding:28px 32px 32px;">
+                <div style="height:1px; background-color:#EEF1EC; margin-bottom:16px;"></div>
+                <p style="margin:0; color:#8A948D; font-size:11px; line-height:1.6;">
+                  This is an automated receipt for your Campus subscription payment. Keep it for your records.
+                </p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:20px 0 0; color:#8A948D; font-size:11px; text-align:center;">
+            Sent by Campus · campusweb.co.in
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')

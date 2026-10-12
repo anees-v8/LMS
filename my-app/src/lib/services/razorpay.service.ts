@@ -1,9 +1,11 @@
 import crypto from 'node:crypto';
 import Razorpay from 'razorpay';
+import { Resend } from 'resend';
 import { query } from '../db';
 import env from '../config/env';
 import ApiError from '../utils/ApiError';
 import logger from '../utils/logger';
+import { renderPaymentReceiptEmail } from '../utils/emailTemplate';
 
 interface SubscriptionRow {
   id: number;
@@ -55,6 +57,69 @@ function client(): Razorpay | null {
     _client = new Razorpay({ key_id: env.razorpay.keyId, key_secret: env.razorpay.secret });
   }
   return _client;
+}
+
+let _resend: Resend | null = null;
+function getResend(): Resend | null {
+  if (!env.resend.enabled) return null;
+  if (!_resend) _resend = new Resend(env.resend.apiKey);
+  return _resend;
+}
+
+/**
+ * Emails a receipt to every coaching_admin on the tenant after a
+ * subscription payment (new subscribe, renewal, or plan change) is
+ * verified. Sent directly via Resend, bypassing the plan-gated
+ * notification pipeline — a receipt must reach every paying tenant
+ * regardless of plan tier. Never throws: a receipt email failing must not
+ * fail the payment it's confirming, so any error is logged and swallowed.
+ */
+export async function sendSubscriptionReceiptEmail(params: {
+  tenantId: number;
+  planName: string;
+  billingCycle: string;
+  studentCount: number;
+  amountPaidRupees: number;
+  prorationCredit?: number;
+  penaltyAmount?: number;
+  paymentId: string;
+  nextBillingDate: Date | null;
+}): Promise<void> {
+  try {
+    const resend = getResend();
+    if (!resend) return;
+
+    const { rows } = await query<{ email: string | null; tenantName: string }>(
+      `SELECT u.email, t.name AS "tenantName"
+         FROM users u JOIN tenants t ON t.id = u.tenant_id
+        WHERE u.tenant_id = $1 AND u.role = 'coaching_admin' AND u.is_active = true AND u.email IS NOT NULL`,
+      [params.tenantId]
+    );
+    const recipients = rows.map((r) => r.email!).filter(Boolean);
+    if (!recipients.length) return;
+
+    const html = renderPaymentReceiptEmail({
+      tenantName: rows[0].tenantName,
+      planName: params.planName,
+      billingCycle: params.billingCycle,
+      studentCount: params.studentCount,
+      amountPaidRupees: params.amountPaidRupees,
+      prorationCredit: params.prorationCredit,
+      penaltyAmount: params.penaltyAmount,
+      paymentId: params.paymentId,
+      paidOn: new Date(),
+      nextBillingDate: params.nextBillingDate,
+    });
+
+    await resend.emails.send({
+      from: env.resend.from,
+      to: recipients,
+      subject: `Payment receipt — ₹${params.amountPaidRupees} for ${params.planName}`,
+      html,
+    });
+  } catch (err) {
+    logger.error('Failed to send subscription receipt email', { error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 async function getSubscription(tenantId: number): Promise<SubscriptionRow> {
@@ -172,7 +237,7 @@ export async function verifyPayment(
   );
   const studentCountSnapshot = parseInt(countRows[0]?.count ?? '0', 10);
 
-  const { rows } = await query<{ status: string; nextBillingDate: Date | null }>(
+  const { rows } = await query<{ status: string; nextBillingDate: Date | null; amount: number }>(
     `UPDATE subscriptions
         SET status = 'active',
             next_billing_date = now() + ($2 || ' months')::interval,
@@ -181,7 +246,7 @@ export async function verifyPayment(
             current_cycle_started_at = now(),
             current_cycle_amount = COALESCE(per_student_rate, amount) * GREATEST($3, 1) * $4
       WHERE tenant_id = $1
-      RETURNING status, next_billing_date AS "nextBillingDate"`,
+      RETURNING status, next_billing_date AS "nextBillingDate", amount`,
     [tenantId, cycleMonths, studentCountSnapshot, cycleMonths]
   );
 
@@ -190,6 +255,20 @@ export async function verifyPayment(
      VALUES ($1,$2,'payment_verified','subscription', $3::jsonb)`,
     [tenantId, actorUserId, JSON.stringify({ orderId, paymentId, studentCountSnapshot, cycleMonths })]
   );
+
+  const { rows: planRows } = await query<{ planName: string | null }>(
+    `SELECT pc.name AS "planName" FROM subscriptions s LEFT JOIN plan_catalog pc ON pc.id = s.plan_catalog_id WHERE s.tenant_id = $1`,
+    [tenantId]
+  );
+  await sendSubscriptionReceiptEmail({
+    tenantId,
+    planName: planRows[0]?.planName ?? 'Campus',
+    billingCycle: sub.billingCycle ?? 'monthly',
+    studentCount: studentCountSnapshot,
+    amountPaidRupees: rows[0].amount,
+    paymentId,
+    nextBillingDate: rows[0].nextBillingDate,
+  });
 
   return { status: rows[0].status, nextBillingDate: rows[0].nextBillingDate };
 }

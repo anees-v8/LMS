@@ -5,6 +5,7 @@ import env from '../config/env';
 import ApiError from '../utils/ApiError';
 import { writeAudit } from '../utils/audit';
 import { getPlanById } from './plan.service';
+import { sendSubscriptionReceiptEmail } from './razorpay.service';
 
 let _client: Razorpay | null = null;
 function razorpayClient(): Razorpay | null {
@@ -312,6 +313,22 @@ export async function confirmPlanChange(
       },
       client
     );
+  });
+
+  const { rows: subRows } = await query<{ nextBillingDate: Date | null }>(
+    `SELECT next_billing_date AS "nextBillingDate" FROM subscriptions WHERE tenant_id = $1`,
+    [tenantId]
+  );
+  await sendSubscriptionReceiptEmail({
+    tenantId,
+    planName: quote.newPlanName,
+    billingCycle: newBillingCycle,
+    studentCount: quote.studentCount,
+    amountPaidRupees: quote.amountDue,
+    prorationCredit: quote.prorationCredit,
+    penaltyAmount: quote.penaltyAmount,
+    paymentId: payment.paymentId ?? payment.orderId,
+    nextBillingDate: subRows[0]?.nextBillingDate ?? null,
   });
 
   return {
