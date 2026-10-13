@@ -8,6 +8,8 @@ import '../../widgets/profile/profile_info_card.dart';
 import '../../widgets/profile/profile_menu_list.dart';
 import '../../widgets/profile/profile_notification_toggle.dart';
 import '../../widgets/profile/profile_logout_button.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import '../../providers/auth_provider.dart';
 
 class StudentProfileScreen extends ConsumerWidget {
   const StudentProfileScreen({super.key});
@@ -15,6 +17,7 @@ class StudentProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(studentProfileProvider);
+    final feesAsync = ref.watch(studentFeesProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -39,6 +42,22 @@ class StudentProfileScreen extends ConsumerWidget {
           final attendancePct = profile['attendancePct'] as int? ?? 0;
           final testsGiven = profile['testsGiven'] as int? ?? 0;
           final avgScore = profile['avgScore'] as int?;
+
+          final feeSubtitle = feesAsync.maybeWhen(
+            data: (fees) {
+              final paid = fees['paid'] as int? ?? 0;
+              final pending = fees['pending'] as int? ?? 0;
+              final total = fees['total'] as int? ?? 0;
+              if (total == 0) {
+                return 'No fees assigned';
+              } else if (pending == 0) {
+                return 'All fees paid (₹$paid)';
+              } else {
+                return 'Paid ₹$paid • Pending ₹$pending';
+              }
+            },
+            orElse: () => 'View fee payments and receipts',
+          );
 
           return CustomScrollView(
             slivers: [
@@ -104,7 +123,7 @@ class StudentProfileScreen extends ConsumerWidget {
                         iconBg: AppColors.warningLight,
                         iconColor: Colors.orange,
                         label: 'Fee Details',
-                        subtitle: 'Paid ₹8,000 • Pending ₹2,000',
+                        subtitle: feeSubtitle,
                         onTap: () => _showFeesSheet(context),
                       ),
                     ],
@@ -463,6 +482,8 @@ class _FeesSheet extends ConsumerWidget {
                   final total = feesData['total'] as int? ?? 0;
                   final paid = feesData['paid'] as int? ?? 0;
                   final pending = feesData['pending'] as int? ?? 0;
+                  final onlinePaymentEnabled =
+                      feesData['onlinePaymentEnabled'] as bool? ?? false;
                   final payments =
                       (feesData['payments'] as List<dynamic>?) ?? [];
 
@@ -539,21 +560,54 @@ class _FeesSheet extends ConsumerWidget {
                       ),
                       if (pending > 0) ...[
                         const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () {},
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFA87D26),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        if (onlinePaymentEnabled)
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.payment_rounded, size: 20),
+                            label: const Text(
+                              'Pay Fees Online',
+                              style: TextStyle(fontWeight: FontWeight.bold),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFA87D26),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            onPressed: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) =>
+                                    _StudentPayFeeSheet(pendingAmount: pending),
+                              );
+                            },
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.amber.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline,
+                                    size: 20, color: Colors.amber.shade800),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Text(
+                                    'Online fee payment is not enabled yet by your institute. Please pay at the administration counter.',
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.black87),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          child: const Text(
-                            'Pay Pending Amount',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
                       ],
                       const SizedBox(height: 20),
                       const Text(
@@ -662,5 +716,351 @@ class _FeesSheet extends ConsumerWidget {
     ];
     if (m >= 1 && m <= 12) return months[m - 1];
     return '';
+  }
+}
+
+class _StudentPayFeeSheet extends ConsumerStatefulWidget {
+  final int pendingAmount;
+  const _StudentPayFeeSheet({required this.pendingAmount});
+
+  @override
+  ConsumerState<_StudentPayFeeSheet> createState() =>
+      _StudentPayFeeSheetState();
+}
+
+class _StudentPayFeeSheetState extends ConsumerState<_StudentPayFeeSheet> {
+  late final TextEditingController _amountController;
+  late Razorpay _razorpay;
+  String? _orderId;
+  int _currentPayAmount = 0;
+  bool _isProcessing = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController(text: '${widget.pendingAmount}');
+    _validateAmount('${widget.pendingAmount}');
+
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _razorpay.clear();
+    super.dispose();
+  }
+
+  void _validateAmount(String input) {
+    final parsed = int.tryParse(input.trim());
+    setState(() {
+      if (parsed == null || parsed <= 0) {
+        _errorMessage = 'Please enter a valid amount';
+        _currentPayAmount = 0;
+      } else if (parsed > widget.pendingAmount) {
+        _errorMessage =
+            'Amount cannot exceed pending fees of ₹${widget.pendingAmount}';
+        _currentPayAmount = 0;
+      } else {
+        _errorMessage = null;
+        _currentPayAmount = parsed;
+      }
+    });
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      await verifyStudentFeePayment(
+        api,
+        orderId: response.orderId ?? _orderId ?? '',
+        paymentId: response.paymentId ?? '',
+        signature: response.signature,
+        amount: _currentPayAmount,
+      );
+
+      ref.invalidate(studentFeesProvider);
+      ref.invalidate(studentDashboardProvider);
+
+      if (mounted) {
+        Navigator.pop(context); // close pay sheet
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.success,
+              size: 54,
+            ),
+            title: const Text('Payment Successful!'),
+            content: Text(
+              'Payment of ₹$_currentPayAmount has been recorded. An official fee receipt has been sent to your email and saved in your profile.',
+            ),
+            actions: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1F2E27),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Verification error: ${friendlyErrorMessage(e)}'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    if (mounted) {
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Payment cancelled or failed: ${response.message ?? "Unknown error"}',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    if (mounted) {
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Wallet selected: ${response.walletName}')),
+      );
+    }
+  }
+
+  Future<void> _startPayment() async {
+    if (_currentPayAmount <= 0 || _currentPayAmount > widget.pendingAmount) {
+      return;
+    }
+
+    setState(() => _isProcessing = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      final auth = ref.read(authProvider);
+      final orderResult =
+          await createStudentFeeOrder(api, _currentPayAmount);
+
+      _orderId = orderResult['orderId'] as String?;
+
+      if (orderResult['mock'] == true) {
+        // Dev mock fallback
+        final mockPaymentId =
+            'pay_mock_${DateTime.now().millisecondsSinceEpoch}';
+        _handlePaymentSuccess(
+          PaymentSuccessResponse(
+            mockPaymentId,
+            _orderId,
+            'mock_signature',
+            null,
+          ),
+        );
+        return;
+      }
+
+      final options = {
+        'key': orderResult['keyId'],
+        'amount': orderResult['amount'],
+        'name': auth.instituteName ?? 'Institute Fees',
+        'description': 'Student Fee Payment',
+        'order_id': orderResult['orderId'],
+        'prefill': {
+          'contact': auth.phone ?? '',
+          'email': auth.email ?? '',
+        },
+        'theme': {'color': '#1F2E27'},
+      };
+
+      _razorpay.open(options);
+    } catch (e) {
+      setState(() => _isProcessing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Payment initiation failed: ${friendlyErrorMessage(e)}',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Pay Institute Fees',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryDark,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Total Pending Balance: ₹${widget.pendingAmount}',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Amount Input ──────────────────────────────────────────
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              onChanged: _validateAmount,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryDark,
+              ),
+              decoration: InputDecoration(
+                prefixText: '₹ ',
+                prefixStyle: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryDark,
+                ),
+                labelText: 'Payment Amount',
+                errorText: _errorMessage,
+                hintText: '${widget.pendingAmount}',
+                helperText: 'Max payable: ₹${widget.pendingAmount}',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                  borderSide: BorderSide(color: Color(0xFFA87D26), width: 2),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Quick select chips
+            Wrap(
+              spacing: 8,
+              children: [
+                ActionChip(
+                  label: Text('Full Amount (₹${widget.pendingAmount})'),
+                  backgroundColor:
+                      const Color(0xFFA87D26).withValues(alpha: 0.1),
+                  labelStyle: const TextStyle(
+                    color: Color(0xFFA87D26),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                  onPressed: () {
+                    _amountController.text = '${widget.pendingAmount}';
+                    _validateAmount('${widget.pendingAmount}');
+                  },
+                ),
+                if (widget.pendingAmount > 2000) ...[
+                  ActionChip(
+                    label: const Text('₹1,000'),
+                    onPressed: () {
+                      _amountController.text = '1000';
+                      _validateAmount('1000');
+                    },
+                  ),
+                  if (widget.pendingAmount > 5000)
+                    ActionChip(
+                      label: const Text('₹5,000'),
+                      onPressed: () {
+                        _amountController.text = '5000';
+                        _validateAmount('5000');
+                      },
+                    ),
+                ],
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            if (_isProcessing)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(12),
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                ),
+              )
+            else
+              ElevatedButton(
+                onPressed: (_currentPayAmount > 0 &&
+                        _currentPayAmount <= widget.pendingAmount)
+                    ? _startPayment
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFA87D26),
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  disabledForegroundColor: Colors.grey.shade500,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  _currentPayAmount > 0
+                      ? 'Proceed to Pay ₹$_currentPayAmount'
+                      : 'Enter Valid Amount',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
   }
 }

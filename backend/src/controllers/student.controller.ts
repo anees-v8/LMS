@@ -34,22 +34,49 @@ export const fees = asyncHandler(async (req: Request, res: Response) =>
 );
 
 export const createFeeOrder = asyncHandler(async (req: Request, res: Response) => {
-  const { amount } = req.body;
-  if (!amount || amount <= 0) throw ApiError.badRequest('INVALID_AMOUNT', 'Invalid fee amount');
-  const student = await svc.getProfile(tenantId(req), userId(req));
-  res.json(await rzpSvc.createFeeOrder(tenantId(req), student.studentId, amount));
+  const amount = Number(req.body.amount);
+  if (!amount || isNaN(amount) || amount <= 0) {
+    throw ApiError.badRequest('INVALID_AMOUNT', 'Invalid fee amount');
+  }
+
+  const feeInfo = await svc.fees(tenantId(req), userId(req));
+  if (feeInfo.pending <= 0) {
+    throw ApiError.badRequest('NO_PENDING_FEE', 'You have no pending fees left to pay.');
+  }
+  if (amount > feeInfo.pending) {
+    throw ApiError.badRequest(
+      'EXCEEDS_PENDING_FEE',
+      `Payment amount (₹${amount}) cannot exceed the pending fee balance of ₹${feeInfo.pending}.`
+    );
+  }
+
+  const studentId = await svc.getStudentId(tenantId(req), userId(req));
+  res.json(await rzpSvc.createFeeOrder(tenantId(req), studentId, amount));
 });
 
 export const verifyFeePayment = asyncHandler(async (req: Request, res: Response) => {
-  const { orderId, paymentId, signature, amount, feeStructureId } = req.body;
-  const student = await svc.getProfile(tenantId(req), userId(req));
+  const { orderId, paymentId, signature, feeStructureId } = req.body;
+  const amount = Number(req.body.amount);
+  if (!amount || isNaN(amount) || amount <= 0) {
+    throw ApiError.badRequest('INVALID_AMOUNT', 'Invalid fee amount');
+  }
+
+  const feeInfo = await svc.fees(tenantId(req), userId(req));
+  if (amount > feeInfo.pending) {
+    throw ApiError.badRequest(
+      'EXCEEDS_PENDING_FEE',
+      `Payment amount (₹${amount}) cannot exceed the pending fee balance of ₹${feeInfo.pending}.`
+    );
+  }
+
+  const studentId = await svc.getStudentId(tenantId(req), userId(req));
   
   // Verify signature
-  await rzpSvc.verifyFeePayment(tenantId(req), student.studentId, { orderId, paymentId, signature }, amount, feeStructureId);
+  await rzpSvc.verifyFeePayment(tenantId(req), studentId, { orderId, paymentId, signature }, amount, feeStructureId);
   
   // Record payment in database
   const result = await adminSvc.recordPayment(tenantId(req), userId(req), {
-    studentId: student.studentId,
+    studentId,
     feeStructureId: feeStructureId || undefined,
     amountPaid: amount,
     method: 'upi'

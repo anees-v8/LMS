@@ -6,6 +6,7 @@ import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/batch_schedule_bottom_sheet.dart';
 import '../../widgets/action_menu_bottom_sheet.dart';
+import '../../widgets/custom_dropdown.dart';
 
 import 'batch_students_screen.dart';
 import 'batch_subjects_screen.dart';
@@ -361,6 +362,12 @@ class BatchesScreen extends ConsumerWidget {
                                                           ),
                                                           ActionMenuOption(
                                                             icon: Icons
+                                                                .calendar_month_outlined,
+                                                            label: 'Schedule',
+                                                            value: 'schedule',
+                                                          ),
+                                                          ActionMenuOption(
+                                                            icon: Icons
                                                                 .menu_book_outlined,
                                                             label:
                                                                 'Manage Chapters',
@@ -383,6 +390,29 @@ class BatchesScreen extends ConsumerWidget {
                                                       context,
                                                       ref,
                                                       existing: batch,
+                                                    );
+                                                  } else if (action ==
+                                                      'schedule') {
+                                                    final batchId =
+                                                        batch['id'] as int;
+                                                    final batchName =
+                                                        batch['name']
+                                                            ?.toString() ??
+                                                        'Batch';
+                                                    final subjectIds =
+                                                        (batch['subjectIds']
+                                                                    as List<
+                                                                      dynamic
+                                                                    >?)
+                                                                ?.map((e) => (e as num).toInt())
+                                                                .toList() ??
+                                                            <int>[];
+                                                    showBatchScheduleBottomSheet(
+                                                      context,
+                                                      ref,
+                                                      batchId: batchId,
+                                                      batchName: batchName,
+                                                      subjectIds: subjectIds,
                                                     );
                                                   } else if (action ==
                                                       'chapters') {
@@ -787,21 +817,6 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
                     controller: _grade,
                     prefixIcon: Icons.grade_outlined,
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Subjects',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1F2E27),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Set once here — every student in this batch gets these automatically.',
-                    style: TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 10),
                   Consumer(
                     builder: (context, ref, _) {
                       final subjectsAsync = ref.watch(subjectsProvider);
@@ -824,43 +839,7 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
                               ),
                             );
                           }
-                          return Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: subjects.map<Widget>((s) {
-                              final id = s['id'] as int;
-                              final selected = _selectedSubjectIds.contains(id);
-                              return FilterChip(
-                                label: Text(s['name'] ?? ''),
-                                selected: selected,
-                                onSelected: (val) => setState(() {
-                                  if (val) {
-                                    _selectedSubjectIds.add(id);
-                                  } else {
-                                    _selectedSubjectIds.remove(id);
-                                  }
-                                }),
-                                selectedColor: const Color(0xFF2E6656),
-                                backgroundColor: Colors.white,
-                                checkmarkColor: Colors.white,
-                                labelStyle: TextStyle(
-                                  color: selected
-                                      ? Colors.white
-                                      : const Color(0xFF1F2E27),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                  side: BorderSide(
-                                    color: selected
-                                        ? const Color(0xFF2E6656)
-                                        : Colors.grey.shade300,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          );
+                          return _buildSubjectsPicker(subjects);
                         },
                       );
                     },
@@ -922,8 +901,8 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
                     prefixIcon: Icons.currency_rupee,
                     keyboardType: TextInputType.number,
                   ),
-                  const SizedBox(height: 10),
-                  _buildInstallmentChips(),
+                  const SizedBox(height: 14),
+                  _buildInstallmentDropdown(),
                   if (_isEdit) ...[
                     const SizedBox(height: 20),
                     const Text(
@@ -1028,35 +1007,304 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
     );
   }
 
-  Widget _buildInstallmentChips() {
-    const counts = [1, 2, 3, 4, 6, 12];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: counts.map((count) {
-        final selected = _installmentCount == count;
-        final label = count == 1 ? 'One-time' : '$count installments';
-        return FilterChip(
-          label: Text(label),
-          selected: selected,
-          onSelected: (val) =>
-              setState(() => _installmentCount = val ? count : null),
-          selectedColor: const Color(0xFF2E6656),
-          backgroundColor: Colors.white,
-          checkmarkColor: Colors.white,
-          labelStyle: TextStyle(
-            color: selected ? Colors.white : const Color(0xFF1F2E27),
+  Widget _buildInstallmentDropdown() {
+    return CustomDropdown<int?>(
+      label: 'Fee Installments',
+      hint: 'Select installment plan',
+      prefixIcon: Icons.payments_outlined,
+      value: _installmentCount ?? 1,
+      options: const [
+        DropdownOption(
+          value: 1,
+          label: 'One-time (Full fee upfront)',
+          icon: Icons.looks_one_outlined,
+        ),
+        DropdownOption(
+          value: 2,
+          label: '2 Installments (Half-yearly)',
+          icon: Icons.looks_two_outlined,
+        ),
+        DropdownOption(
+          value: 3,
+          label: '3 Installments (Term-based)',
+          icon: Icons.looks_3_outlined,
+        ),
+        DropdownOption(
+          value: 4,
+          label: '4 Installments (Quarterly)',
+          icon: Icons.looks_4_outlined,
+        ),
+        DropdownOption(
+          value: 6,
+          label: '6 Installments (Bi-monthly)',
+          icon: Icons.looks_6_outlined,
+        ),
+        DropdownOption(
+          value: 12,
+          label: '12 Installments (Monthly)',
+          icon: Icons.calendar_month_outlined,
+        ),
+      ],
+      onChanged: (v) => setState(() => _installmentCount = v ?? 1),
+    );
+  }
+
+  Widget _buildSubjectsPicker(List<dynamic> subjects) {
+    final selectedNames = subjects
+        .where((s) => _selectedSubjectIds.contains(s['id'] as int))
+        .map((s) => s['name']?.toString() ?? '')
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Subjects *',
+          style: TextStyle(
+            fontSize: 14,
             fontWeight: FontWeight.w600,
-            fontSize: 13,
+            color: Color(0xFF1F2E27),
           ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(
-              color: selected ? const Color(0xFF2E6656) : Colors.grey.shade300,
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Set once here — every student in this batch gets these automatically.',
+          style: TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () => _showSubjectPickerSheet(subjects),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _selectedSubjectIds.isEmpty
+                    ? Colors.grey.shade300
+                    : const Color(0xFF2E6656).withValues(alpha: 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.menu_book_rounded,
+                  color: Color(0xFF2E6656),
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: selectedNames.isEmpty
+                      ? Text(
+                          'Select subjects for this batch...',
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 14,
+                          ),
+                        )
+                      : Text(
+                          selectedNames.length <= 3
+                              ? selectedNames.join(', ')
+                              : '${selectedNames.take(2).join(', ')} +${selectedNames.length - 2} more',
+                          style: const TextStyle(
+                            color: Color(0xFF1F2E27),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                ),
+                if (_selectedSubjectIds.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E6656).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${_selectedSubjectIds.length}',
+                      style: const TextStyle(
+                        color: Color(0xFF2E6656),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                const Icon(
+                  Icons.expand_more_rounded,
+                  color: Colors.grey,
+                  size: 22,
+                ),
+              ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  void _showSubjectPickerSheet(List<dynamic> subjects) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final allSelected = subjects.isNotEmpty &&
+                _selectedSubjectIds.length == subjects.length;
+
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.75,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Select Subjects',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1F2E27),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setModalState(() {
+                              setState(() {
+                                if (allSelected) {
+                                  _selectedSubjectIds.clear();
+                                } else {
+                                  _selectedSubjectIds.addAll(
+                                    subjects.map((s) => s['id'] as int),
+                                  );
+                                }
+                              });
+                            });
+                          },
+                          child: Text(
+                            allSelected ? 'Clear All' : 'Select All',
+                            style: const TextStyle(
+                              color: Color(0xFF2E6656),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: subjects.length,
+                      itemBuilder: (context, i) {
+                        final s = subjects[i] as Map<String, dynamic>;
+                        final id = s['id'] as int;
+                        final name = s['name']?.toString() ?? 'Subject';
+                        final isSelected = _selectedSubjectIds.contains(id);
+
+                        return CheckboxListTile(
+                          value: isSelected,
+                          activeColor: const Color(0xFF2E6656),
+                          title: Text(
+                            name,
+                            style: TextStyle(
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                              color: const Color(0xFF1F2E27),
+                            ),
+                          ),
+                          secondary: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2E6656)
+                                  .withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.menu_book_rounded,
+                              size: 18,
+                              color: Color(0xFF2E6656),
+                            ),
+                          ),
+                          onChanged: (val) {
+                            setModalState(() {
+                              setState(() {
+                                if (val == true) {
+                                  _selectedSubjectIds.add(id);
+                                } else {
+                                  _selectedSubjectIds.remove(id);
+                                }
+                              });
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1F2E27),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(
+                          'Done (${_selectedSubjectIds.length} Selected)',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
-      }).toList(),
+      },
     );
   }
 

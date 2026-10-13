@@ -924,6 +924,8 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
             ],
           ),
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 16),
         ),
       ),
@@ -1102,54 +1104,62 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
                             'Class and enrollment details',
                           ),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.school_outlined,
-                                            size: 16,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Class',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        ],
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Class',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF1F2E27),
                                       ),
-                                      TextField(
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      height: 52,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        border: Border.all(
+                                          color: Colors.grey.shade300,
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: TextField(
                                         controller: _grade,
-                                        decoration: const InputDecoration(
-                                          hintText: 'Select Class',
-                                          isDense: true,
-                                          contentPadding: EdgeInsets.only(
-                                            top: 4,
-                                            bottom: 4,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: Color(0xFF1F2E27),
+                                        ),
+                                        decoration: InputDecoration(
+                                          hintText: 'e.g. 11',
+                                          hintStyle: TextStyle(
+                                            color: Colors.grey.shade500,
+                                            fontSize: 14,
+                                          ),
+                                          prefixIcon: const Icon(
+                                            Icons.school_outlined,
+                                            size: 20,
+                                            color: Color(0xFF2E6656),
                                           ),
                                           border: InputBorder.none,
+                                          enabledBorder: InputBorder.none,
+                                          focusedBorder: InputBorder.none,
+                                          filled: false,
+                                          isDense: true,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 14,
+                                          ),
                                         ),
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -1167,8 +1177,24 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
                                         ),
                                       )
                                       .toList(),
-                                  onChanged: (v) =>
-                                      setState(() => _batchId = v),
+                                  onChanged: (v) {
+                                    setState(() {
+                                      _batchId = v;
+                                      if (v != null) {
+                                        final b = widget.batches
+                                            .cast<Map<String, dynamic>?>()
+                                            .firstWhere(
+                                              (batch) => batch?['id'] == v,
+                                              orElse: () => null,
+                                            );
+                                        if (b != null &&
+                                            b['grade'] != null &&
+                                            _grade.text.trim().isEmpty) {
+                                          _grade.text = b['grade'].toString();
+                                        }
+                                      }
+                                    });
+                                  },
                                 ),
                               ),
                             ],

@@ -4,7 +4,7 @@ import { buildWaUrl, doubtMessage } from './whatsapp.service';
 import { istDayOfWeek } from '../utils/istDate';
 
 /** Resolve the students.id for a logged-in student user. */
-async function getStudentId(tenantId: number, userId: number): Promise<number> {
+export async function getStudentId(tenantId: number, userId: number): Promise<number> {
   const { rows } = await query<{ id: number }>(
     `SELECT id FROM students WHERE tenant_id=$1 AND user_id=$2`,
     [tenantId, userId]
@@ -318,6 +318,7 @@ export interface StudentFees {
   paid: number;
   pending: number;
   payments: FeePayment[];
+  onlinePaymentEnabled?: boolean;
 }
 
 export async function fees(tenantId: number, userId: number): Promise<StudentFees> {
@@ -341,7 +342,20 @@ export async function fees(tenantId: number, userId: number): Promise<StudentFee
     )
   ).rows;
 
-  return { total: totals.total, paid: totals.paid, pending: Math.max(0, totals.total - totals.paid), payments };
+  const tenantRes = await query<{ onlinePaymentEnabled: boolean }>(
+    `SELECT (razorpay_key_id IS NOT NULL AND razorpay_key_id != '' AND razorpay_secret IS NOT NULL AND razorpay_secret != '') AS "onlinePaymentEnabled"
+       FROM tenants WHERE id=$1`,
+    [tenantId]
+  );
+  const onlinePaymentEnabled = tenantRes.rows[0]?.onlinePaymentEnabled ?? false;
+
+  return {
+    total: totals.total,
+    paid: totals.paid,
+    pending: Math.max(0, totals.total - totals.paid),
+    payments,
+    onlinePaymentEnabled,
+  };
 }
 
 export interface Receipt {
@@ -408,6 +422,8 @@ export interface SubjectWithStats {
   id: number;
   name: string;
   totalChapters: number;
+  completedChapters: number;
+  progress: number;
   totalVideos: number;
 }
 
@@ -420,13 +436,11 @@ export async function listSubjects(tenantId: number, userId: number): Promise<Su
   // batch-create time — not from timetable entries. A batch with no
   // timetable slots yet (or a subject with no class scheduled this week)
   // still shows up here, which is the whole point. Chapter/video counts
-  // are summed across every enrolled batch that teaches this subject
-  // (batch_subject_chapters, see migration 0036) — the normal case is one
-  // batch per subject per student, so this is just that count; a student
-  // in two batches teaching the same subject sees the combined total.
+  // are computed using distinct chapter IDs across enrolled batches teaching this subject.
   const { rows } = await query<SubjectWithStats>(
     `SELECT s.id, s.name,
-            COALESCE(SUM(jsonb_array_length(bsc.chapters)), 0)::int AS "totalChapters",
+            COUNT(DISTINCT (ch->>'id')::int)::int AS "totalChapters",
+            COUNT(DISTINCT CASE WHEN ch->>'completedAt' IS NOT NULL THEN (ch->>'id')::int END)::int AS "completedChapters",
             COUNT(DISTINCT c.id) FILTER (WHERE c.content_type = 'video')::int AS "totalVideos"
        FROM subjects s
        LEFT JOIN batch_subject_chapters bsc ON bsc.tenant_id = s.tenant_id AND bsc.subject_id = s.id
@@ -442,7 +456,10 @@ export async function listSubjects(tenantId: number, userId: number): Promise<Su
       ORDER BY s.name`,
     [tenantId, safeBatches]
   );
-  return rows;
+  return rows.map((r) => ({
+    ...r,
+    progress: r.totalChapters > 0 ? Number((r.completedChapters / r.totalChapters).toFixed(2)) : 0,
+  }));
 }
 
 // ─── CHAPTERS ───────────────────────────────────────────────────────────────

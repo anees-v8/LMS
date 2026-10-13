@@ -111,6 +111,91 @@ export interface EmailChannelStatus {
   error?: string;
 }
 
+export interface PaymentReceiptEmailInput {
+  to: string;
+  studentName: string;
+  instituteName: string;
+  receiptNo: string;
+  amount: number;
+  paidOn: Date | string;
+  method: string;
+}
+
+/**
+ * Send official fee payment receipt email to student upon payment confirmation.
+ * Best-effort: failures never block payment success.
+ */
+export async function sendPaymentReceiptEmail(input: PaymentReceiptEmailInput): Promise<boolean> {
+  const cfg = env.notify.email;
+  if (!cfg.enabled || !cfg.host) {
+    logger.debug('Receipt email skipped (SMTP not configured or disabled)');
+    return false;
+  }
+
+  const dateStr = new Date(input.paidOn).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  const html = `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fbf9; border-radius: 12px; border: 1px solid #e1e7e4;">
+    <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #2E6656;">
+      <h2 style="color: #1F2E27; margin: 0;">${input.instituteName}</h2>
+      <p style="color: #2E6656; font-size: 14px; font-weight: bold; margin-top: 5px;">OFFICIAL FEE PAYMENT RECEIPT</p>
+    </div>
+
+    <div style="padding: 20px 0;">
+      <p style="font-size: 15px; color: #333;">Dear <strong>${input.studentName}</strong>,</p>
+      <p style="font-size: 14px; color: #555;">Thank you for your fee payment. Your transaction has been successfully processed and verified.</p>
+
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <tr style="background-color: #f2f6f4;">
+          <td style="padding: 12px 15px; font-size: 13px; color: #555; border-bottom: 1px solid #eee;">Receipt Number</td>
+          <td style="padding: 12px 15px; font-size: 13px; font-weight: bold; color: #1F2E27; text-align: right; border-bottom: 1px solid #eee;">${input.receiptNo}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 15px; font-size: 13px; color: #555; border-bottom: 1px solid #eee;">Payment Date</td>
+          <td style="padding: 12px 15px; font-size: 13px; color: #333; text-align: right; border-bottom: 1px solid #eee;">${dateStr}</td>
+        </tr>
+        <tr style="background-color: #f2f6f4;">
+          <td style="padding: 12px 15px; font-size: 13px; color: #555; border-bottom: 1px solid #eee;">Payment Mode</td>
+          <td style="padding: 12px 15px; font-size: 13px; color: #333; text-align: right; text-transform: uppercase; border-bottom: 1px solid #eee;">${input.method}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 15px; font-size: 15px; font-weight: bold; color: #1F2E27;">Total Paid</td>
+          <td style="padding: 12px 15px; font-size: 18px; font-weight: bold; color: #2E6656; text-align: right;">₹${input.amount}</td>
+        </tr>
+      </table>
+
+      <div style="background-color: #eaf5ef; border-left: 4px solid #2E6656; padding: 12px 15px; border-radius: 4px; margin-top: 15px;">
+        <p style="margin: 0; font-size: 13px; color: #1F2E27;">Status: <strong>Payment Confirmed & Verified</strong></p>
+      </div>
+    </div>
+
+    <div style="border-top: 1px solid #e1e7e4; padding-top: 15px; text-align: center; font-size: 12px; color: #888;">
+      <p style="margin: 0;">This is an electronically generated receipt for your records.</p>
+      <p style="margin: 5px 0 0 0;">${input.instituteName} • Powered by Campus LMS</p>
+    </div>
+  </div>
+  `;
+
+  try {
+    await getTransporter().sendMail({
+      from: cfg.from,
+      to: input.to,
+      subject: `Fee Payment Receipt: ₹${input.amount} (${input.receiptNo}) - ${input.instituteName}`,
+      text: `Dear ${input.studentName},\n\nPayment of ₹${input.amount} received by ${input.instituteName}.\nReceipt No: ${input.receiptNo}\nDate: ${dateStr}\nMethod: ${input.method.toUpperCase()}\n\nThank you!`,
+      html,
+    });
+    logger.info('Payment receipt email sent', { to: input.to, receiptNo: input.receiptNo });
+    return true;
+  } catch (err) {
+    logger.error('Payment receipt email failed', { error: err instanceof Error ? err.message : String(err) });
+    return false;
+  }
+}
+
 /** Verify SMTP connectivity (used by a health/diagnostic route). */
 export async function verifyEmailChannel(): Promise<EmailChannelStatus> {
   if (!env.notify.email.enabled) return { enabled: false };

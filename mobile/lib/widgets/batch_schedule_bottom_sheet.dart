@@ -78,6 +78,8 @@ class _BatchScheduleBottomSheet extends ConsumerStatefulWidget {
 class _BatchScheduleBottomSheetState
     extends ConsumerState<_BatchScheduleBottomSheet> {
   List<_ScheduleEntryDraft>? _entries;
+  int? _expandedIndex;
+  int? _newlyAddedIndex;
   bool _saving = false;
   String? _error;
 
@@ -102,6 +104,8 @@ class _BatchScheduleBottomSheetState
         ),
       );
     }).toList();
+    _expandedIndex = _entries!.isNotEmpty ? _entries!.length - 1 : null;
+    _newlyAddedIndex = null;
   }
 
   void _addSlot() {
@@ -117,11 +121,25 @@ class _BatchScheduleBottomSheetState
           endTime: const TimeOfDay(hour: 10, minute: 0),
         ),
       );
+      _newlyAddedIndex = _entries!.length - 1;
+      _expandedIndex = _newlyAddedIndex;
     });
   }
 
   void _removeSlot(int index) {
-    setState(() => _entries!.removeAt(index));
+    setState(() {
+      _entries!.removeAt(index);
+      if (_expandedIndex == index) {
+        _expandedIndex = _entries!.isNotEmpty ? (_entries!.length - 1) : null;
+      } else if (_expandedIndex != null && _expandedIndex! > index) {
+        _expandedIndex = _expandedIndex! - 1;
+      }
+      if (_newlyAddedIndex == index) {
+        _newlyAddedIndex = null;
+      } else if (_newlyAddedIndex != null && _newlyAddedIndex! > index) {
+        _newlyAddedIndex = _newlyAddedIndex! - 1;
+      }
+    });
   }
 
   Future<void> _pickTime(_ScheduleEntryDraft entry, bool isStart) async {
@@ -177,37 +195,202 @@ class _BatchScheduleBottomSheetState
   }
 
   Widget _buildSlotCard(int index, _ScheduleEntryDraft entry) {
+    final isExpanded = _expandedIndex == index;
+    final isNewlyAdded = _newlyAddedIndex == index;
+
+    final subject = widget.subjects
+        .where((s) => s['id'] == entry.subjectId)
+        .firstOrNull;
+    final subjectName = subject?['name']?.toString() ?? 'Select Subject';
+    final dayName = _dayNames[entry.dayOfWeek.clamp(0, 6)];
+    final timeStr = '${_fmt(entry.startTime)} – ${_fmt(entry.endTime)}';
+
+    if (!isExpanded) {
+      // Collapsed summary card
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade300),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: InkWell(
+          onTap: () => setState(() => _expandedIndex = index),
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E6656).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Slot ${index + 1}',
+                    style: const TextStyle(
+                      color: Color(0xFF2E6656),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$subjectName • $dayName',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Color(0xFF1F2E27),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        timeStr,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.close,
+                    size: 18,
+                    color: Colors.grey,
+                  ),
+                  onPressed: () => _removeSlot(index),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Delete Slot',
+                ),
+                const SizedBox(width: 12),
+                const Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 22,
+                  color: Colors.grey,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Expanded card (highlighted if newly added)
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: isNewlyAdded
+            ? const Color(0xFF2E6656).withValues(alpha: 0.02)
+            : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: isNewlyAdded
+              ? const Color(0xFF2E6656)
+              : Colors.grey.shade300,
+          width: isNewlyAdded ? 2.0 : 1.0,
+        ),
+        boxShadow: isNewlyAdded
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF2E6656).withValues(alpha: 0.12),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Text(
-                'Slot ${index + 1}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: Color(0xFF1F2E27),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: isNewlyAdded
+                      ? const Color(0xFF2E6656)
+                      : const Color(0xFF2E6656).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Slot ${index + 1}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: isNewlyAdded ? Colors.white : const Color(0xFF2E6656),
+                  ),
                 ),
               ),
+              if (isNewlyAdded) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFA87D26),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'NEW',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
               const Spacer(),
+              IconButton(
+                icon: const Icon(
+                  Icons.keyboard_arrow_up,
+                  size: 22,
+                  color: Colors.grey,
+                ),
+                onPressed: () => setState(() => _expandedIndex = null),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: 'Collapse',
+              ),
+              const SizedBox(width: 14),
               IconButton(
                 icon: const Icon(Icons.close, size: 20, color: Colors.grey),
                 onPressed: () => _removeSlot(index),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
+                tooltip: 'Delete Slot',
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           CustomDropdown<int>(
             label: 'Subject',
             hint: 'Select subject',
@@ -245,26 +428,43 @@ class _BatchScheduleBottomSheetState
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
+                      horizontal: 14,
+                      vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.access_time,
-                          color: Colors.grey.shade600,
+                          color: Color(0xFF2E6656),
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            'Start: ${_fmt(entry.startTime)}',
-                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Start Time',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _fmt(entry.startTime),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Color(0xFF1F2E27),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -279,26 +479,43 @@ class _BatchScheduleBottomSheetState
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
+                      horizontal: 14,
+                      vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.access_time_filled,
-                          color: Colors.grey.shade600,
+                          color: Color(0xFF2E6656),
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            'End: ${_fmt(entry.endTime)}',
-                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'End Time',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _fmt(entry.endTime),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Color(0xFF1F2E27),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

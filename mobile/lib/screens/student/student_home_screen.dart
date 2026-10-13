@@ -108,19 +108,27 @@ class StudentHomeScreen extends ConsumerWidget {
                                       ),
                                     );
                                   },
-                                  child: Container(
-                                    width: 38,
-                                    height: 38,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.12,
+                                  child: Badge(
+                                    isLabelVisible: unreadCount > 0,
+                                    label: Text(
+                                      '$unreadCount',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: Badge(
-                                      isLabelVisible: unreadCount > 0,
-                                      label: Text('$unreadCount'),
-                                      backgroundColor: Colors.redAccent,
+                                    backgroundColor: const Color(0xFFE53935),
+                                    offset: const Offset(-4, 4),
+                                    child: Container(
+                                      width: 38,
+                                      height: 38,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
                                       child: const Icon(
                                         Icons.notifications_outlined,
                                         color: Colors.white,

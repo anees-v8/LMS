@@ -171,29 +171,65 @@ class _StudentChapterContentScreenState
             width: double.infinity,
             height: 220,
             color: Colors.black,
-            child: _selectedContent == null
-                ? const Center(
+            child: contentAsync.when(
+              // Still loading content list from API — show spinner
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+              // API error
+              error: (_, __) => const Center(
+                child: Icon(Icons.error_outline, color: Colors.white38, size: 48),
+              ),
+              data: (contentItems) {
+                // Content loaded but nothing selected yet (auto-select pending)
+                if (_selectedContent == null) {
+                  if (contentItems.isEmpty) {
+                    // Chapter truly has no content — show empty state
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.video_library_outlined,
+                              color: Colors.white24, size: 48),
+                          SizedBox(height: 12),
+                          Text(
+                            'No content uploaded yet',
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  // Content exists but auto-select hasn't fired yet
+                  return const Center(
                     child: CircularProgressIndicator(color: AppColors.primary),
-                  )
-                : isVideo
-                ? (_ytController != null
-                      ? YoutubePlayer(controller: _ytController!)
-                      : GestureDetector(
-                          onTap: () => _launchURL(
-                            _selectedContent?['fileUrl'] as String?,
-                          ),
-                          child: _VideoPlaceholder(
-                            title: _selectedContent?['title'] ?? '',
-                          ),
-                        ))
-                : _PdfPlaceholder(
-                    title: _selectedContent?['title'] ?? '',
-                    onOpen: () {
-                      if (_selectedContent != null) {
-                        _openResource(_selectedContent!);
-                      }
-                    },
-                  ),
+                  );
+                }
+                // Something is selected — show the player / PDF placeholder
+                return isVideo
+                    ? (_ytController != null
+                          ? YoutubePlayer(controller: _ytController!)
+                          : GestureDetector(
+                              onTap: () => _launchURL(
+                                _selectedContent?['fileUrl'] as String?,
+                              ),
+                              child: _VideoPlaceholder(
+                                title: _selectedContent?['title'] ?? '',
+                              ),
+                            ))
+                    : _PdfPlaceholder(
+                        title: _selectedContent?['title'] ?? '',
+                        onOpen: () {
+                          if (_selectedContent != null) {
+                            _openResource(_selectedContent!);
+                          }
+                        },
+                      );
+              },
+            ),
           ),
 
           // ── Content Info Strip ────────────────────────────────────────

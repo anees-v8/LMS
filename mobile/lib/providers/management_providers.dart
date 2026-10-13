@@ -447,3 +447,27 @@ Future<Map<String, dynamic>> broadcastToStudents(
   return await api.post('/admin/notifications/broadcast', requestBody)
       as Map<String, dynamic>;
 }
+
+// ─── Payment Settings (Razorpay BYOG) ─────────────────────────────────────────
+
+final adminPaymentSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final canAccess = await _canAccessManagement();
+  if (!canAccess) return {'configured': false, 'keyId': ''};
+  final api = ref.watch(apiServiceProvider);
+  final result = await api.get('/admin/settings/payment');
+  return result as Map<String, dynamic>;
+});
+
+Future<Map<String, dynamic>> updateAdminPaymentSettings(
+  ApiService api, {
+  required String? keyId,
+  String? secret,
+}) async {
+  final body = <String, dynamic>{
+    'keyId': keyId,
+    if (secret != null && secret.isNotEmpty) 'secret': secret,
+  };
+  final result = await api.put('/admin/settings/payment', body);
+  return result as Map<String, dynamic>;
+}
+

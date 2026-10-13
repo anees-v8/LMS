@@ -3,7 +3,7 @@ import ApiError from '../utils/ApiError.js';
 import { buildWaUrl, doubtMessage } from './whatsapp.service.js';
 
 /** Resolve the students.id for a logged-in student user. */
-async function getStudentId(tenantId: number, userId: number): Promise<number> {
+export async function getStudentId(tenantId: number, userId: number): Promise<number> {
   const { rows } = await query<{ id: number }>(
     `SELECT id FROM students WHERE tenant_id=$1 AND user_id=$2`,
     [tenantId, userId]
@@ -295,6 +295,7 @@ export interface StudentFees {
   paid: number;
   pending: number;
   payments: FeePayment[];
+  onlinePaymentEnabled?: boolean;
 }
 
 export async function fees(tenantId: number, userId: number): Promise<StudentFees> {
@@ -320,7 +321,20 @@ export async function fees(tenantId: number, userId: number): Promise<StudentFee
     )
   ).rows;
 
-  return { total: totals.total, paid: totals.paid, pending: totals.total - totals.paid, payments };
+  const tenantRes = await query<{ onlinePaymentEnabled: boolean }>(
+    `SELECT (razorpay_key_id IS NOT NULL AND razorpay_key_id != '' AND razorpay_secret IS NOT NULL AND razorpay_secret != '') AS "onlinePaymentEnabled"
+       FROM tenants WHERE id=$1`,
+    [tenantId]
+  );
+  const onlinePaymentEnabled = tenantRes.rows[0]?.onlinePaymentEnabled ?? false;
+
+  return {
+    total: totals.total,
+    paid: totals.paid,
+    pending: Math.max(0, totals.total - totals.paid),
+    payments,
+    onlinePaymentEnabled,
+  };
 }
 
 export interface Receipt {
@@ -387,6 +401,8 @@ export interface SubjectWithStats {
   id: number;
   name: string;
   totalChapters: number;
+  completedChapters: number;
+  progress: number;
   totalVideos: number;
 }
 
@@ -395,17 +411,16 @@ export async function listSubjects(tenantId: number, userId: number): Promise<Su
   const batchIds = await enrolledBatchIds(tenantId, studentId);
   const safeBatches = batchIds.length ? batchIds : [-1];
 
-  // Subjects come from the student's batches' subject_ids — set once at
-  // batch-create time — not from timetable entries. A batch with no
-  // timetable slots yet (or a subject with no class scheduled this week)
-  // still shows up here, which is the whole point.
   const { rows } = await query<SubjectWithStats>(
     `SELECT s.id, s.name,
-            COUNT(DISTINCT ch.id)::int AS "totalChapters",
+            COUNT(DISTINCT (ch->>'id')::int)::int AS "totalChapters",
+            COUNT(DISTINCT CASE WHEN ch->>'completedAt' IS NOT NULL THEN (ch->>'id')::int END)::int AS "completedChapters",
             COUNT(DISTINCT c.id) FILTER (WHERE c.content_type = 'video')::int AS "totalVideos"
        FROM subjects s
-       LEFT JOIN chapters ch ON ch.subject_id = s.id AND ch.tenant_id = s.tenant_id
-       LEFT JOIN content c ON c.chapter_id = ch.id
+       LEFT JOIN batch_subject_chapters bsc ON bsc.tenant_id = s.tenant_id AND bsc.subject_id = s.id
+                                            AND bsc.batch_id = ANY($2::int[])
+       LEFT JOIN LATERAL jsonb_array_elements(bsc.chapters) ch ON true
+       LEFT JOIN content c ON (ch->>'id')::int = c.chapter_id
       WHERE s.tenant_id=$1
         AND s.id = ANY(
           SELECT DISTINCT unnest(b.subject_ids) FROM batches b
@@ -415,7 +430,10 @@ export async function listSubjects(tenantId: number, userId: number): Promise<Su
       ORDER BY s.name`,
     [tenantId, safeBatches]
   );
-  return rows;
+  return rows.map((r) => ({
+    ...r,
+    progress: r.totalChapters > 0 ? Number((r.completedChapters / r.totalChapters).toFixed(2)) : 0,
+  }));
 }
 
 // ─── CHAPTERS ───────────────────────────────────────────────────────────────
@@ -426,6 +444,7 @@ export interface ChapterWithCounts {
   videoCount: number;
   docCount: number;
   sortOrder: number;
+  completedAt: string | null;
 }
 
 export async function listChapters(
@@ -433,18 +452,30 @@ export async function listChapters(
   userId: number,
   subjectId: number
 ): Promise<ChapterWithCounts[]> {
-  await getStudentId(tenantId, userId); // auth check
+  const studentId = await getStudentId(tenantId, userId);
+  const batchIds = await enrolledBatchIds(tenantId, studentId);
+  const safeBatches = batchIds.length ? batchIds : [-1];
+
+  // Chapters now live in batch_subject_chapters (JSONB per batch+subject).
+  // Expand the JSONB array for the student's enrolled batches, then join
+  // content on chapter_id to get video/doc counts.
   const { rows } = await query<ChapterWithCounts>(
-    `SELECT ch.id, ch.name,
-            COUNT(c.id) FILTER (WHERE c.content_type = 'video')::int AS "videoCount",
-            COUNT(c.id) FILTER (WHERE c.content_type != 'video')::int AS "docCount",
-            ROW_NUMBER() OVER (ORDER BY ch.created_at)::int AS "sortOrder"
-       FROM chapters ch
-       LEFT JOIN content c ON c.chapter_id = ch.id
-      WHERE ch.tenant_id=$1 AND ch.subject_id=$2
-      GROUP BY ch.id, ch.name, ch.created_at
-      ORDER BY ch.created_at`,
-    [tenantId, subjectId]
+    `SELECT
+        (ch_elem->>'id')::int AS id,
+        (ch_elem->>'name')::text AS name,
+        (ch_elem->>'completedAt') AS "completedAt",
+        COUNT(c.id) FILTER (WHERE c.content_type = 'video')::int AS "videoCount",
+        COUNT(c.id) FILTER (WHERE c.content_type != 'video')::int AS "docCount",
+        ROW_NUMBER() OVER (ORDER BY bsc.created_at, (ch_elem->>'id')::int)::int AS "sortOrder"
+       FROM batch_subject_chapters bsc,
+            jsonb_array_elements(bsc.chapters) AS ch_elem
+       LEFT JOIN content c ON c.chapter_id = (ch_elem->>'id')::int
+      WHERE bsc.tenant_id=$1
+        AND bsc.subject_id=$2
+        AND bsc.batch_id = ANY($3::int[])
+      GROUP BY bsc.created_at, ch_elem->>'id', ch_elem->>'name', ch_elem->>'completedAt'
+      ORDER BY bsc.created_at, (ch_elem->>'id')::int`,
+    [tenantId, subjectId, safeBatches]
   );
   return rows;
 }
@@ -458,6 +489,7 @@ export interface ContentItem {
   contentType: string;
   durationMinutes: number;
   durationSeconds: number;
+  progressSeconds?: number;
 }
 
 export async function listChapterContent(
@@ -465,14 +497,25 @@ export async function listChapterContent(
   userId: number,
   chapterId: number
 ): Promise<ContentItem[]> {
-  await getStudentId(tenantId, userId); // auth check
+  const studentId = await getStudentId(tenantId, userId);
+  const batchIds = await enrolledBatchIds(tenantId, studentId);
+  const safeBatches = batchIds.length ? batchIds : [-1];
+
+  // Include the student's watch progress so the client can resume playback.
+  // Filter content by the student's enrolled batches (or batch_id IS NULL
+  // for content not restricted to a specific batch).
   const { rows } = await query<ContentItem>(
-    `SELECT id, title, file_url AS "fileUrl", content_type AS "contentType",
-            duration_minutes AS "durationMinutes", duration_seconds AS "durationSeconds"
-       FROM content
-      WHERE tenant_id=$1 AND chapter_id=$2
-      ORDER BY created_at ASC`,
-    [tenantId, chapterId]
+    `SELECT c.id, c.title, c.file_url AS "fileUrl", c.content_type AS "contentType",
+            c.duration_minutes AS "durationMinutes", c.duration_seconds AS "durationSeconds",
+            COALESCE(p.progress_seconds, 0) AS "progressSeconds"
+       FROM content c
+       LEFT JOIN user_content_progress p
+              ON p.content_id = c.id AND p.user_id = $3 AND p.tenant_id = $1
+      WHERE c.tenant_id=$1
+        AND c.chapter_id=$2
+        AND (c.batch_id = ANY($4::int[]) OR c.batch_id IS NULL)
+      ORDER BY c.created_at ASC`,
+    [tenantId, chapterId, userId, safeBatches]
   );
   return rows;
 }

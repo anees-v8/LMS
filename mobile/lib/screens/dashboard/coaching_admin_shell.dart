@@ -12,6 +12,7 @@ import '../notifications/admin_notifications_screen.dart';
 import '../notifications/broadcast_students_screen.dart';
 import '../settings/subscription_screen.dart';
 import '../settings/browse_plans_screen.dart';
+import '../settings/payment_settings_screen.dart';
 import '../../providers/management_providers.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/more_menu_screen.dart';
@@ -91,6 +92,11 @@ class CoachingAdminShell extends StatelessWidget {
                 icon: Icons.list_alt,
                 label: 'Browse Plans',
                 destination: BrowsePlansScreen(),
+              ),
+              MoreMenuItem(
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'Payment Gateway (Razorpay)',
+                destination: PaymentSettingsScreen(),
               ),
             ],
           ),

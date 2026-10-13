@@ -44,29 +44,40 @@ class _BatchStudentsScreenState extends ConsumerState<BatchStudentsScreen> {
             // Fixed Green Header
             Padding(
               padding: const EdgeInsets.only(
-                left: 20.0,
+                left: 12.0,
                 right: 20.0,
                 top: 10.0,
                 bottom: 20.0,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    widget.batchName,
-                    style: const TextStyle(
-                      fontFamily: 'Playfair Display',
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                    onPressed: () => Navigator.pop(context),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Enrolled Students',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 13,
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.batchName,
+                          style: const TextStyle(
+                            fontFamily: 'Playfair Display',
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Enrolled Students',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -107,10 +118,11 @@ class _BatchStudentsScreenState extends ConsumerState<BatchStudentsScreen> {
                         Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Container(
+                            height: 48,
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: Colors.grey.shade300),
                             ),
                             child: Row(
@@ -126,13 +138,25 @@ class _BatchStudentsScreenState extends ConsumerState<BatchStudentsScreen> {
                                     controller: _searchController,
                                     onChanged: (val) =>
                                         setState(() => _searchQuery = val),
-                                    decoration: const InputDecoration(
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF1F2E27),
+                                    ),
+                                    decoration: InputDecoration(
                                       hintText:
                                           'Search by name, roll no or phone...',
                                       border: InputBorder.none,
-                                      hintStyle: TextStyle(fontSize: 13),
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      filled: false,
+                                      fillColor: Colors.transparent,
+                                      hintStyle: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade500,
+                                      ),
                                       isDense: true,
-                                      contentPadding: EdgeInsets.symmetric(
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
                                         vertical: 12,
                                       ),
                                     ),

@@ -110,3 +110,32 @@ final studentPerformanceProvider = FutureProvider<List<dynamic>>((ref) async {
   final api = ref.read(apiServiceProvider);
   return await api.get('/student/performance') as List<dynamic>;
 });
+
+Future<Map<String, dynamic>> createStudentFeeOrder(
+  ApiService api,
+  int amount,
+) async {
+  final result =
+      await api.post('/student/fees/create-order', {'amount': amount});
+  return result as Map<String, dynamic>;
+}
+
+Future<Map<String, dynamic>> verifyStudentFeePayment(
+  ApiService api, {
+  required String orderId,
+  required String paymentId,
+  String? signature,
+  required int amount,
+}) async {
+  final body = <String, dynamic>{
+    'orderId': orderId,
+    'paymentId': paymentId,
+    'amount': amount,
+  };
+  if (signature != null) {
+    body['signature'] = signature;
+  }
+  final result = await api.post('/student/fees/verify', body);
+  return result as Map<String, dynamic>;
+}
+

@@ -10,6 +10,7 @@ import '../../widgets/fee_analytic_card.dart';
 import '../../widgets/record_payment_bottom_sheet.dart';
 import '../../widgets/feature_locked_view.dart';
 import 'student_fee_details_screen.dart';
+import '../settings/payment_settings_screen.dart';
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
@@ -50,24 +51,44 @@ class _FeesManagementScreenState extends ConsumerState<FeesManagementScreen> {
                 top: 10.0,
                 bottom: 20.0,
               ),
-              child: Column(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Fees Management',
-                    style: TextStyle(
-                      fontFamily: 'Playfair Display',
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Fees Management',
+                        style: TextStyle(
+                          fontFamily: 'Playfair Display',
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Track student balances and payments',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Track student balances and payments',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 13,
+                  IconButton(
+                    tooltip: 'Razorpay Gateway Settings',
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.12),
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.settings_outlined, size: 22),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PaymentSettingsScreen(),
+                      ),
                     ),
                   ),
                 ],

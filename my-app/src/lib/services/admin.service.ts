@@ -7,6 +7,7 @@ import { writeAudit } from '../utils/audit';
 import { buildWaUrl, feeReminderMessage } from './whatsapp.service';
 import { getTenantDashboard } from './superadmin.service';
 import * as notificationCenter from './notificationCenter.service';
+import { sendPaymentReceiptEmail } from './notification.service';
 import logger from '../utils/logger';
 import { istDateString } from '../utils/istDate';
 import type { PoolClient } from 'pg';
@@ -26,6 +27,52 @@ export async function dashboard(tenantId: number, month?: number, year?: number)
     ...dash,
     subscription: subRes.rows[0] || null
   };
+}
+
+/* ─────────────── Settings (Razorpay BYOG) ─────────────── */
+export async function getPaymentSettings(tenantId: number) {
+  const { rows } = await query(
+    `SELECT razorpay_key_id AS "keyId",
+            CASE WHEN razorpay_secret IS NOT NULL AND razorpay_secret != '' THEN '••••••••' ELSE NULL END AS "secretPlaceholder"
+       FROM tenants WHERE id = $1`,
+    [tenantId]
+  );
+  if (!rows[0]) throw ApiError.notFound('TENANT_NOT_FOUND');
+  return {
+    keyId: rows[0].keyId || '',
+    configured: !!(rows[0].keyId && rows[0].secretPlaceholder),
+    secretPlaceholder: rows[0].secretPlaceholder || '',
+  };
+}
+
+export async function updatePaymentSettings(
+  tenantId: number,
+  keyId?: string | null,
+  secret?: string | null
+) {
+  const trimmedKey = keyId?.trim() || null;
+  const trimmedSecret = secret?.trim() || null;
+
+  if (!trimmedKey) {
+    await query(
+      `UPDATE tenants SET razorpay_key_id = NULL, razorpay_secret = NULL WHERE id = $1`,
+      [tenantId]
+    );
+    return { success: true, configured: false };
+  }
+
+  if (trimmedSecret && trimmedSecret !== '••••••••' && trimmedSecret !== '********') {
+    await query(
+      `UPDATE tenants SET razorpay_key_id = $1, razorpay_secret = $2 WHERE id = $3`,
+      [trimmedKey, trimmedSecret, tenantId]
+    );
+  } else {
+    await query(
+      `UPDATE tenants SET razorpay_key_id = $1 WHERE id = $2`,
+      [trimmedKey, tenantId]
+    );
+  }
+  return { success: true, configured: true };
 }
 
 /* ─────────────── Teachers ─────────────── */
@@ -1722,7 +1769,7 @@ export interface RecordPaymentInput {
   studentId: number;
   feeDueId?: number;
   amountPaid: number;
-  method?: 'cash' | 'upi' | 'card';
+  method?: 'cash' | 'upi' | 'card' | 'online' | string;
 }
 
 /** Postgres unique-violation error code. */
@@ -1788,7 +1835,7 @@ export async function recordPayment(
         meta: { studentId, amountPaid, method: method || 'cash', receiptNo },
       });
 
-      after(() =>
+      after(() => {
         notificationCenter
           .sendNotification({
             userIds: [s.rows[0].user_id],
@@ -1798,8 +1845,41 @@ export async function recordPayment(
             type: 'fee_paid',
             entityId: rows[0].id,
           })
-          .catch((err) => logger.error('Fee-paid notify failed', { error: err instanceof Error ? err.message : String(err) }))
-      );
+          .catch((err) => logger.error('Fee-paid notify failed', { error: err instanceof Error ? err.message : String(err) }));
+
+        // Send official email receipt to student (if email is registered)
+        query<{ email: string | null; fullName: string; instituteName: string }>(
+          `SELECT u.email, u.full_name AS "fullName", t.name AS "instituteName"
+             FROM students s
+             JOIN users u ON u.id = s.user_id
+             JOIN tenants t ON t.id = s.tenant_id
+            WHERE s.id = $1 AND s.tenant_id = $2`,
+          [studentId, tenantId]
+        )
+          .then(({ rows: userRows }) => {
+            const studentInfo = userRows[0];
+            if (studentInfo?.email) {
+              sendPaymentReceiptEmail({
+                to: studentInfo.email,
+                studentName: studentInfo.fullName,
+                instituteName: studentInfo.instituteName,
+                receiptNo,
+                amount: amountPaid,
+                paidOn: rows[0].paidOn || new Date(),
+                method: method || 'online',
+              }).catch((err) =>
+                logger.error('Fee receipt email failed', {
+                  error: err instanceof Error ? err.message : String(err),
+                })
+              );
+            }
+          })
+          .catch((err) =>
+            logger.error('Failed to lookup student email for receipt', {
+              error: err instanceof Error ? err.message : String(err),
+            })
+          );
+      });
 
       return { payment: rows[0], receiptNo };
     } catch (err) {

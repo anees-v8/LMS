@@ -9,6 +9,7 @@ import '../../widgets/profile/profile_notification_toggle.dart';
 import '../../widgets/profile/profile_logout_button.dart';
 import 'change_email_screen.dart';
 import 'change_password_screen.dart';
+import '../settings/payment_settings_screen.dart';
 
 /// Same visual shell as the student/teacher profile screens — coaching_admin
 /// has no role-specific quick-action menu here (those live on Dashboard's
@@ -63,6 +64,17 @@ class AdminProfileScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ProfileSecurityCard(
                 actions: [
+                  ProfileSecurityAction(
+                    icon: Icons.payment_rounded,
+                    title: 'Payment Gateway (Razorpay)',
+                    subtitle: 'Configure your institute API keys',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PaymentSettingsScreen(),
+                      ),
+                    ),
+                  ),
                   ProfileSecurityAction(
                     icon: Icons.email_outlined,
                     title: email != null && email.isNotEmpty
