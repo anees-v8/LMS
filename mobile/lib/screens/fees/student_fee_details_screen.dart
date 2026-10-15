@@ -206,32 +206,38 @@ class _StudentFeeDetailsScreenState
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: EdgeInsets.all(hPadding),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => showRecordPaymentBottomSheet(
-                    context,
-                    ref,
-                    prefillStudentId: studentId,
-                  ),
-                  icon: const Icon(Icons.add),
-                  label: const Text(
-                    'Receive Payment',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFA87D26),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                heightFactor: 1.0,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () => showRecordPaymentBottomSheet(
+                        context,
+                        ref,
+                        prefillStudentId: studentId,
+                      ),
+                      icon: const Icon(Icons.add),
+                      label: const Text(
+                        'Receive Payment',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFA87D26),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
