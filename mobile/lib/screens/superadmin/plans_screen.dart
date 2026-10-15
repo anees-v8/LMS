@@ -4,6 +4,7 @@ import '../../providers/superadmin_providers.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
+import '../../utils/app_toast.dart';
 
 /// The feature keys gated by `featureGuard` — must match backend's
 /// `FeatureKey` union exactly (src/lib/middleware/featureGuard.ts).
@@ -20,6 +21,8 @@ const List<String> kFeatureKeys = [
   'online_tests',
   'doubt_solving',
   'teacher_accounts',
+  'online_payments',
+  'website_request',
 ];
 
 String _featureLabel(String key) =>
@@ -383,10 +386,9 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
         yearly == null ||
         flatTeacherLimit == null ||
         _selectedFeatures.isEmpty) {
-      setState(
-        () => _error =
-            'Name, all prices, the teacher limit, and at least one feature are required.',
-      );
+      const msg = 'Name, all prices, the teacher limit, and at least one feature are required.';
+      setState(() => _error = msg);
+      AppToast.showError(context, msg);
       return;
     }
     setState(() {
@@ -425,12 +427,18 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
       if (mounted) {
         final nav = Navigator.of(context, rootNavigator: true);
         if (nav.canPop()) nav.pop();
+        AppToast.showSuccess(
+          context,
+          _isEdit ? 'Plan updated successfully' : 'Plan created successfully',
+        );
       }
     } catch (e) {
+      final msg = friendlyErrorMessage(e);
       setState(() {
         _saving = false;
-        _error = friendlyErrorMessage(e);
+        _error = msg;
       });
+      if (mounted) AppToast.showError(context, msg);
     }
   }
 
@@ -485,6 +493,37 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
                 ],
               ),
               const SizedBox(height: 24),
+              if (_error != null) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (!_isEdit) ...[
                 CustomTextField(
                   label: 'Plan Name',
@@ -586,35 +625,6 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
                   );
                 }).toList(),
               ),
-              if (_error != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: Colors.red,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: 32),
               _saving
                   ? const Center(child: CircularProgressIndicator())

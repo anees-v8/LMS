@@ -400,20 +400,24 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                                   final tenantName = authState.instituteName ?? 'My Institute';
                                   final dash = ref.read(dashboardProvider).value;
                                   final activeCount = (dash?['overview']?['totalStudents'] as num?)?.toInt() ?? 0;
-                                  final rate = sub['perStudentRate'] ?? 10;
-                                  final totalAmt = activeCount > 0 ? (activeCount * (rate as num)) : 499;
+                                  // Use actual paid amount: prefer transaction's lastPaymentAmount, then sub['amount'], then currentCycleAmount
+                                  final paidAmount = sub['lastPaymentAmount'] ?? sub['amount'] ?? sub['currentCycleAmount'] ?? (activeCount > 0 ? (activeCount * ((sub['perStudentRate'] ?? 10) as num)) : 499);
+                                  final lastPaidStr = sub['lastPaidAt']?.toString();
+                                  final paidOnDate = lastPaidStr != null
+                                      ? DateTime.tryParse(lastPaidStr)
+                                      : (nextBillingDate != null ? nextBillingDate.subtract(const Duration(days: 30)) : DateTime.now());
 
                                   ReceiptService.downloadSubscriptionInvoice(
                                     context: context,
                                     instituteName: tenantName,
                                     planName: planName,
                                     billingCycle: billingCycle.toString(),
-                                    amount: totalAmt,
+                                    amount: paidAmount,
                                     paymentId: sub['lastPaymentId']?.toString() ?? 'PAY-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
                                     orderId: sub['lastOrderId']?.toString(),
-                                    paidOn: nextBillingDate != null ? nextBillingDate.subtract(const Duration(days: 30)) : DateTime.now(),
+                                    paidOn: paidOnDate,
                                     nextBillingDate: nextBillingDate,
-                                    studentCount: activeCount,
+                                    studentCount: (sub['studentCountSnapshot'] as num?)?.toInt() ?? activeCount,
                                   );
                                 },
                                 icon: const Icon(Icons.receipt_long_outlined, size: 20),

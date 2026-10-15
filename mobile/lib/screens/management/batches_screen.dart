@@ -368,7 +368,8 @@ class BatchesScreen extends ConsumerWidget {
                                         context: context,
                                         useRootNavigator: true,
                                         backgroundColor: Colors.transparent,
-                                        builder: (ctx) => Center(
+                                        builder: (ctx) => Align(
+                                          alignment: Alignment.bottomCenter,
                                           child: ConstrainedBox(
                                             constraints: const BoxConstraints(maxWidth: 480),
                                             child: Container(
@@ -891,23 +892,27 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return Align(
+      alignment: Alignment.bottomCenter,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 620,
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         child: Container(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
           // Drag handle — consistent with every other bottom sheet in the app.
           Center(
             child: Container(
@@ -1136,13 +1141,19 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(color: Colors.grey.shade100, width: 1),
+              ),
+            ),
             child: _saving
                 ? const Center(child: CircularProgressIndicator())
                 : SizedBox(
                     width: double.infinity,
-                    height: 52,
+                    height: 50,
                     child: CustomButton(
                       text: _isEdit ? 'Save Changes' : 'Create Batch',
                       onPressed: _submit,
@@ -1153,6 +1164,8 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
       ),
     ),
   ),
+),
+),
 );
   }
 

@@ -6,6 +6,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_dropdown.dart';
 import '../../widgets/custom_textfield.dart';
+import '../../utils/app_toast.dart';
 
 /// Coaching Admin composes a notification for students or teachers in their
 /// own institute — everyone (of that role), or filtered to one batch.
@@ -35,7 +36,9 @@ class _BroadcastStudentsScreenState
 
   Future<void> _send() async {
     if (_title.text.trim().isEmpty) {
-      setState(() => _error = 'Title is required.');
+      const msg = 'Title is required.';
+      setState(() => _error = msg);
+      AppToast.showError(context, msg);
       return;
     }
     setState(() {
@@ -53,9 +56,7 @@ class _BroadcastStudentsScreenState
       if (mounted) {
         final count = result['recipientCount'] ?? 0;
         final who = _targetRole == 'teacher' ? 'teacher(s)' : 'student(s)';
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Sent to $count $who.')));
+        AppToast.showSuccess(context, 'Sent to $count $who.');
         _title.clear();
         _body.clear();
         setState(() {
@@ -64,10 +65,12 @@ class _BroadcastStudentsScreenState
         });
       }
     } catch (e) {
+      final msg = friendlyErrorMessage(e);
       setState(() {
         _sending = false;
-        _error = friendlyErrorMessage(e);
+        _error = msg;
       });
+      if (mounted) AppToast.showError(context, msg);
     }
   }
 
@@ -142,7 +145,37 @@ class _BroadcastStudentsScreenState
                             : 'This goes to your students — everyone, or just one batch.',
                         style: const TextStyle(color: Colors.grey),
                       ),
-                      const SizedBox(height: 16),
+                      if (_error != null) ...[
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _error!,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -227,13 +260,6 @@ class _BroadcastStudentsScreenState
                           onChanged: (v) => setState(() => _batchId = v),
                         ),
                       ),
-                      if (_error != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          _error!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ],
                       const SizedBox(height: 24),
                       _sending
                           ? const Center(child: CircularProgressIndicator())

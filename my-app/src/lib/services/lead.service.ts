@@ -96,6 +96,11 @@ export async function markRead(id: number): Promise<void> {
   await query(`UPDATE leads SET is_read = true WHERE id = $1`, [id]);
 }
 
+export async function markAllRead(): Promise<number> {
+  const result = await query(`UPDATE leads SET is_read = true WHERE is_read = false`);
+  return result.rowCount ?? 0;
+}
+
 export async function updateStatus(
   id: number,
   status: LeadStatus

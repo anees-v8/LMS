@@ -53,6 +53,7 @@ router.post('/attendance/qr-scan', validate(scanAttendanceQrSchema), ctrl.scanAt
 router.get('/performance', ctrl.subjectPerformance);
 
 /* ── Misc ───────────────────────────────────────────────────────────────── */
+router.get('/teachers', ctrl.listTeachers);
 router.get('/ask-doubt', validate(askDoubtQuerySchema, 'query'), ctrl.askDoubt);
 router.get('/notifications', ctrl.listNotifications);
 router.get('/notifications/unread-count', ctrl.unreadNotificationCount);

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
 import '../providers/teacher_providers.dart';
 import '../services/api_service.dart';
+import '../utils/app_toast.dart';
 import 'custom_dropdown.dart';
 
 class CreateLiveClassBottomSheet extends ConsumerStatefulWidget {
@@ -387,9 +388,7 @@ class _CreateLiveClassBottomSheetState
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedBatchId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select a batch')),
-      );
+      AppToast.showError(context, 'Select a batch');
       return;
     }
     setState(() => _loading = true);
@@ -409,12 +408,7 @@ class _CreateLiveClassBottomSheetState
         // Validate it's in the future
         if (scheduledDateTime.isBefore(DateTime.now())) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Please select a future date and time'),
-                backgroundColor: Colors.orange,
-              ),
-            );
+            AppToast.showError(context, 'Please select a future date and time');
           }
           setState(() => _loading = false);
           return;
@@ -432,26 +426,16 @@ class _CreateLiveClassBottomSheetState
       if (mounted) {
         Navigator.pop(context);
         widget.onCreated();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _instant
-                  ? '✅ Live class started! Students have been notified.'
-                  : '✅ Live class scheduled! Students have been notified.',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
+        AppToast.showSuccess(
+          context,
+          _instant
+              ? 'Live class started! Students have been notified.'
+              : 'Live class scheduled! Students have been notified.',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(friendlyErrorMessage(e)),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppToast.showError(context, friendlyErrorMessage(e));
       }
     } finally {
       if (mounted) setState(() => _loading = false);

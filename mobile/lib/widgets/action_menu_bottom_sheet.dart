@@ -45,7 +45,8 @@ class _ActionMenuBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return Align(
+      alignment: Alignment.bottomCenter,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
         child: Container(

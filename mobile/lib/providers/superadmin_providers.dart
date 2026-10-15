@@ -187,6 +187,10 @@ Future<void> markLeadRead(ApiService api, int id) async {
   await api.patch('/superadmin/leads/$id/read', {});
 }
 
+Future<void> markAllLeadsRead(ApiService api) async {
+  await api.post('/superadmin/leads/read-all', {});
+}
+
 Future<Map<String, dynamic>> updateLeadStatus(
   ApiService api,
   int id,

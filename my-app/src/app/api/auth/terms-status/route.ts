@@ -10,11 +10,12 @@ import ApiError from '@/lib/utils/ApiError';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const phone = searchParams.get('phone');
-    if (!phone || !/^\d{10,15}$/.test(phone)) {
-      throw ApiError.badRequest('INVALID_PHONE', 'Phone must be 10-15 digits');
+    const rawPhone = searchParams.get('phone') || '';
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      throw ApiError.badRequest('INVALID_PHONE', 'Phone must be at least 10 digits');
     }
-    const result = await authService.checkTermsStatus({ phone });
+    const result = await authService.checkTermsStatus({ phone: cleanPhone });
     return NextResponse.json(result);
   } catch (err) {
     return handleApiError(err);

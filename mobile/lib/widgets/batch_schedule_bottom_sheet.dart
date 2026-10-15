@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/management_providers.dart';
 import '../services/api_service.dart';
+import '../utils/app_toast.dart';
 import 'custom_dropdown.dart';
 
 const _dayNames = [
@@ -162,7 +163,9 @@ class _BatchScheduleBottomSheetState
     final entries = _entries ?? [];
     for (final e in entries) {
       if (e.subjectId == null) {
-        setState(() => _error = 'Every slot needs a subject selected.');
+        const msg = 'Every slot needs a subject selected.';
+        setState(() => _error = msg);
+        AppToast.showError(context, msg);
         return;
       }
     }
@@ -193,10 +196,12 @@ class _BatchScheduleBottomSheetState
         }
       }
     } catch (e) {
+      final msg = friendlyErrorMessage(e);
       setState(() {
         _saving = false;
-        _error = friendlyErrorMessage(e);
+        _error = msg;
       });
+      if (mounted) AppToast.showError(context, msg);
     }
   }
 
@@ -540,7 +545,8 @@ class _BatchScheduleBottomSheetState
   Widget build(BuildContext context) {
     final scheduleAsync = ref.watch(batchScheduleProvider(widget.batchId));
 
-    return Center(
+    return Align(
+      alignment: Alignment.bottomCenter,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 640,
@@ -554,8 +560,10 @@ class _BatchScheduleBottomSheetState
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Padding(
-        padding: const EdgeInsets.all(24.0),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -613,6 +621,36 @@ class _BatchScheduleBottomSheetState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (_error != null) ...[
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _error!,
+                                    style: const TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (entries.isEmpty)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 24),
@@ -640,35 +678,6 @@ class _BatchScheduleBottomSheetState
                             ),
                           ),
                         ),
-                        if (_error != null) ...[
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.error_outline,
-                                  color: Colors.red,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _error!,
-                                    style: const TextStyle(
-                                      color: Colors.red,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
                         const SizedBox(height: 16),
                       ],
                     ),
@@ -705,6 +714,7 @@ class _BatchScheduleBottomSheetState
       ),
     ),
   ),
+),
 );
   }
 }

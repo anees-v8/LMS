@@ -148,6 +148,9 @@ class AuthNotifier extends Notifier<AuthState> {
       // Sync FCM token with backend
       await PushNotificationService().sendTokenToBackend();
 
+      // Clear any leftover cache from a previous session/account
+      await CacheService.instance.clearAll();
+
       state = state.copyWith(isLoading: false, isAuthenticated: true);
       return true;
     } catch (e) {

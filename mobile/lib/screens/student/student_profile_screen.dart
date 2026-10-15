@@ -22,6 +22,27 @@ class StudentProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: Navigator.canPop(context)
+          ? AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              surfaceTintColor: Colors.transparent,
+              leading: const BackButton(color: Color(0xFF1E293B)),
+              title: const Text(
+                'My Profile',
+                style: TextStyle(
+                  color: Color(0xFF1E293B),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              bottom: const PreferredSize(
+                preferredSize: Size.fromHeight(1),
+                child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+              ),
+            )
+          : null,
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(

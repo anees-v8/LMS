@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/duration_format.dart';
 import 'pdf_viewer_screen.dart';
+import '../../widgets/ask_doubt_bottom_sheet.dart';
 
 String? extractYoutubeId(String url) {
   RegExp regExp = RegExp(
@@ -163,6 +164,48 @@ class _StudentChapterContentScreenState
             ),
           ],
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextButton.icon(
+              onPressed: () {
+                final chName = widget.chapter['name'] as String? ??
+                    widget.chapter['title'] as String? ??
+                    'Chapter';
+                final contentTitle = _selectedContent?['title'] as String?;
+                final topic = contentTitle != null
+                    ? '$chName - $contentTitle'
+                    : chName;
+                showAskDoubtBottomSheet(
+                  context,
+                  initialChapter: topic,
+                );
+              },
+              icon: const Icon(
+                Icons.chat_rounded,
+                color: Color(0xFF25D366),
+                size: 16,
+              ),
+              label: const Text(
+                'Ask Doubt',
+                style: TextStyle(
+                  color: Color(0xFF25D366),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                backgroundColor:
+                    const Color(0xFF25D366).withValues(alpha: 0.15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -268,6 +311,55 @@ class _StudentChapterContentScreenState
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.6),
                     fontSize: 11,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                InkWell(
+                  onTap: () {
+                    final chName = widget.chapter['name'] as String? ??
+                        widget.chapter['title'] as String? ??
+                        'Chapter';
+                    final contentTitle = _selectedContent?['title'] as String?;
+                    final topic = contentTitle != null
+                        ? '$chName - $contentTitle'
+                        : chName;
+                    showAskDoubtBottomSheet(
+                      context,
+                      initialChapter: topic,
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF25D366).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF25D366).withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.help_outline_rounded,
+                          color: Color(0xFF25D366),
+                          size: 13,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Doubt',
+                          style: TextStyle(
+                            color: Color(0xFF25D366),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

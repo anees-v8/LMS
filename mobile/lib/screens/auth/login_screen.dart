@@ -8,6 +8,10 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/role_router.dart';
 import '../../utils/constants.dart';
+import '../../providers/dashboard_provider.dart';
+import '../../providers/management_providers.dart' as mgmt;
+import '../../providers/payment_providers.dart';
+import '../../utils/app_toast.dart';
 import 'forgot_password_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -73,16 +77,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final password = _passwordController.text;
 
     if (phone.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter phone and password.')),
-      );
+      AppToast.showError(context, 'Please enter phone and password.');
       return;
     }
     if (_needsAcceptance && !_acceptedLegal) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please accept the Privacy Policy and Terms.'),
-        ),
+      AppToast.showError(
+        context,
+        'Please accept the Privacy Policy and Terms.',
       );
       return;
     }
@@ -92,6 +93,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         .login(phone, password, acceptedTerms: _needsAcceptance);
 
     if (success && mounted) {
+      ref.invalidate(dashboardProvider);
+      ref.invalidate(mgmt.studentsProvider);
+      ref.invalidate(mgmt.batchesProvider);
+      ref.invalidate(mgmt.teachersProvider);
+      ref.invalidate(mgmt.subjectsProvider);
+      ref.invalidate(subscriptionStatusProvider);
+
       final role = ref.read(authProvider).userRole;
       Navigator.pushReplacement(
         context,
@@ -99,9 +107,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
     } else if (mounted) {
       final error = ref.read(authProvider).error ?? 'Login Failed';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Colors.red),
-      );
+      AppToast.showError(context, error);
     }
   }
 

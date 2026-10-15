@@ -7,10 +7,14 @@ import type { UserRow, PublicUser } from '../rows.js';
  * disambiguate.
  */
 export async function findForLogin(phone: string): Promise<UserRow | null> {
+  const clean = phone.replace(/\D/g, '');
+  const with91 = clean.length === 10 ? `91${clean}` : clean;
+  const without91 = (clean.length === 12 && clean.startsWith('91')) ? clean.slice(2) : clean;
+
   // Fetch regardless of is_active so we can return a proper SUSPENDED error
   const { rows } = await query<UserRow>(
-    `SELECT * FROM users WHERE phone = $1`,
-    [phone]
+    `SELECT * FROM users WHERE phone = $1 OR phone = $2 OR phone = $3 OR phone = $4 LIMIT 1`,
+    [phone, clean, with91, without91]
   );
   return rows[0] || null;
 }

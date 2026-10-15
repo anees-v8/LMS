@@ -325,23 +325,27 @@ class _AddSubjectBottomSheetState
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return Align(
+      alignment: Alignment.bottomCenter,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 540,
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         child: Container(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
           // Drag handle — consistent with every other bottom sheet in the app.
           Center(
             child: Container(
@@ -422,13 +426,19 @@ class _AddSubjectBottomSheetState
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(color: Colors.grey.shade100, width: 1),
+              ),
+            ),
             child: _saving
                 ? const Center(child: CircularProgressIndicator())
                 : SizedBox(
                     width: double.infinity,
-                    height: 52,
+                    height: 50,
                     child: CustomButton(
                       text: widget.subject != null
                           ? 'Update Subject'
@@ -440,7 +450,9 @@ class _AddSubjectBottomSheetState
         ],
       ),
     ),
-    ),
-    );
+  ),
+),
+),
+);
   }
 }

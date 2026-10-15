@@ -434,7 +434,13 @@ export async function suspendStudent(tenantId: number, actorUserId: number, id: 
 
 export async function getStudentDetails(tenantId: number, id: number) {
   // Verify student
-  const { rows: studentRows } = await query(`SELECT roll_no, grade FROM students WHERE id=$1 AND tenant_id=$2`, [id, tenantId]);
+  const { rows: studentRows } = await query<{ roll_no: string; grade: string; is_active: boolean }>(
+    `SELECT s.roll_no, s.grade, u.is_active
+     FROM students s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.id=$1 AND s.tenant_id=$2`,
+    [id, tenantId]
+  );
   if (!studentRows.length) throw ApiError.notFound('STUDENT_NOT_FOUND');
   const studentBasic = studentRows[0];
 
@@ -560,6 +566,7 @@ export async function getStudentDetails(tenantId: number, id: number) {
     student: {
       roll_no: studentBasic.roll_no,
       grade: studentBasic.grade,
+      isActive: studentBasic.is_active,
     },
     academics: {
       overallPercentage: (overallPct * 100).toFixed(1),

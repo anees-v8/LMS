@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/management_providers.dart';
-import '../providers/superadmin_providers.dart';
 import '../services/api_service.dart';
 import '../utils/constants.dart';
+import '../utils/app_toast.dart';
 import 'custom_dropdown.dart';
 
 Future<void> showRecordPaymentBottomSheet(
@@ -15,9 +15,7 @@ Future<void> showRecordPaymentBottomSheet(
   if (!context.mounted) return;
 
   if (students.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No students found. Add a student first.')),
-    );
+    AppToast.showError(context, 'No students found. Add a student first.');
     return;
   }
 
@@ -76,7 +74,9 @@ class _RecordPaymentBottomSheetState
   Future<void> _submit() async {
     final amount = int.tryParse(_amount.text.trim());
     if (_studentId == null || amount == null || amount < 1) {
-      setState(() => _error = 'Choose a student and enter a valid amount.');
+      const msg = 'Choose a student and enter a valid amount.';
+      setState(() => _error = msg);
+      AppToast.showError(context, msg);
       return;
     }
     setState(() {
@@ -109,10 +109,12 @@ class _RecordPaymentBottomSheetState
         }
       }
     } catch (e) {
+      final msg = friendlyErrorMessage(e);
       setState(() {
         _saving = false;
-        _error = friendlyErrorMessage(e);
+        _error = msg;
       });
+      if (mounted) AppToast.showError(context, msg);
     }
   }
 
@@ -310,6 +312,37 @@ class _RecordPaymentBottomSheetState
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
+                    if (_error != null) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              color: Colors.red,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _error!,
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -379,14 +412,6 @@ class _RecordPaymentBottomSheetState
                         ],
                       ),
                     ),
-
-                    if (_error != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red, fontSize: 13),
-                      ),
-                    ],
                   ],
                 ),
               ),

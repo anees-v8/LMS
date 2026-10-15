@@ -14,7 +14,7 @@ export const listVideosQuerySchema = z
 
 export const askDoubtQuerySchema = z
   .object({
-    teacherId: z.coerce.number().int().positive(),
+    teacherId: z.coerce.number().int().positive().optional(),
     chapter: z.string().trim().max(200).optional(),
   })
   .strict();

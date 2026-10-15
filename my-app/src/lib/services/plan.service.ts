@@ -19,24 +19,25 @@ export interface PlanCatalogItem {
 
 export interface CreatePlanInput {
   name: string;
-  tagline?: string;
+  tagline?: string | null;
   priceMonthly: number;
   priceQuarterly: number;
   priceYearly: number;
-  flatTeacherLimit: number;
+  flatTeacherLimit?: number;
   features: string[];
-  displayOrder?: number;
+  displayOrder?: number | null;
 }
 
 export interface UpdatePlanInput {
-  tagline?: string;
+  name?: string;
+  tagline?: string | null;
   priceMonthly?: number;
   priceQuarterly?: number;
   priceYearly?: number;
   flatTeacherLimit?: number;
   features?: string[];
   isActive?: boolean;
-  displayOrder?: number;
+  displayOrder?: number | null;
 }
 
 /** List all plans (Super Admin sees all; public endpoint sees only active) */
@@ -127,14 +128,15 @@ export async function updatePlan(
   const values: unknown[] = [];
   let paramIdx = 1;
 
-  if (input.tagline !== undefined)         { setClauses.push(`tagline = $${paramIdx++}`);            values.push(input.tagline); }
+  if (input.name !== undefined)            { setClauses.push(`name = $${paramIdx++}`);               values.push(input.name); }
+  if (input.tagline !== undefined)         { setClauses.push(`tagline = $${paramIdx++}`);            values.push(input.tagline ?? null); }
   if (input.priceMonthly !== undefined)    { setClauses.push(`price_monthly = $${paramIdx++}`);      values.push(input.priceMonthly); }
   if (input.priceQuarterly !== undefined)  { setClauses.push(`price_quarterly = $${paramIdx++}`);    values.push(input.priceQuarterly); }
   if (input.priceYearly !== undefined)     { setClauses.push(`price_yearly = $${paramIdx++}`);       values.push(input.priceYearly); }
   if (input.flatTeacherLimit !== undefined){ setClauses.push(`flat_teacher_limit = $${paramIdx++}`); values.push(input.flatTeacherLimit); }
   if (input.features !== undefined)        { setClauses.push(`features = $${paramIdx++}::jsonb`);    values.push(JSON.stringify(input.features)); }
   if (input.isActive !== undefined)        { setClauses.push(`is_active = $${paramIdx++}`);          values.push(input.isActive); }
-  if (input.displayOrder !== undefined)    { setClauses.push(`display_order = $${paramIdx++}`);     values.push(input.displayOrder); }
+  if (input.displayOrder !== undefined)    { setClauses.push(`display_order = $${paramIdx++}`);     values.push(input.displayOrder ?? 0); }
 
   if (setClauses.length === 0) throw ApiError.badRequest('NO_CHANGES', 'No fields to update');
 

@@ -395,11 +395,72 @@ export async function receipt(tenantId: number, userId: number, paymentId: numbe
   return rows[0];
 }
 
+export interface StudentTeacherItem {
+  id: number;
+  name: string;
+  phone: string;
+  role: string;
+  subject: string;
+}
+
+/** List assigned teachers and mentors for student doubt solving. */
+export async function listStudentTeachers(
+  tenantId: number,
+  userId: number
+): Promise<StudentTeacherItem[]> {
+  const studentId = await getStudentId(tenantId, userId);
+  const batchIds = await enrolledBatchIds(tenantId, studentId);
+  const safeBatches = batchIds.length ? batchIds : [-1];
+
+  const teachers = (
+    await query<{ id: number; name: string; phone: string; role: string; subject: string | null }>(
+      `SELECT DISTINCT u.id, u.full_name AS name, u.phone, u.role, s.name AS subject
+       FROM teacher_assignments ta
+       JOIN users u ON u.id = ta.teacher_user_id
+       LEFT JOIN subjects s ON s.id = ta.subject_id
+       WHERE ta.tenant_id = $1 AND ta.batch_id = ANY($2::int[])
+       ORDER BY u.full_name ASC`,
+      [tenantId, safeBatches]
+    )
+  ).rows;
+
+  // Also fetch coaching_admin if not already in teachers list
+  const admins = (
+    await query<{ id: number; name: string; phone: string; role: string }>(
+      `SELECT id, full_name AS name, phone, role
+       FROM users WHERE tenant_id = $1 AND role = 'coaching_admin'`,
+      [tenantId]
+    )
+  ).rows;
+
+  const result: StudentTeacherItem[] = teachers.map(t => ({
+    id: t.id,
+    name: t.name,
+    phone: t.phone,
+    role: t.role,
+    subject: t.subject || (t.role === 'coaching_admin' ? 'Institute Head' : 'General'),
+  }));
+
+  for (const adm of admins) {
+    if (!result.some(r => r.id === adm.id)) {
+      result.unshift({
+        id: adm.id,
+        name: adm.name,
+        phone: adm.phone,
+        role: adm.role,
+        subject: 'Doubt Mentor / Head',
+      });
+    }
+  }
+
+  return result;
+}
+
 /** Free wa.me link to the chosen teacher for a doubt. */
 export async function askDoubt(
   tenantId: number,
   userId: number,
-  teacherId: number,
+  teacherId?: number,
   chapter?: string
 ): Promise<{ waUrl: string }> {
   const student = (
@@ -412,20 +473,50 @@ export async function askDoubt(
   ).rows[0];
   if (!student) throw ApiError.notFound('STUDENT_PROFILE_NOT_FOUND');
 
-  const teacher = (
-    await query<{ phone: string }>(
-      `SELECT phone FROM users WHERE id=$1 AND tenant_id=$2 AND role='teacher'`,
-      [teacherId, tenantId]
-    )
-  ).rows[0];
-  if (!teacher) throw ApiError.badRequest('INVALID_TEACHER');
+  let teacherPhone: string;
+  if (teacherId) {
+    const teacher = (
+      await query<{ phone: string }>(
+        `SELECT phone FROM users WHERE id=$1 AND tenant_id=$2 AND role IN ('teacher', 'coaching_admin')`,
+        [teacherId, tenantId]
+      )
+    ).rows[0];
+    if (!teacher) throw ApiError.badRequest('INVALID_TEACHER');
+    teacherPhone = teacher.phone;
+  } else {
+    const studentId = await getStudentId(tenantId, userId);
+    const batchIds = await enrolledBatchIds(tenantId, studentId);
+    const safeBatches = batchIds.length ? batchIds : [-1];
+    const assigned = (
+      await query<{ phone: string }>(
+        `SELECT u.phone
+         FROM teacher_assignments ta
+         JOIN users u ON u.id = ta.teacher_user_id
+         WHERE ta.tenant_id = $1 AND ta.batch_id = ANY($2::int[])
+         LIMIT 1`,
+        [tenantId, safeBatches]
+      )
+    ).rows[0];
+    if (assigned) {
+      teacherPhone = assigned.phone;
+    } else {
+      const admin = (
+        await query<{ phone: string }>(
+          `SELECT phone FROM users WHERE tenant_id=$1 AND role='coaching_admin' LIMIT 1`,
+          [tenantId]
+        )
+      ).rows[0];
+      if (!admin) throw ApiError.badRequest('NO_TEACHER_ASSIGNED');
+      teacherPhone = admin.phone;
+    }
+  }
 
   const msg = doubtMessage({
     studentName: student.name,
     instituteName: student.institute,
     chapter: chapter || 'a topic',
   });
-  return { waUrl: buildWaUrl(teacher.phone, msg) };
+  return { waUrl: buildWaUrl(teacherPhone, msg) };
 }
 
 // ─── SUBJECTS ───────────────────────────────────────────────────────────────

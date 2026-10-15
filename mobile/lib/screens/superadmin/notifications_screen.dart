@@ -1,89 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_colors.dart';
-
+import '../../providers/superadmin_providers.dart';
+import '../../services/api_service.dart';
 import 'leads_screen.dart';
 import 'subscriptions_screen.dart';
-import 'tenants_screen.dart';
 
-class NotificationsScreen extends StatefulWidget {
+class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
-
-  @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
-}
-
-class _NotificationsScreenState extends State<NotificationsScreen> {
-  // Dummy data for notifications
-  final List<Map<String, dynamic>> _notifications = [
-    {
-      'id': '1',
-      'type': 'lead',
-      'title': 'New Demo Request',
-      'description': 'Rahul Sharma from Apex Institute requested a demo.',
-      'time': DateTime.now().subtract(const Duration(minutes: 15)),
-      'isRead': false,
-    },
-    {
-      'id': '2',
-      'type': 'payment',
-      'title': 'Payment Received',
-      'description': 'Success Academy paid ₹2500 for the Pro Plan.',
-      'time': DateTime.now().subtract(const Duration(hours: 2)),
-      'isRead': false,
-    },
-    {
-      'id': '3',
-      'type': 'expiring',
-      'title': 'Subscription Expiring Soon',
-      'description': 'Pioneer Classes trial ends in 3 days.',
-      'time': DateTime.now().subtract(const Duration(hours: 5)),
-      'isRead': true,
-    },
-    {
-      'id': '4',
-      'type': 'system',
-      'title': 'System Maintenance',
-      'description': 'Scheduled downtime on Sunday at 2:00 AM.',
-      'time': DateTime.now().subtract(const Duration(days: 1)),
-      'isRead': true,
-    },
-  ];
-
-  void _markAllAsRead() {
-    setState(() {
-      for (var n in _notifications) {
-        n['isRead'] = true;
-      }
-    });
-  }
-
-  void _handleNotificationTap(Map<String, dynamic> notification) {
-    // Mark as read
-    setState(() {
-      notification['isRead'] = true;
-    });
-
-    // Navigate based on type
-    switch (notification['type']) {
-      case 'lead':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const LeadsScreen()),
-        );
-        break;
-      case 'payment':
-      case 'expiring':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SubscriptionsScreen()),
-        );
-        break;
-      case 'system':
-      default:
-        // No specific screen or just show a dialog
-        break;
-    }
-  }
 
   String _timeAgo(DateTime dateTime) {
     final difference = DateTime.now().difference(dateTime);
@@ -98,8 +22,41 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  Future<void> _markAllAsRead(
+    BuildContext context,
+    WidgetRef ref,
+    List<dynamic> leads,
+  ) async {
+    final api = ref.read(apiServiceProvider);
+    final unread = leads.where((l) => l['isRead'] != true).toList();
+    if (unread.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All notifications are already marked as read.')),
+      );
+      return;
+    }
+
+    for (final lead in unread) {
+      final id = lead['id'] as int?;
+      if (id != null) {
+        await markLeadRead(api, id);
+      }
+    }
+    ref.invalidate(leadsProvider);
+    ref.invalidate(unreadLeadsCountProvider);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Marked ${unread.length} notifications as read.')),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final leadsAsync = ref.watch(leadsProvider);
+    final expiringAsync = ref.watch(expiringSubscriptionsProvider(30));
+
     return Scaffold(
       backgroundColor: const Color(0xFF1F2E27),
       resizeToAvoidBottomInset: false,
@@ -108,43 +65,50 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Fixed Green Header
+            // Fixed Green Header with Back Button
             Padding(
               padding: const EdgeInsets.only(
-                left: 20.0,
+                left: 8.0,
                 right: 12.0,
-                top: 10.0,
-                bottom: 20.0,
+                top: 8.0,
+                bottom: 16.0,
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                   const Expanded(
                     child: Text(
                       'Notifications',
                       style: TextStyle(
                         fontFamily: 'Playfair Display',
                         color: Colors.white,
-                        fontSize: 28,
+                        fontSize: 26,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                  TextButton(
-                    onPressed: _markAllAsRead,
-                    child: const Text(
-                      'Mark all read',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
+                  leadsAsync.maybeWhen(
+                    data: (leads) => TextButton(
+                      onPressed: () => _markAllAsRead(context, ref, leads),
+                      child: const Text(
+                        'Mark all read',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
+                    orElse: () => const SizedBox.shrink(),
                   ),
                 ],
               ),
             ),
 
-            // White Container with fixed parts and scrollable list
+            // White Container with scrollable notifications list
             Expanded(
               child: Container(
                 decoration: const BoxDecoration(
@@ -154,35 +118,106 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     topRight: Radius.circular(24),
                   ),
                 ),
-                child: _notifications.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.notifications_off_outlined,
-                              size: 64,
-                              color: Colors.grey,
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'No new notifications',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey,
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(leadsProvider);
+                    ref.invalidate(unreadLeadsCountProvider);
+                    ref.invalidate(expiringSubscriptionsProvider(30));
+                  },
+                  child: leadsAsync.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (err, _) => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Text(
+                          friendlyErrorMessage(err),
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ),
+                    data: (leads) {
+                      final expiring =
+                          expiringAsync.asData?.value ?? <dynamic>[];
+
+                      // Combine real leads and expiring subs into unified notification items
+                      final items = <Map<String, dynamic>>[];
+
+                      for (final sub in expiring) {
+                        items.add({
+                          'type': 'expiring',
+                          'title': 'Subscription Expiring Soon',
+                          'description':
+                              '${sub['name'] ?? 'Tenant'} (${sub['planName'] ?? 'Plan'}) expires on ${sub['trialEndsAt'] ?? sub['currentPeriodEnd'] ?? 'soon'}.',
+                          'time': DateTime.tryParse(
+                                '${sub['trialEndsAt'] ?? sub['currentPeriodEnd'] ?? ''}',
+                              ) ??
+                              DateTime.now(),
+                          'isRead': false,
+                          'raw': sub,
+                        });
+                      }
+
+                      for (final lead in leads) {
+                        items.add({
+                          'type': 'lead',
+                          'title':
+                              'New Demo Request: ${lead['instituteName'] ?? lead['ownerName']}',
+                          'description':
+                              '${lead['ownerName']} (${lead['phone']}) - ${lead['city'] ?? 'India'} requested a demo.',
+                          'time': DateTime.tryParse('${lead['createdAt']}') ??
+                              DateTime.now(),
+                          'isRead': lead['isRead'] == true,
+                          'raw': lead,
+                        });
+                      }
+
+                      // Sort newest first
+                      items.sort((a, b) {
+                        final timeA = a['time'] as DateTime;
+                        final timeB = b['time'] as DateTime;
+                        return timeB.compareTo(timeA);
+                      });
+
+                      if (items.isEmpty) {
+                        return ListView(
+                          children: const [
+                            SizedBox(height: 120),
+                            Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.notifications_off_outlined,
+                                    size: 64,
+                                    color: Colors.grey,
+                                  ),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'No new notifications',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
-                        ),
-                      )
-                    : ListView.builder(
+                        );
+                      }
+
+                      return ListView.builder(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: _notifications.length,
+                        itemCount: items.length,
                         itemBuilder: (context, index) {
-                          final notification = _notifications[index];
-                          return _buildNotificationItem(notification);
+                          final item = items[index];
+                          return _buildNotificationItem(context, ref, item);
                         },
-                      ),
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
           ],
@@ -191,28 +226,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildNotificationItem(Map<String, dynamic> notification) {
+  Widget _buildNotificationItem(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> item,
+  ) {
     IconData iconData;
     Color iconColor;
     Color bgColor;
 
-    switch (notification['type']) {
+    switch (item['type']) {
       case 'lead':
         iconData = Icons.person_add;
         iconColor = AppColors.info;
         bgColor = AppColors.infoLight;
-        break;
-      case 'payment':
-        iconData = Icons.payments;
-        iconColor = AppColors.success;
-        bgColor = AppColors.successLight;
         break;
       case 'expiring':
         iconData = Icons.warning_rounded;
         iconColor = AppColors.warning;
         bgColor = AppColors.warningLight;
         break;
-      case 'system':
       default:
         iconData = Icons.info;
         iconColor = Colors.grey.shade700;
@@ -220,14 +253,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         break;
     }
 
-    final isRead = notification['isRead'] as bool;
+    final isRead = item['isRead'] as bool;
 
     return Container(
       color: isRead
           ? Colors.transparent
-          : AppColors.info.withValues(alpha: 0.03),
+          : AppColors.info.withValues(alpha: 0.05),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         leading: Stack(
           children: [
             Container(
@@ -251,7 +285,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ],
         ),
         title: Text(
-          notification['title'],
+          item['title'] as String,
           style: TextStyle(
             fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
             color: AppColors.textPrimary,
@@ -262,17 +296,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           children: [
             const SizedBox(height: 4),
             Text(
-              notification['description'],
+              item['description'] as String,
               style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
             ),
             const SizedBox(height: 6),
             Text(
-              _timeAgo(notification['time']),
+              _timeAgo(item['time'] as DateTime),
               style: const TextStyle(color: Colors.grey, fontSize: 11),
             ),
           ],
         ),
-        onTap: () => _handleNotificationTap(notification),
+        onTap: () async {
+          if (item['type'] == 'lead') {
+            final lead = item['raw'] as Map<String, dynamic>;
+            final id = lead['id'] as int?;
+            if (id != null && !isRead) {
+              await markLeadRead(ref.read(apiServiceProvider), id);
+              ref.invalidate(leadsProvider);
+              ref.invalidate(unreadLeadsCountProvider);
+            }
+            if (context.mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LeadsScreen()),
+              );
+            }
+          } else if (item['type'] == 'expiring') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SubscriptionsScreen()),
+            );
+          }
+        },
       ),
     );
   }

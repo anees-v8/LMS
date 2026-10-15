@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../providers/auth_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/student_providers.dart';
+import '../../widgets/unified_app_header.dart';
+import 'student_notifications_screen.dart';
+import 'student_scan_attendance_screen.dart';
+import 'student_profile_screen.dart';
 
 class StudentLiveScreen extends ConsumerStatefulWidget {
   const StudentLiveScreen({super.key});
@@ -33,31 +38,89 @@ class _StudentLiveScreenState extends ConsumerState<StudentLiveScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final studentName = authState.fullName ?? 'Student';
+    final instituteName = authState.instituteName ?? 'Academy';
+    final unreadCount =
+        ref.watch(studentUnreadNotificationCountProvider).asData?.value ?? 0;
+
+    final parts = studentName.trim().split(' ');
+    final initials = parts.length > 1
+        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+        : (studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S');
+
     final upcomingAsync = ref.watch(studentUpcomingLiveProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text(
-          'Live Classes',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        backgroundColor: AppColors.primaryDark,
-        automaticallyImplyLeading: false,
-        elevation: 0,
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: UnifiedAppHeader(
+        title: studentName,
+        subtitle: instituteName,
+        initials: initials,
+        unreadNotificationsCount: unreadCount,
+        onProfileTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const StudentProfileScreen(),
+            ),
+          );
+        },
+        onQrTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const StudentScanAttendanceScreen(),
+            ),
+          );
+        },
+        onNotificationsTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const StudentNotificationsScreen(),
+            ),
+          ).then(
+            (_) => ref.invalidate(studentUnreadNotificationCountProvider),
+          );
+        },
       ),
-      body: upcomingAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _buildError(e.toString(), ref),
-        data: (classes) {
-          if (classes.isEmpty) return _buildEmpty();
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Live Classes',
+                  style: TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Join your interactive live sessions',
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: upcomingAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => _buildError(e.toString(), ref),
+              data: (classes) {
+                if (classes.isEmpty) return _buildEmpty();
 
-          final now = DateTime.now();
-          final live = classes.where((c) {
+                final now = DateTime.now();
+                final live = classes.where((c) {
             final dt = DateTime.parse(c['scheduledAt'] as String).toLocal();
             return dt.isBefore(now.add(const Duration(minutes: 10))) &&
                 dt.isAfter(now.subtract(const Duration(minutes: 60)));
@@ -87,7 +150,10 @@ class _StudentLiveScreenState extends ConsumerState<StudentLiveScreen> {
           );
         },
       ),
-    );
+    ),
+  ],
+),
+);
   }
 
   Widget _buildLiveBanner(Map<String, dynamic> cls) {

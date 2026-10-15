@@ -15,6 +15,7 @@ import '../../widgets/unified_app_header.dart';
 import '../../providers/management_providers.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_shell.dart';
+import '../settings/browse_plans_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -362,7 +363,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                         ),
                                       const SizedBox(width: 8),
                                       ElevatedButton.icon(
-                                        onPressed: () {},
+                                        onPressed: () => Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const BrowsePlansScreen(),
+                                          ),
+                                        ),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: const Color(
                                             0xFF1F2E27,

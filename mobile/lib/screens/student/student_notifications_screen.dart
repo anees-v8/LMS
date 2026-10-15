@@ -20,11 +20,22 @@ class StudentNotificationsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.primaryDark,
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
         title: const Text(
           'Notifications',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Color(0xFF1E293B),
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            letterSpacing: -0.3,
+          ),
+        ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: Color(0xFFF1F5F9)),
         ),
       ),
       body: notificationsAsync.when(

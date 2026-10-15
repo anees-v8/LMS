@@ -10,6 +10,7 @@ import 'student_notifications_screen.dart';
 import 'student_scan_attendance_screen.dart';
 import 'student_profile_screen.dart';
 import '../../widgets/unified_app_header.dart';
+import '../../widgets/ask_doubt_bottom_sheet.dart';
 
 class StudentHomeScreen extends ConsumerWidget {
   const StudentHomeScreen({super.key});
@@ -541,26 +542,13 @@ class StudentHomeScreen extends ConsumerWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      "Today's Classes",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryDark,
-                      ),
-                    ),
-                    Text(
-                      'View All',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                child: const Text(
+                  "Today's Classes",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryDark,
+                  ),
                 ),
               ),
             ),
@@ -613,7 +601,116 @@ class StudentHomeScreen extends ConsumerWidget {
                 );
               },
             ),
+
+            // ── Doubt Solving Card ───────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0F3B2E), Color(0xFF1B5E20)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF1B5E20).withValues(alpha: 0.25),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF25D366).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFF25D366).withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.question_answer_rounded,
+                          color: Color(0xFF25D366),
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Have a Doubt?',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Ask your assigned mentors directly on WhatsApp',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        onPressed: () => showAskDoubtBottomSheet(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF25D366),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Ask Now',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_forward_rounded, size: 14),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showAskDoubtBottomSheet(context),
+        backgroundColor: const Color(0xFF25D366),
+        foregroundColor: Colors.white,
+        elevation: 6,
+        icon: const Icon(Icons.chat_rounded, size: 20),
+        label: const Text(
+          'Ask Doubt',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
         ),
       ),
     );

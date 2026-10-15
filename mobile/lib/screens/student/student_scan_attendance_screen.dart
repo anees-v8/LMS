@@ -4,6 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/student_providers.dart';
 import '../../services/api_service.dart';
+import '../../utils/app_toast.dart';
 
 /// Camera scanner for a teacher's attendance QR. Expiry/enrollment are
 /// validated server-side (see [scanAttendanceQr]) — this screen only
@@ -52,7 +53,9 @@ class _StudentScanAttendanceScreenState
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString().replaceFirst('ApiException: ', ''));
+      final msg = e.toString().replaceFirst('ApiException: ', '');
+      setState(() => _error = msg);
+      AppToast.showError(context, msg);
     } finally {
       if (mounted) setState(() => _processing = false);
     }
@@ -81,7 +84,9 @@ class _StudentScanAttendanceScreenState
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: AppColors.primaryDark,
+        backgroundColor: const Color(0xFF0F172A),
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Stack(

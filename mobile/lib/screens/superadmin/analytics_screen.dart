@@ -10,6 +10,7 @@ import 'subscriptions_screen.dart';
 import 'leads_screen.dart';
 import 'broadcast_admins_screen.dart';
 import 'notifications_screen.dart';
+import '../../providers/superadmin_providers.dart';
 import '../../widgets/analytics_top_card.dart';
 import '../../widgets/quick_action_icon.dart';
 import '../../widgets/management_overview_tile.dart';
@@ -74,41 +75,51 @@ class AnalyticsScreen extends ConsumerWidget {
             icon: const Icon(Icons.search, color: AppColors.textPrimary),
             onPressed: () {},
           ),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(
-                  Icons.notifications_outlined,
-                  color: AppColors.textPrimary,
-                ),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 8,
-                top: 12,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: AppColors.error,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Text(
-                    '8',
-                    style: TextStyle(
-                      color: AppColors.surface,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+          Consumer(
+            builder: (context, ref, _) {
+              final unreadCount =
+                  ref.watch(unreadLeadsCountProvider).asData?.value ?? 0;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.notifications_outlined,
+                      color: AppColors.textPrimary,
+                    ),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen(),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ],
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 6,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.error,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(
+                            color: AppColors.surface,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),

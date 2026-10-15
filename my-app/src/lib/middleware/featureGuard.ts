@@ -16,7 +16,10 @@ export type FeatureKey =
   | 'live_classes'
   | 'performance_reports'
   | 'online_tests'
-  | 'doubt_solving';
+  | 'doubt_solving'
+  | 'teacher_accounts'
+  | 'online_payments'
+  | 'website_request';
 
 interface PlanRow {
   features: string[];
@@ -44,6 +47,9 @@ const ALL_FEATURE_KEYS: FeatureKey[] = [
   'performance_reports',
   'online_tests',
   'doubt_solving',
+  'teacher_accounts',
+  'online_payments',
+  'website_request',
 ];
 
 /**

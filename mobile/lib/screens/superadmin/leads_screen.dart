@@ -28,29 +28,57 @@ class LeadsScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(
                 left: 20.0,
-                right: 20.0,
+                right: 12.0,
                 top: 10.0,
                 bottom: 20.0,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text(
-                    'Leads',
-                    style: TextStyle(
-                      fontFamily: 'Playfair Display',
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Leads',
+                          style: TextStyle(
+                            fontFamily: 'Playfair Display',
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Demo booking requests from the website',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Demo booking requests from the website',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 13,
-                    ),
+                  leadsAsync.maybeWhen(
+                    data: (leads) {
+                      final hasUnread = leads.any((l) => l['isRead'] != true);
+                      if (!hasUnread) return const SizedBox.shrink();
+                      return TextButton(
+                        onPressed: () async {
+                          await markAllLeadsRead(ref.read(apiServiceProvider));
+                          ref.invalidate(leadsProvider);
+                          ref.invalidate(unreadLeadsCountProvider);
+                        },
+                        child: const Text(
+                          'Mark all read',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    },
+                    orElse: () => const SizedBox.shrink(),
                   ),
                 ],
               ),
@@ -176,6 +204,7 @@ class LeadsScreen extends ConsumerWidget {
                                                 v,
                                               );
                                               ref.invalidate(leadsProvider);
+                                              ref.invalidate(unreadLeadsCountProvider);
                                             } catch (e) {
                                               if (context.mounted) {
                                                 ScaffoldMessenger.of(

@@ -50,10 +50,12 @@ final dashboardProvider = FutureProvider<Map<String, dynamic>>((ref) async {
     throw Exception('Unknown role: $userRole');
   }
 
-  // Role-specific cache key (includes month/year for admin)
+  // Role-specific cache key (includes tenant slug and month/year for admin)
+  final slug = authState.tenantSlug ?? '';
+  final prefix = slug.isNotEmpty ? '${slug}_' : '';
   final cacheKey = userRole == 'coaching_admin'
-      ? 'dashboard_admin_${selectedMonth.month}_${selectedMonth.year}'
-      : 'dashboard_$userRole';
+      ? '${prefix}dashboard_admin_${selectedMonth.month}_${selectedMonth.year}'
+      : '${prefix}dashboard_$userRole';
 
   final result = await api.cachedGet(endpoint, cacheKey: cacheKey);
   return result.data as Map<String, dynamic>;

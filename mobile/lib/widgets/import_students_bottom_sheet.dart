@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
+import '../utils/app_toast.dart';
 import '../widgets/custom_button.dart';
 import '../services/api_service.dart';
 
@@ -70,15 +71,12 @@ class _ImportStudentsSheetState extends State<ImportStudentsSheet> {
         params: SaveFileDialogParams(sourceFilePath: file.path),
       );
       if (saved != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sample file saved.'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppToast.showSuccess(context, 'Sample file saved.');
       }
     } catch (e) {
-      setState(() => _error = 'Download failed: ${friendlyErrorMessage(e)}');
+      final msg = 'Download failed: ${friendlyErrorMessage(e)}';
+      setState(() => _error = msg);
+      if (mounted) AppToast.showError(context, msg);
     } finally {
       if (mounted) setState(() => _downloading = false);
     }
@@ -102,7 +100,9 @@ class _ImportStudentsSheetState extends State<ImportStudentsSheet> {
   Future<void> _import() async {
     final picked = _selectedFile;
     if (picked == null || picked.path == null) {
-      setState(() => _error = 'Choose a filled Excel file first.');
+      const msg = 'Choose a filled Excel file first.';
+      setState(() => _error = msg);
+      AppToast.showError(context, msg);
       return;
     }
     setState(() {
@@ -148,7 +148,9 @@ class _ImportStudentsSheetState extends State<ImportStudentsSheet> {
       widget.onImported();
       await _showResultDialog(context, result);
     } catch (e) {
-      setState(() => _error = friendlyErrorMessage(e));
+      final msg = friendlyErrorMessage(e);
+      setState(() => _error = msg);
+      if (mounted) AppToast.showError(context, msg);
     } finally {
       if (mounted) setState(() => _importing = false);
     }
@@ -279,6 +281,37 @@ class _ImportStudentsSheetState extends State<ImportStudentsSheet> {
                   'Add many students at once instead of filling the form one by one.',
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
 
                 // Step 1 — sample
@@ -313,14 +346,6 @@ class _ImportStudentsSheetState extends State<ImportStudentsSheet> {
                     label: Text(_selectedFile == null ? 'Choose' : 'Change'),
                   ),
                 ),
-
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red, fontSize: 13),
-                  ),
-                ],
 
                 const SizedBox(height: 24),
                 SizedBox(

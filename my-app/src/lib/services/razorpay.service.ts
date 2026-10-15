@@ -19,6 +19,12 @@ interface SubscriptionRow {
   planCatalogId: number | null;
   billingCycle: string;
   perStudentRate: number | null;
+  studentCountSnapshot: number | null;
+  currentCycleAmount: number | null;
+  lastPaymentId?: string | null;
+  lastOrderId?: string | null;
+  lastPaymentAmount?: number | null;
+  lastPaidAt?: Date | null;
 }
 
 export interface CreateOrderResult {
@@ -125,13 +131,28 @@ export async function sendSubscriptionReceiptEmail(params: {
 
 async function getSubscription(tenantId: number): Promise<SubscriptionRow> {
   const { rows } = await query<SubscriptionRow>(
-    `SELECT id, plan, amount, status,
-            trial_ends_at AS "trialEndsAt",
-            next_billing_date AS "nextBillingDate",
-            plan_catalog_id AS "planCatalogId",
-            billing_cycle AS "billingCycle",
-            per_student_rate AS "perStudentRate"
-       FROM subscriptions WHERE tenant_id=$1`,
+    `SELECT s.id, s.plan, s.amount, s.status,
+            s.trial_ends_at AS "trialEndsAt",
+            s.next_billing_date AS "nextBillingDate",
+            s.plan_catalog_id AS "planCatalogId",
+            s.billing_cycle AS "billingCycle",
+            s.per_student_rate AS "perStudentRate",
+            s.student_count_snapshot AS "studentCountSnapshot",
+            s.current_cycle_amount AS "currentCycleAmount",
+            al.meta->>'paymentId' AS "lastPaymentId",
+            al.meta->>'orderId' AS "lastOrderId",
+            COALESCE((al.meta->>'amountDue')::numeric, s.amount) AS "lastPaymentAmount",
+            al.created_at AS "lastPaidAt"
+       FROM subscriptions s
+       LEFT JOIN LATERAL (
+         SELECT meta, created_at
+           FROM audit_log
+          WHERE tenant_id = s.tenant_id
+            AND action IN ('plan_upgraded', 'plan_downgraded', 'plan_resubscribed', 'payment_verified')
+          ORDER BY id DESC
+          LIMIT 1
+       ) al ON true
+      WHERE s.tenant_id = $1`,
     [tenantId]
   );
   if (!rows[0]) throw ApiError.notFound('NO_SUBSCRIPTION');

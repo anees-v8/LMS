@@ -32,7 +32,7 @@ class ProfileHeader extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1F2E27), Color(0xFF2E6656)],
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
         ),
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(32),

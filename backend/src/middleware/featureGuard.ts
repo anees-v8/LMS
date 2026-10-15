@@ -14,11 +14,14 @@ export type FeatureKey =
   | 'fee_management'
   | 'video_library'
   | 'whatsapp_reminders'
+  | 'email_notifications'
   | 'live_classes'
   | 'performance_reports'
   | 'online_tests'
   | 'doubt_solving'
-  | 'teacher_accounts';
+  | 'teacher_accounts'
+  | 'online_payments'
+  | 'website_request';
 
 interface PlanRow {
   features: string[];

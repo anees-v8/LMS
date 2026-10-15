@@ -6,7 +6,7 @@ import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_dropdown.dart';
 import '../../widgets/analytics_top_card.dart';
-import '../../theme/app_colors.dart';
+import '../../utils/app_toast.dart';
 import 'tenant_details_screen.dart';
 
 /// Super Admin's "Tenants" tab. List fields match `TenantListItem`:
@@ -701,10 +701,9 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
         _adminPhone.text.trim().isEmpty ||
         _adminEmail.text.trim().isEmpty ||
         _adminPassword.text.isEmpty) {
-      setState(
-        () => _error =
-            'Name, slug, admin name, phone, email and password are required.',
-      );
+      const msg = 'Name, slug, admin name, phone, email and password are required.';
+      setState(() => _error = msg);
+      AppToast.showError(context, msg);
       return;
     }
     setState(() {
@@ -727,12 +726,15 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
       if (mounted) {
         final nav = Navigator.of(context, rootNavigator: true);
         if (nav.canPop()) nav.pop();
+        AppToast.showSuccess(context, 'Institute created successfully');
       }
     } catch (e) {
+      final msg = friendlyErrorMessage(e);
       setState(() {
         _saving = false;
-        _error = friendlyErrorMessage(e);
+        _error = msg;
       });
+      if (mounted) AppToast.showError(context, msg);
     }
   }
 
@@ -786,6 +788,36 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
                   ),
                 ],
               ),
+              if (_error != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               CustomTextField(
                 label: 'Institute Name',
@@ -858,35 +890,6 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
                 controller: _adminPassword,
                 prefixIcon: Icons.lock_outline,
               ),
-              if (_error != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: Colors.red,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: 32),
               _saving
                   ? const Center(child: CircularProgressIndicator())
@@ -928,7 +931,9 @@ class _AssignPlanBottomSheetState
 
   Future<void> _submit() async {
     if (_planId == null) {
-      setState(() => _error = 'Choose a plan.');
+      const msg = 'Choose a plan.';
+      setState(() => _error = msg);
+      AppToast.showError(context, msg);
       return;
     }
     setState(() {
@@ -947,12 +952,15 @@ class _AssignPlanBottomSheetState
       if (mounted) {
         final nav = Navigator.of(context, rootNavigator: true);
         if (nav.canPop()) nav.pop();
+        AppToast.showSuccess(context, 'Plan assigned successfully');
       }
     } catch (e) {
+      final msg = friendlyErrorMessage(e);
       setState(() {
         _saving = false;
-        _error = friendlyErrorMessage(e);
+        _error = msg;
       });
+      if (mounted) AppToast.showError(context, msg);
     }
   }
 
@@ -1014,6 +1022,37 @@ class _AssignPlanBottomSheetState
                 ],
               ),
               const SizedBox(height: 8),
+              if (_error != null) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               subDetailAsync.when(
                 loading: () => const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
@@ -1072,35 +1111,6 @@ class _AssignPlanBottomSheetState
                 onChanged: (v) =>
                     setState(() => _billingCycle = v ?? 'monthly'),
               ),
-              if (_error != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: Colors.red,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: 32),
               _saving
                   ? const Center(child: CircularProgressIndicator())

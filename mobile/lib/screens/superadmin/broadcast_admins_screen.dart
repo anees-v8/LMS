@@ -4,6 +4,7 @@ import '../../providers/superadmin_providers.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_textfield.dart';
+import '../../utils/app_toast.dart';
 
 /// Super Admin composes a notification for coaching_admins — every
 /// institute platform-wide, or filtered by city/area.
@@ -32,7 +33,9 @@ class _BroadcastAdminsScreenState extends ConsumerState<BroadcastAdminsScreen> {
 
   Future<void> _send() async {
     if (_title.text.trim().isEmpty) {
-      setState(() => _error = 'Title is required.');
+      const msg = 'Title is required.';
+      setState(() => _error = msg);
+      AppToast.showError(context, msg);
       return;
     }
     setState(() {
@@ -48,19 +51,19 @@ class _BroadcastAdminsScreenState extends ConsumerState<BroadcastAdminsScreen> {
       );
       if (mounted) {
         final count = result['recipientCount'] ?? 0;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Sent to $count admin(s).')));
+        AppToast.showSuccess(context, 'Sent to $count admin(s).');
         _title.clear();
         _body.clear();
         _city.clear();
         setState(() => _sending = false);
       }
     } catch (e) {
+      final msg = friendlyErrorMessage(e);
       setState(() {
         _sending = false;
-        _error = friendlyErrorMessage(e);
+        _error = msg;
       });
+      if (mounted) AppToast.showError(context, msg);
     }
   }
 
@@ -125,6 +128,37 @@ class _BroadcastAdminsScreenState extends ConsumerState<BroadcastAdminsScreen> {
                         'This goes to every coaching_admin — across every institute, or just one city.',
                         style: TextStyle(color: Colors.grey),
                       ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _error!,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       CustomTextField(
                         label: 'Title',
@@ -144,13 +178,6 @@ class _BroadcastAdminsScreenState extends ConsumerState<BroadcastAdminsScreen> {
                         prefixIcon: Icons.location_on_outlined,
                         controller: _city,
                       ),
-                      if (_error != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          _error!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ],
                       const SizedBox(height: 24),
                       _sending
                           ? const Center(child: CircularProgressIndicator())

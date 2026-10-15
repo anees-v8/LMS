@@ -30,6 +30,7 @@ class StudentDetailsScreen extends ConsumerStatefulWidget {
 class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool? _localIsActive;
 
   @override
   void initState() {
@@ -72,6 +73,10 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
     final pendingFees = detailsPending is num
         ? detailsPending
         : num.tryParse(s['pendingFees']?.toString() ?? '0') ?? 0;
+
+    final backendIsActive = details?['student']?['isActive'] as bool?;
+    final parentIsActive = s['isActive'] as bool?;
+    final isActive = _localIsActive ?? backendIsActive ?? (parentIsActive != false);
 
     final tabBar = TabBar(
       controller: _tabController,
@@ -138,6 +143,7 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                     batchName: batchName,
                     attendance: attendance,
                     pendingFees: pendingFees,
+                    isActive: isActive,
                   ),
                 ),
                 // Tab bar is part of the SliverAppBar so it's absorbed too
@@ -190,6 +196,7 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
     required String batchName,
     required num attendance,
     required num pendingFees,
+    required bool isActive,
   }) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWide = screenWidth >= 720;
@@ -259,13 +266,22 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.successLight,
+                                  color: isActive
+                                      ? AppColors.successLight
+                                      : Colors.red.shade50,
                                   borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isActive
+                                        ? AppColors.success.withValues(alpha: 0.3)
+                                        : Colors.red.shade200,
+                                  ),
                                 ),
-                                child: const Text(
-                                  'Active',
+                                child: Text(
+                                  isActive ? 'Active' : 'Suspended',
                                   style: TextStyle(
-                                    color: AppColors.success,
+                                    color: isActive
+                                        ? AppColors.success
+                                        : Colors.red.shade700,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -413,15 +429,21 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                             child: Row(
                               children: [
                                 Icon(
-                                  Icons.block,
+                                  isActive
+                                      ? Icons.block
+                                      : Icons.check_circle_outline,
                                   size: 20,
-                                  color: Colors.red.shade600,
+                                  color: isActive
+                                      ? Colors.red.shade600
+                                      : Colors.green.shade600,
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                  'Suspend',
+                                  isActive ? 'Suspend' : 'Unsuspend',
                                   style: TextStyle(
-                                    color: Colors.red.shade600,
+                                    color: isActive
+                                        ? Colors.red.shade600
+                                        : Colors.green.shade600,
                                     fontSize: 14,
                                   ),
                                 ),
@@ -464,7 +486,7 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                           );
                         }
                       } else if (selected == 'suspend') {
-                        _confirmSuspend(context);
+                        _confirmSuspend(context, isActive);
                       } else if (selected == 'delete') {
                         _confirmDelete(context);
                       }
@@ -1162,22 +1184,33 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
     );
   }
 
-  void _confirmSuspend(BuildContext context) {
+  void _confirmSuspend(BuildContext context, bool currentIsActive) {
     final studentName =
         widget.student['fullName']?.toString() ?? 'this student';
+    final willSuspend = currentIsActive;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.block, color: Colors.red, size: 22),
-            SizedBox(width: 8),
-            Text('Suspend Student', style: TextStyle(fontSize: 17)),
+            Icon(
+              willSuspend ? Icons.block : Icons.check_circle_outline,
+              color: willSuspend ? Colors.red : Colors.green,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              willSuspend ? 'Suspend Student' : 'Unsuspend Student',
+              style: const TextStyle(fontSize: 17),
+            ),
           ],
         ),
         content: Text(
-          'Are you sure you want to suspend $studentName?\n\nThey will not be able to login until unsuspended.',
+          willSuspend
+              ? 'Are you sure you want to suspend $studentName?\n\nThey will not be able to login until unsuspended.'
+              : 'Are you sure you want to unsuspend $studentName?\n\nThey will regain access to their account.',
           style: const TextStyle(fontSize: 14),
         ),
         actions: [
@@ -1187,7 +1220,7 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: willSuspend ? Colors.red : Colors.green,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -1200,7 +1233,14 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
               try {
                 final api = ref.read(apiServiceProvider);
                 final result = await mgmt.suspendStudent(api, studentId);
-                final isSuspended = result['isSuspended'] as bool? ?? true;
+                final isSuspended =
+                    result['isSuspended'] as bool? ?? willSuspend;
+                setState(() {
+                  _localIsActive = !isSuspended;
+                  widget.student['isActive'] = !isSuspended;
+                });
+                ref.invalidate(mgmt.studentsProvider);
+                ref.invalidate(mgmt.studentDetailsProvider(studentId));
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -1222,7 +1262,7 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                 );
               }
             },
-            child: const Text('Suspend'),
+            child: Text(willSuspend ? 'Suspend' : 'Unsuspend'),
           ),
         ],
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/management_providers.dart';
 import '../services/api_service.dart';
+import '../utils/app_toast.dart';
 import 'custom_dropdown.dart';
 
 /// Shows the "Assign to Batch" bottom sheet for a teacher — picks a batch,
@@ -19,9 +20,7 @@ Future<void> showAssignTeacherBottomSheet(
   final batches = await ref.read(batchesProvider.future);
   if (!context.mounted) return;
   if (batches.isEmpty) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Create a batch first.')));
+    AppToast.showError(context, 'Create a batch first.');
     return;
   }
   await showModalBottomSheet(
@@ -81,7 +80,9 @@ class _AssignTeacherBottomSheetState
 
   Future<void> _submit() async {
     if (_batchId == null || _subjectId == null) {
-      setState(() => _error = 'Batch and subject are required.');
+      const msg = 'Batch and subject are required.';
+      setState(() => _error = msg);
+      AppToast.showError(context, msg);
       return;
     }
     setState(() {
@@ -108,10 +109,12 @@ class _AssignTeacherBottomSheetState
         }
       }
     } catch (e) {
+      final msg = friendlyErrorMessage(e);
       setState(() {
         _saving = false;
-        _error = friendlyErrorMessage(e);
+        _error = msg;
       });
+      if (mounted) AppToast.showError(context, msg);
     }
   }
 
@@ -177,6 +180,36 @@ class _AssignTeacherBottomSheetState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (_error != null) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   CustomDropdown<int>(
                     label: 'Batch',
                     hint: 'Select a batch',
@@ -221,35 +254,6 @@ class _AssignTeacherBottomSheetState
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 12,
-                      ),
-                    ),
-                  ],
-                  if (_error != null) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.error_outline,
-                            color: Colors.red,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _error!,
-                              style: const TextStyle(
-                                color: Colors.red,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ],

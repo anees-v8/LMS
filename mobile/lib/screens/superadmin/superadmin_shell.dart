@@ -82,7 +82,8 @@ class _MoreIconWithUnreadBadge extends ConsumerWidget {
     final count = unreadAsync.asData?.value ?? 0;
     return Badge(
       isLabelVisible: count > 0,
-      label: Text('$count'),
+      label: Text(count > 99 ? '99+' : '$count'),
+      backgroundColor: const Color(0xFFEF4444),
       child: const Icon(Icons.more_horiz),
     );
   }

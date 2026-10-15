@@ -91,7 +91,12 @@ export const receipt = asyncHandler(async (req: Request, res: Response) =>
 
 export const askDoubt = asyncHandler(async (req: Request, res: Response) => {
   const chapter = typeof req.query.chapter === 'string' ? req.query.chapter : undefined;
-  res.json(await svc.askDoubt(tenantId(req), userId(req), Number(req.query.teacherId), chapter));
+  const teacherId = req.query.teacherId ? Number(req.query.teacherId) : undefined;
+  res.json(await svc.askDoubt(tenantId(req), userId(req), teacherId, chapter));
+});
+
+export const listTeachers = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await svc.listStudentTeachers(tenantId(req), userId(req)));
 });
 
 /* Notifications */

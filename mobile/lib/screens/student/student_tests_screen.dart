@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
-import 'student_active_quiz_screen.dart';
-import 'student_test_result_screen.dart';
-
-import '../../providers/student_providers.dart';
-import '../../services/api_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/student_providers.dart';
+import '../../services/api_service.dart';
+import '../../theme/app_colors.dart';
+import '../../widgets/unified_app_header.dart';
+import 'student_active_quiz_screen.dart';
+import 'student_test_result_screen.dart';
+import 'student_notifications_screen.dart';
+import 'student_scan_attendance_screen.dart';
+import 'student_profile_screen.dart';
 
 class StudentTestsScreen extends ConsumerStatefulWidget {
   const StudentTestsScreen({super.key});
@@ -33,44 +37,137 @@ class _StudentTestsScreenState extends ConsumerState<StudentTestsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final studentName = authState.fullName ?? 'Student';
+    final instituteName = authState.instituteName ?? 'Academy';
+    final unreadCount =
+        ref.watch(studentUnreadNotificationCountProvider).asData?.value ?? 0;
+
+    final parts = studentName.trim().split(' ');
+    final initials = parts.length > 1
+        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+        : (studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S');
+
     final testsAsync = ref.watch(studentTestsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primaryDark,
-        title: const Text(
-          'Assessments',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        automaticallyImplyLeading: false,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: const Color(0xFFA87D26),
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          labelStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-          ),
-          tabs: testsAsync.when(
-            data: (data) {
-              final aCount = (data['active'] as List?)?.length ?? 0;
-              final cCount = (data['completed'] as List?)?.length ?? 0;
-              return [
-                Tab(text: 'Active ($aCount)'),
-                Tab(text: 'Completed ($cCount)'),
-              ];
-            },
-            loading: () => const [Tab(text: 'Active'), Tab(text: 'Completed')],
-            error: (_, err) => const [
-              Tab(text: 'Active'),
-              Tab(text: 'Completed'),
-            ],
-          ),
-        ),
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: UnifiedAppHeader(
+        title: studentName,
+        subtitle: instituteName,
+        initials: initials,
+        unreadNotificationsCount: unreadCount,
+        onProfileTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const StudentProfileScreen(),
+            ),
+          );
+        },
+        onQrTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const StudentScanAttendanceScreen(),
+            ),
+          );
+        },
+        onNotificationsTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const StudentNotificationsScreen(),
+            ),
+          ).then(
+            (_) => ref.invalidate(studentUnreadNotificationCountProvider),
+          );
+        },
       ),
-      body: testsAsync.when(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Assessments',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Track tests, quizzes & results',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  height: 44,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: TabBar(
+                    controller: _tabController,
+                    indicator: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    dividerColor: Colors.transparent,
+                    labelColor: AppColors.primaryDark,
+                    unselectedLabelColor: const Color(0xFF64748B),
+                    labelStyle: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    tabs: testsAsync.when(
+                      data: (data) {
+                        final aCount = (data['active'] as List?)?.length ?? 0;
+                        final cCount = (data['completed'] as List?)?.length ?? 0;
+                        return [
+                          Tab(text: 'Active ($aCount)'),
+                          Tab(text: 'Completed ($cCount)'),
+                        ];
+                      },
+                      loading: () => const [
+                        Tab(text: 'Active'),
+                        Tab(text: 'Completed'),
+                      ],
+                      error: (_, __) => const [
+                        Tab(text: 'Active'),
+                        Tab(text: 'Completed'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: testsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text(friendlyErrorMessage(err))),
         data: (data) {
@@ -168,7 +265,10 @@ class _StudentTestsScreenState extends ConsumerState<StudentTestsScreen>
           );
         },
       ),
-    );
+    ),
+  ],
+),
+);
   }
 }
 

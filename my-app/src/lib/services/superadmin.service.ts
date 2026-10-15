@@ -56,10 +56,37 @@ export async function registerTenant(
 
   return withTransaction(async (client) => {
     const existing = await client.query(`SELECT 1 FROM tenants WHERE slug = $1`, [slug]);
-    if (existing.rowCount) throw ApiError.conflict('SLUG_TAKEN', 'This slug is already in use');
+    if (existing.rowCount) throw ApiError.conflict('SLUG_TAKEN', 'This slug / institute URL is already taken');
 
     const emailTaken = await client.query(`SELECT 1 FROM users WHERE lower(email) = lower($1)`, [adminEmail]);
     if (emailTaken.rowCount) throw ApiError.conflict('EMAIL_TAKEN', 'This email is already in use by another account');
+
+    const phoneTaken = await client.query(
+      `SELECT u.role, u.full_name, t.name as tenant_name 
+       FROM users u 
+       LEFT JOIN tenants t ON t.id = u.tenant_id 
+       WHERE u.phone = $1`,
+      [adminPhone]
+    );
+    if (phoneTaken.rowCount) {
+      const u = phoneTaken.rows[0];
+      const roleStr = u.role === 'teacher' ? 'a teacher' : u.role === 'student' ? 'a student' : u.role === 'coaching_admin' ? 'an institute admin' : 'another user';
+      const instituteStr = u.tenant_name ? ` at "${u.tenant_name}"` : '';
+      throw ApiError.conflict(
+        'PHONE_TAKEN',
+        `This admin phone number is already registered to ${roleStr} (${u.full_name}${instituteStr}). Please use a different phone number.`
+      );
+    }
+
+    if (contactPhone) {
+      const contactTaken = await client.query(`SELECT name FROM tenants WHERE contact_phone = $1`, [contactPhone]);
+      if (contactTaken.rowCount) {
+        throw ApiError.conflict(
+          'CONTACT_PHONE_TAKEN',
+          `Contact phone number is already registered for "${contactTaken.rows[0].name}". Please use a different number.`
+        );
+      }
+    }
 
     const tenant = (
       await client.query<TenantResult>(

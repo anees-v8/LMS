@@ -40,7 +40,7 @@ class _StudentSubjectDetailsScreenState
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             pinned: true,
-            backgroundColor: AppColors.primaryDark,
+            backgroundColor: color,
             expandedHeight: 160,
             iconTheme: const IconThemeData(color: Colors.white),
             flexibleSpace: FlexibleSpaceBar(
