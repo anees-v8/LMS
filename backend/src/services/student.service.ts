@@ -97,12 +97,12 @@ export async function dashboard(tenantId: number, userId: number): Promise<Stude
 
   const fees = (
     await query<{ pending: number }>(
-      `SELECT
-       COALESCE((SELECT sum(f.amount) FROM fee_structures f
-                  WHERE f.tenant_id=$1 AND f.batch_id = ANY($2::int[])),0)::int
-       - COALESCE((SELECT sum(amount_paid) FROM fee_payments WHERE tenant_id=$1 AND student_id=$3),0)::int
-         AS pending`,
-      [tenantId, safeBatches, studentId]
+      `SELECT GREATEST(0,
+       COALESCE((SELECT sum(fd.amount) FROM fee_dues fd
+                  WHERE fd.tenant_id=$1 AND fd.student_id=$2),0)::int
+       - COALESCE((SELECT sum(amount_paid) FROM fee_payments WHERE tenant_id=$1 AND student_id=$2),0)::int
+       )::int AS pending`,
+      [tenantId, studentId]
     )
   ).rows[0];
 
@@ -318,10 +318,10 @@ export async function fees(tenantId: number, userId: number): Promise<StudentFee
   const totals = (
     await query<{ total: number; paid: number }>(
       `SELECT
-       COALESCE((SELECT sum(f.amount) FROM fee_structures f
-                  WHERE f.tenant_id=$1 AND f.batch_id = ANY($2::int[])),0)::int AS total,
-       COALESCE((SELECT sum(amount_paid) FROM fee_payments WHERE tenant_id=$1 AND student_id=$3),0)::int AS paid`,
-      [tenantId, safeBatches, studentId]
+       COALESCE((SELECT sum(fd.amount) FROM fee_dues fd
+                  WHERE fd.tenant_id=$1 AND fd.student_id=$2),0)::int AS total,
+       COALESCE((SELECT sum(amount_paid) FROM fee_payments WHERE tenant_id=$1 AND student_id=$2),0)::int AS paid`,
+      [tenantId, studentId]
     )
   ).rows[0];
 

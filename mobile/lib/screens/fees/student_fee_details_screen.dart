@@ -45,7 +45,7 @@ class _StudentFeeDetailsScreenState
   @override
   Widget build(BuildContext context) {
     final s = widget.student;
-    final studentId = s['id'] as int;
+    final studentId = (s['id'] as num?)?.toInt() ?? 0;
 
     // Fetch detailed data from backend
     final detailsAsync = ref.watch(mgmt.studentDetailsProvider(studentId));
@@ -266,190 +266,53 @@ class _StudentFeeDetailsScreenState
     bool isLoading,
     bool hasError,
   ) {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
-    if (hasError)
-      return const Center(
-        child: Text(
-          'Failed to load details',
-          style: TextStyle(color: Colors.red),
-        ),
-      );
-
-    final feesData = details?['fees'] as Map<String, dynamic>?;
-    final history = feesData?['history'] as List<dynamic>? ?? [];
-
-    if (history.isEmpty) {
-      return const Center(
-        child: Text(
-          'No payments recorded yet.',
-          style: TextStyle(color: Colors.grey),
-        ),
-      );
-    }
-
-    final studentInfo = details?['student'] as Map<String, dynamic>?;
-    final rollNo = studentInfo?['roll_no']?.toString() ?? 'N/A';
-    final grade = studentInfo?['grade']?.toString() ?? 'N/A';
-    final fullName = s['fullName']?.toString() ?? 'Unknown Student';
-
     return Builder(
       builder: (BuildContext context) {
+        final feesData = details?['fees'] as Map<String, dynamic>?;
+        final history = feesData?['history'] as List<dynamic>? ?? [];
+        final studentInfo = details?['student'] as Map<String, dynamic>?;
+        final rollNo = studentInfo?['roll_no']?.toString() ?? 'N/A';
+        final grade = studentInfo?['grade']?.toString() ?? 'N/A';
+        final fullName = s['fullName']?.toString() ?? 'Unknown Student';
+        final pendingBalance = (feesData?['overview']?['pending'] as num?) ??
+            (feesData?['pending'] as num?) ??
+            (s['pendingFee'] as num?);
+
         return CustomScrollView(
           slivers: [
             SliverOverlapInjector(
               handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
             ),
-            SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final h = history[index] as Map<String, dynamic>;
-                return PaymentHistoryRow(
-                  date: h['date'] != null
-                      ? DateFormat(
-                          'dd MMM yyyy',
-                        ).format(DateTime.parse(h['date'].toString()))
-                      : 'N/A',
-                  amount: '${h['amount'] ?? 0}',
-                  method: h['method']?.toString() ?? 'N/A',
-                  receiptNo: h['receiptNo']?.toString() ?? 'N/A',
-                  onDownload: () {
-                    final tenantName = ref.read(authProvider).instituteName ?? 'Apex Educational Institute';
-                    ReceiptService.downloadStudentFeeReceipt(
-                      context: context,
-                      instituteName: tenantName,
-                      studentName: fullName,
-                      rollNo: rollNo,
-                      gradeOrBatch: grade,
-                      receiptNo: h['receiptNo']?.toString() ?? 'REC-${DateTime.now().millisecondsSinceEpoch}',
-                      amount: h['amount'] ?? 0,
-                      date: h['date']?.toString() ?? DateTime.now().toIso8601String(),
-                      paymentMethod: h['method']?.toString(),
-                      description: h['description']?.toString(),
-                      pendingBalance: feesData?['pending'] as num?,
-                    );
-                  },
-                );
-              }, childCount: history.length),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildInstallmentsTab(
-    Map<String, dynamic> s,
-    Map<String, dynamic>? details,
-    bool isLoading,
-    bool hasError,
-  ) {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
-    if (hasError)
-      return const Center(
-        child: Text(
-          'Failed to load details',
-          style: TextStyle(color: Colors.red),
-        ),
-      );
-
-    final feesData = details?['fees'] as Map<String, dynamic>?;
-    final installments = feesData?['installments'] as List<dynamic>? ?? [];
-
-    if (installments.isEmpty) {
-      return const Center(
-        child: Text(
-          'No installments found.',
-          style: TextStyle(color: Colors.grey),
-        ),
-      );
-    }
-
-    return Builder(
-      builder: (BuildContext context) {
-        return CustomScrollView(
-          slivers: [
-            SliverOverlapInjector(
-              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-            ),
-            SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final inst = installments[index] as Map<String, dynamic>;
-                return InstallmentRow(
-                  index: index + 1,
-                  title: inst['title']?.toString() ?? 'Installment',
-                  dueDate: inst['dueDate'] != null
-                      ? DateFormat(
-                          'dd MMM yyyy',
-                        ).format(DateTime.parse(inst['dueDate'].toString()))
-                      : 'No Due Date',
-                  amount: inst['amount'] as num? ?? 0,
-                  status: inst['status']?.toString() ?? 'Pending',
-                );
-              }, childCount: installments.length),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildReceiptsTab(
-    Map<String, dynamic> s,
-    Map<String, dynamic>? details,
-    bool isLoading,
-    bool hasError,
-  ) {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
-    if (hasError)
-      return const Center(
-        child: Text(
-          'Failed to load details',
-          style: TextStyle(color: Colors.red),
-        ),
-      );
-
-    final feesData = details?['fees'] as Map<String, dynamic>?;
-    final history = feesData?['history'] as List<dynamic>? ?? [];
-
-    if (history.isEmpty) {
-      return const Center(
-        child: Text(
-          'No receipts available.',
-          style: TextStyle(color: Colors.grey),
-        ),
-      );
-    }
-
-    final studentInfo = details?['student'] as Map<String, dynamic>?;
-    final rollNo = studentInfo?['roll_no']?.toString() ?? 'N/A';
-    final grade = studentInfo?['grade']?.toString() ?? 'N/A';
-    final fullName = s['fullName']?.toString() ?? 'Unknown Student';
-
-    return Builder(
-      builder: (BuildContext context) {
-        return CustomScrollView(
-          slivers: [
-            SliverOverlapInjector(
-              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-            ),
-            SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final h = history[index] as Map<String, dynamic>;
-                return InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ReceiptScreen(
-                          tenantName: 'Apex Educational Institute',
-                          studentName: fullName,
-                          rollNo: rollNo,
-                          grade: grade,
-                          paymentData: h,
-                        ),
-                      ),
-                    );
-                  },
-                  child: PaymentHistoryRow(
+            if (isLoading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (hasError)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    'Failed to load details',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              )
+            else if (history.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    'No payments recorded yet.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final h = history[index] as Map<String, dynamic>;
+                  return PaymentHistoryRow(
                     date: h['date'] != null
                         ? DateFormat(
                             'dd MMM yyyy',
@@ -471,13 +334,179 @@ class _StudentFeeDetailsScreenState
                         date: h['date']?.toString() ?? DateTime.now().toIso8601String(),
                         paymentMethod: h['method']?.toString(),
                         description: h['description']?.toString(),
-                        pendingBalance: feesData?['pending'] as num?,
+                        pendingBalance: pendingBalance,
                       );
                     },
-                  ),
-                );
-              }, childCount: history.length),
+                  );
+                }, childCount: history.length),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInstallmentsTab(
+    Map<String, dynamic> s,
+    Map<String, dynamic>? details,
+    bool isLoading,
+    bool hasError,
+  ) {
+    return Builder(
+      builder: (BuildContext context) {
+        final feesData = details?['fees'] as Map<String, dynamic>?;
+        final installments = feesData?['installments'] as List<dynamic>? ?? [];
+
+        return CustomScrollView(
+          slivers: [
+            SliverOverlapInjector(
+              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
             ),
+            if (isLoading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (hasError)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    'Failed to load details',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              )
+            else if (installments.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    'No installments found.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final inst = installments[index] as Map<String, dynamic>;
+                  return InstallmentRow(
+                    index: index + 1,
+                    title: inst['title']?.toString() ?? 'Installment',
+                    dueDate: inst['dueDate'] != null
+                        ? DateFormat(
+                            'dd MMM yyyy',
+                          ).format(DateTime.parse(inst['dueDate'].toString()))
+                        : 'No Due Date',
+                    amount: inst['amount'] as num? ?? 0,
+                    status: inst['status']?.toString() ?? 'Pending',
+                  );
+                }, childCount: installments.length),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildReceiptsTab(
+    Map<String, dynamic> s,
+    Map<String, dynamic>? details,
+    bool isLoading,
+    bool hasError,
+  ) {
+    return Builder(
+      builder: (BuildContext context) {
+        final feesData = details?['fees'] as Map<String, dynamic>?;
+        final history = feesData?['history'] as List<dynamic>? ?? [];
+        final studentInfo = details?['student'] as Map<String, dynamic>?;
+        final rollNo = studentInfo?['roll_no']?.toString() ?? 'N/A';
+        final grade = studentInfo?['grade']?.toString() ?? 'N/A';
+        final fullName = s['fullName']?.toString() ?? 'Unknown Student';
+        final pendingBalance = (feesData?['overview']?['pending'] as num?) ??
+            (feesData?['pending'] as num?) ??
+            (s['pendingFee'] as num?);
+
+        return CustomScrollView(
+          slivers: [
+            SliverOverlapInjector(
+              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+            ),
+            if (isLoading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (hasError)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    'Failed to load details',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              )
+            else if (history.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    'No receipts available.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final h = history[index] as Map<String, dynamic>;
+                  return InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ReceiptScreen(
+                            tenantName: ref.read(authProvider).instituteName ?? 'Apex Educational Institute',
+                            studentName: fullName,
+                            rollNo: rollNo,
+                            grade: grade,
+                            paymentData: h,
+                            pendingBalance: pendingBalance,
+                          ),
+                        ),
+                      );
+                    },
+                    child: PaymentHistoryRow(
+                      date: h['date'] != null
+                          ? DateFormat(
+                              'dd MMM yyyy',
+                            ).format(DateTime.parse(h['date'].toString()))
+                          : 'N/A',
+                      amount: '${h['amount'] ?? 0}',
+                      method: h['method']?.toString() ?? 'N/A',
+                      receiptNo: h['receiptNo']?.toString() ?? 'N/A',
+                      onDownload: () {
+                        final tenantName = ref.read(authProvider).instituteName ?? 'Apex Educational Institute';
+                        ReceiptService.downloadStudentFeeReceipt(
+                          context: context,
+                          instituteName: tenantName,
+                          studentName: fullName,
+                          rollNo: rollNo,
+                          gradeOrBatch: grade,
+                          receiptNo: h['receiptNo']?.toString() ?? 'REC-${DateTime.now().millisecondsSinceEpoch}',
+                          amount: h['amount'] ?? 0,
+                          date: h['date']?.toString() ?? DateTime.now().toIso8601String(),
+                          paymentMethod: h['method']?.toString(),
+                          description: h['description']?.toString(),
+                          pendingBalance: pendingBalance,
+                        );
+                      },
+                    ),
+                  );
+                }, childCount: history.length),
+              ),
           ],
         );
       },
@@ -721,7 +750,7 @@ class _StudentFeeDetailsScreenState
                 () => showRecordPaymentBottomSheet(
                   context,
                   ref,
-                  prefillStudentId: s['id'] as int,
+                  prefillStudentId: (s['id'] as num?)?.toInt() ?? 0,
                 ),
               ),
               const SizedBox(width: 8),
@@ -744,6 +773,9 @@ class _StudentFeeDetailsScreenState
                   if (history.isNotEmpty) {
                     final h = history.first as Map<String, dynamic>;
                     final tenantName = ref.read(authProvider).instituteName ?? 'Apex Educational Institute';
+                    final pendingBalance = (feesData?['overview']?['pending'] as num?) ??
+                        (feesData?['pending'] as num?) ??
+                        (s['pendingFee'] as num?);
                     ReceiptService.downloadStudentFeeReceipt(
                       context: context,
                       instituteName: tenantName,
@@ -755,7 +787,7 @@ class _StudentFeeDetailsScreenState
                       date: h['date']?.toString() ?? DateTime.now().toIso8601String(),
                       paymentMethod: h['method']?.toString(),
                       description: h['description']?.toString(),
-                      pendingBalance: feesData?['pending'] as num?,
+                      pendingBalance: pendingBalance,
                     );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(

@@ -361,7 +361,7 @@ export async function getTenantDashboard(tenantId: number, month?: number, year?
       (SELECT COALESCE(sum(amount_paid),0)::int FROM fee_payments WHERE tenant_id = $1 AND paid_on < $3::date) AS "feesCollected",
       (SELECT COALESCE(sum(amount_paid),0)::int FROM fee_payments WHERE tenant_id = $1 AND paid_on >= $2::date AND paid_on < $3::date) AS "feesCollectedThisMonth",
       (SELECT COALESCE(sum(amount_paid),0)::int FROM fee_payments WHERE tenant_id = $1 AND paid_on >= $4::date AND paid_on < $2::date) AS "feesCollectedLastMonth",
-      (SELECT COALESCE(sum(amount),0)::int FROM fee_structures WHERE tenant_id = $1) AS "totalFees"
+      (SELECT COALESCE(sum(amount),0)::int FROM fee_dues WHERE tenant_id = $1) AS "totalFees"
   `, [tenantId, startDateStr, endDateStr, lastMonthStartDateStr]);
   
   const stats = rows[0];

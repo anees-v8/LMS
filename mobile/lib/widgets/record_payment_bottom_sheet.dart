@@ -60,8 +60,6 @@ class _RecordPaymentBottomSheetState
     if (widget.prefillStudentId != null &&
         widget.students.any((s) => s['id'] == widget.prefillStudentId)) {
       _studentId = widget.prefillStudentId;
-    } else if (widget.students.isNotEmpty) {
-      _studentId = widget.students.first['id'] as int?;
     }
   }
 

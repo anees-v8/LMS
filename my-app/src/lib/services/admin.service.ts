@@ -874,6 +874,9 @@ export async function getStudentDetails(tenantId: number, id: number) {
       }))
     },
     fees: {
+      pending: Math.max(0, totalFees - totalPaid),
+      total: totalFees,
+      paid: totalPaid,
       overview: {
         total: totalFees,
         paid: totalPaid,
@@ -887,6 +890,7 @@ export async function getStudentDetails(tenantId: number, id: number) {
         amount: f.amount,
         status: 'Paid',
         desc: f.desc,
+        description: f.desc,
         method: f.method,
         receiptNo: f.receiptNo
       }))

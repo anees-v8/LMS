@@ -9,6 +9,7 @@ class ReceiptScreen extends StatelessWidget {
   final String rollNo;
   final String grade;
   final Map<String, dynamic> paymentData;
+  final num? pendingBalance;
 
   const ReceiptScreen({
     super.key,
@@ -17,6 +18,7 @@ class ReceiptScreen extends StatelessWidget {
     required this.rollNo,
     required this.grade,
     required this.paymentData,
+    this.pendingBalance,
   });
 
   Future<void> _printReceipt(BuildContext context) async {
@@ -31,6 +33,7 @@ class ReceiptScreen extends StatelessWidget {
       date: paymentData['date']?.toString() ?? DateTime.now().toIso8601String(),
       paymentMethod: paymentData['method']?.toString(),
       description: paymentData['desc']?.toString() ?? paymentData['description']?.toString(),
+      pendingBalance: pendingBalance,
     );
   }
 
@@ -195,6 +198,29 @@ class ReceiptScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (pendingBalance != null) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Remaining Due',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        Text(
+                          pendingBalance! > 0 ? '₹$pendingBalance' : '₹0 (Cleared)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: pendingBalance! > 0 ? const Color(0xFFC0392B) : const Color(0xFF2E6656),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 32),
                   const Center(
                     child: Text(

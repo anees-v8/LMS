@@ -248,11 +248,11 @@ export async function listStudents(tenantId: number, batchId: number | null): Pr
         WHERE fp.tenant_id = $1
         GROUP BY fp.student_id
       ),
-      batch_fees AS (
-        SELECT fs.batch_id, COALESCE(SUM(fs.amount), 0) AS total_due
-        FROM fee_structures fs
-        WHERE fs.tenant_id = $1
-        GROUP BY fs.batch_id
+      student_dues AS (
+        SELECT fd.student_id, COALESCE(SUM(fd.amount), 0) AS total_due
+        FROM fee_dues fd
+        WHERE fd.tenant_id = $1
+        GROUP BY fd.student_id
       )
       SELECT s.id, 
              u.full_name AS "fullName", 
@@ -262,7 +262,7 @@ export async function listStudents(tenantId: number, batchId: number | null): Pr
              s.parent_phone AS "parentPhone", 
              u.phone,
              b.name AS "batchName",
-             (COALESCE(bf.total_due, 0) - COALESCE(sf.total_paid, 0)) AS "pendingFees",
+             (COALESCE(sd.total_due, 0) - COALESCE(sf.total_paid, 0)) AS "pendingFees",
              CASE 
                WHEN sa.total_days > 0 THEN ROUND((sa.present_days::numeric / sa.total_days::numeric) * 100)
                ELSE 0 
@@ -273,7 +273,7 @@ export async function listStudents(tenantId: number, batchId: number | null): Pr
       LEFT JOIN batches b ON b.id = be.batch_id
       LEFT JOIN student_attendance sa ON sa.student_id = s.id
       LEFT JOIN student_fees sf ON sf.student_id = s.id
-      LEFT JOIN batch_fees bf ON bf.batch_id = b.id
+      LEFT JOIN student_dues sd ON sd.student_id = s.id
       WHERE s.tenant_id = $1 ${join}
       ORDER BY u.full_name
     `,
@@ -504,29 +504,28 @@ export async function getStudentDetails(tenantId: number, id: number) {
        fp.amount_paid AS "amount",
        fp.method,
        fp.receipt_no AS "receiptNo",
-       COALESCE(fs.title, 'Payment') AS "desc"
+       COALESCE(fd.title, 'Payment') AS "desc"
      FROM fee_payments fp
-     LEFT JOIN fee_structures fs ON fs.id = fp.fee_structure_id
+     LEFT JOIN fee_dues fd ON fd.id = fp.fee_due_id
      WHERE fp.student_id = $1 AND fp.tenant_id = $2
      ORDER BY fp.paid_on DESC`,
     [id, tenantId]
   );
 
-  // Fees: Overview & Installments
-  const { rows: feeStructures } = await query(
-    `SELECT fs.id, fs.title, fs.amount, fs.due_date AS "dueDate"
-     FROM fee_structures fs
-     JOIN batch_enrollments be ON be.batch_id = fs.batch_id
-     WHERE be.student_id = $1 AND fs.tenant_id = $2
-     ORDER BY fs.due_date ASC NULLS LAST, fs.id ASC`,
+  // Fees: Overview & Installments — now per-student (fee_dues)
+  const { rows: feeDues } = await query(
+    `SELECT fd.id, fd.title, fd.amount, fd.due_date AS "dueDate"
+     FROM fee_dues fd
+     WHERE fd.student_id = $1 AND fd.tenant_id = $2
+     ORDER BY fd.due_date ASC NULLS LAST, fd.period_index ASC`,
     [id, tenantId]
   );
 
   const totalPaid = feeHistory.reduce((acc, curr) => acc + Number(curr.amount), 0);
-  const totalFees = feeStructures.reduce((acc, curr) => acc + Number(curr.amount), 0);
+  const totalFees = feeDues.reduce((acc, curr) => acc + Number(curr.amount), 0);
   
   let remainingPaid = totalPaid;
-  const installments = feeStructures.map((fs, idx) => {
+  const installments = feeDues.map((fs, idx) => {
     let status = 'Upcoming';
     let amountPaidForThis = 0;
     
@@ -542,8 +541,6 @@ export async function getStudentDetails(tenantId: number, id: number) {
       if (fs.dueDate && new Date(fs.dueDate) < new Date()) {
         status = 'Overdue';
       } else {
-        status = 'Pending'; // or upcoming depending on exact mockup phrasing, usually if due_date is in future it's pending if it's the current one, else upcoming.
-        // Let's use 'Upcoming' if it's not the first pending one, but for simplicity:
         status = 'Pending';
       }
     }
@@ -584,6 +581,9 @@ export async function getStudentDetails(tenantId: number, id: number) {
       }))
     },
     fees: {
+      pending: Math.max(0, totalFees - totalPaid),
+      total: totalFees,
+      paid: totalPaid,
       overview: {
         total: totalFees,
         paid: totalPaid,
@@ -597,6 +597,7 @@ export async function getStudentDetails(tenantId: number, id: number) {
         amount: f.amount,
         status: 'Paid',
         desc: f.desc,
+        description: f.desc,
         method: f.method,
         receiptNo: f.receiptNo
       }))
@@ -807,24 +808,21 @@ export async function listFees(tenantId: number, status?: FeeStatusFilter | null
   const { rows } = await query<FeeRow>(
     `SELECT * FROM (
        SELECT s.id AS "studentId", u.full_name AS name,
-              COALESCE(fs.total,0)::int AS total,
+              COALESCE(fd.total,0)::int AS total,
               COALESCE(fp.paid,0)::int AS paid,
-              (COALESCE(fs.total,0) - COALESCE(fp.paid,0))::int AS pending,
+              GREATEST(0, COALESCE(fd.total,0) - COALESCE(fp.paid,0))::int AS pending,
               s.parent_name AS "parentName", s.parent_phone AS "parentPhone",
               (
                 SELECT bool_or(f.due_date < CURRENT_DATE)
-                FROM batch_enrollments be2
-                JOIN fee_structures f ON f.batch_id = be2.batch_id AND f.tenant_id = $1
-                WHERE be2.student_id = s.id
+                FROM fee_dues f
+                WHERE f.student_id = s.id AND f.tenant_id = $1
               ) AS has_overdue
          FROM students s
          JOIN users u ON u.id = s.user_id
          LEFT JOIN (
-           SELECT be.student_id, sum(f.amount) AS total
-             FROM batch_enrollments be
-             JOIN fee_structures f ON f.batch_id = be.batch_id AND f.tenant_id = $1
-            GROUP BY be.student_id
-         ) fs ON fs.student_id = s.id
+           SELECT student_id, sum(amount) AS total
+             FROM fee_dues WHERE tenant_id = $1 GROUP BY student_id
+         ) fd ON fd.student_id = s.id
          LEFT JOIN (
            SELECT student_id, sum(amount_paid) AS paid
              FROM fee_payments WHERE tenant_id = $1 GROUP BY student_id
@@ -912,26 +910,26 @@ export async function createFeeStructure(
   if (batchId) {
     const b = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
     if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH');
+    const { rows: students } = await query<{ student_id: number }>(
+      `SELECT student_id FROM batch_enrollments WHERE batch_id = $1`,
+      [batchId]
+    );
+    for (const s of students) {
+      await query(
+        `INSERT INTO fee_dues (tenant_id, student_id, batch_id, title, amount, due_date, period_index)
+         VALUES ($1, $2, $3, $4, $5, COALESCE($6, CURRENT_DATE), 1)
+         ON CONFLICT (student_id, batch_id, period_index) DO NOTHING`,
+        [tenantId, s.student_id, batchId, title, amount, dueDate || null]
+      );
+    }
   }
-  const { rows } = await query(
-    `INSERT INTO fee_structures (tenant_id, batch_id, title, amount, due_date)
-     VALUES ($1,$2,$3,$4,$5) RETURNING id, title, amount, due_date AS "dueDate", batch_id AS "batchId"`,
-    [tenantId, batchId || null, title, amount, dueDate || null]
-  );
-  await writeAudit({
-    tenantId,
-    actorUserId,
-    action: 'fee_structure_created',
-    entity: 'fee_structure',
-    entityId: rows[0].id,
-    meta: { title, amount, batchId },
-  });
-  return rows[0];
+  return { title, amount, batchId, dueDate };
 }
 
 export interface RecordPaymentInput {
   studentId: number;
   feeStructureId?: number;
+  feeDueId?: number;
   amountPaid: number;
   method?: 'cash' | 'upi' | 'card';
 }
@@ -942,7 +940,7 @@ const PG_UNIQUE_VIOLATION = '23505';
 export async function recordPayment(
   tenantId: number,
   actorUserId: number,
-  { studentId, feeStructureId, amountPaid, method }: RecordPaymentInput
+  { studentId, feeStructureId, feeDueId, amountPaid, method }: RecordPaymentInput
 ) {
   const s = await query<{ user_id: number }>(`SELECT user_id FROM students WHERE id=$1 AND tenant_id=$2`, [
     studentId,
@@ -950,6 +948,7 @@ export async function recordPayment(
   ]);
   if (!s.rowCount) throw ApiError.badRequest('INVALID_STUDENT');
 
+  const dueId = feeDueId || feeStructureId || null;
   // receipt_no is UNIQUE; the generator includes a short random suffix, so on
   // the rare collision we just regenerate and retry rather than losing the payment.
   const MAX_ATTEMPTS = 5;
@@ -957,10 +956,10 @@ export async function recordPayment(
     const receiptNo = generateReceiptNo(tenantId);
     try {
       const { rows } = await query(
-        `INSERT INTO fee_payments (tenant_id, student_id, fee_structure_id, amount_paid, method, receipt_no)
+        `INSERT INTO fee_payments (tenant_id, student_id, fee_due_id, amount_paid, method, receipt_no)
          VALUES ($1,$2,$3,$4,$5,$6)
          RETURNING id, amount_paid AS "amountPaid", method, receipt_no AS "receiptNo", paid_on AS "paidOn"`,
-        [tenantId, studentId, feeStructureId || null, amountPaid, method || 'cash', receiptNo]
+        [tenantId, studentId, dueId, amountPaid, method || 'cash', receiptNo]
       );
       await writeAudit({
         tenantId,
@@ -1046,10 +1045,8 @@ export async function feeReminderLink(
        JOIN users u ON u.id = s.user_id
        JOIN tenants t ON t.id = s.tenant_id
        LEFT JOIN (
-         SELECT be.student_id, sum(f.amount) AS total
-           FROM batch_enrollments be
-           JOIN fee_structures f ON f.batch_id = be.batch_id AND f.tenant_id=$1
-          GROUP BY be.student_id
+         SELECT student_id, sum(amount) AS total
+           FROM fee_dues WHERE tenant_id = $1 GROUP BY student_id
        ) fs ON fs.student_id = s.id
        LEFT JOIN (
          SELECT student_id, sum(amount_paid) AS paid FROM fee_payments WHERE tenant_id=$1 GROUP BY student_id

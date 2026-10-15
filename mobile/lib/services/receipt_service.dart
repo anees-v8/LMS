@@ -202,18 +202,20 @@ class ReceiptService {
                           'Total Paid: Rs. $amountVal',
                           style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.blueGrey900),
                         ),
-                        if (pendingBalance != null && pendingBalance > 0) ...[
-                          pw.SizedBox(height: 4),
-                          pw.Text(
-                            'Remaining Due: Rs. $pendingBalance',
-                            style: pw.TextStyle(fontSize: 11, color: PdfColors.red800, fontWeight: pw.FontWeight.bold),
-                          ),
-                        ] else ...[
-                          pw.SizedBox(height: 4),
-                          pw.Text(
-                            'Remaining Due: Rs. 0 (Fully Cleared)',
-                            style: pw.TextStyle(fontSize: 11, color: PdfColors.green800),
-                          ),
+                        if (pendingBalance != null) ...[
+                          if (pendingBalance > 0) ...[
+                            pw.SizedBox(height: 4),
+                            pw.Text(
+                              'Remaining Due: Rs. $pendingBalance',
+                              style: pw.TextStyle(fontSize: 11, color: PdfColors.red800, fontWeight: pw.FontWeight.bold),
+                            ),
+                          ] else ...[
+                            pw.SizedBox(height: 4),
+                            pw.Text(
+                              'Remaining Due: Rs. 0 (Fully Cleared)',
+                              style: pw.TextStyle(fontSize: 11, color: PdfColors.green800),
+                            ),
+                          ],
                         ],
                       ],
                     ),
