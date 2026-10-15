@@ -6,6 +6,8 @@ import '../../widgets/custom_textfield.dart';
 import '../../widgets/management_overview_tile.dart';
 import '../../widgets/import_students_bottom_sheet.dart';
 import '../../widgets/custom_dropdown.dart';
+import '../../widgets/unified_app_header.dart';
+import '../../providers/auth_provider.dart';
 import 'student_details_screen.dart';
 
 class StudentsScreen extends ConsumerStatefulWidget {
@@ -31,506 +33,334 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
     final studentsAsync = ref.watch(studentsProvider);
     final batchesAsync = ref.watch(batchesProvider);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF1F2E27),
-      resizeToAvoidBottomInset: false,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Fixed Green Header
-            Padding(
-              padding: const EdgeInsets.only(
-                left: 20.0,
-                right: 12.0,
-                top: 10.0,
-                bottom: 20.0,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Students',
-                          style: TextStyle(
-                            fontFamily: 'Playfair Display',
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Manage and track all students',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Import Students',
-                    icon: const Icon(
-                      Icons.file_upload_outlined,
-                      color: Colors.white,
-                    ),
-                    onPressed: () => showImportStudentsSheet(
-                      context,
-                      () => ref.invalidate(studentsProvider),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    final authState = ref.watch(authProvider);
+    final instituteName = authState.instituteName ?? 'Institute';
 
-            // White Container with fixed parts and scrollable list
-            Expanded(
+    final parts = instituteName.trim().split(' ');
+    final initials = parts.length > 1
+        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+        : (instituteName.isNotEmpty ? instituteName[0].toUpperCase() : 'A');
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLandscape = screenWidth >= 900;
+    final hPadding = screenWidth >= 900 ? 36.0 : (screenWidth >= 650 ? 32.0 : 16.0);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F6F3),
+      resizeToAvoidBottomInset: false,
+      appBar: UnifiedAppHeader(
+        title: 'Students',
+        subtitle: 'Directory & Enrollment',
+        initials: initials,
+        showQrScanner: false,
+        showNotifications: false,
+        trailingActions: [
+          Tooltip(
+            message: 'Import Students',
+            child: InkWell(
+              onTap: () => showImportStudentsSheet(
+                context,
+                () => ref.invalidate(studentsProvider),
+              ),
+              borderRadius: BorderRadius.circular(12),
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF4F6F3),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                    width: 1.2,
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Search Bar
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        top: 20.0,
-                        left: 16.0,
-                        right: 16.0,
-                        bottom: 16.0,
-                      ),
-                      child: SizedBox(
-                        height: 48,
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: 'Search by name, roll no, class...',
-                            prefixIcon: const Icon(
-                              Icons.search,
-                              color: Colors.grey,
-                            ),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(
-                                      Icons.clear,
-                                      color: Colors.grey,
-                                    ),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() => _searchQuery = '');
-                                    },
-                                  )
-                                : null,
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 0,
-                              horizontal: 16,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
+                child: const Icon(
+                  Icons.file_upload_outlined,
+                  color: Color(0xFF1E293B),
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Search Bar
+          Padding(
+            padding: EdgeInsets.fromLTRB(hPadding, 16.0, hPadding, 16.0),
+            child: SizedBox(
+              height: 48,
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search by name, roll no, class...',
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: Colors.grey,
+                  ),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(
+                            Icons.clear,
+                            color: Colors.grey,
                           ),
-                          onChanged: (val) {
-                            setState(() {
-                              _searchQuery = val;
-                            });
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
                           },
-                        ),
-                      ),
-                    ),
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 0,
+                    horizontal: 16,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                onChanged: (val) {
+                  setState(() {
+                    _searchQuery = val;
+                  });
+                },
+              ),
+            ),
+          ),
 
-                    // Class filters
-                    batchesAsync.when(
-                      loading: () => const SizedBox.shrink(),
-                      error: (err, stack) => const SizedBox.shrink(),
-                      data: (batches) {
-                        final allStudentsCount =
-                            studentsAsync.value?.length ?? 0;
-                        return SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Row(
-                            children: [
-                              _buildFilterChip(
-                                'All Students',
-                                allStudentsCount.toString(),
-                                _selectedBatchName == 'All Students',
-                                onTap: () {
-                                  setState(
-                                    () => _selectedBatchName = 'All Students',
-                                  );
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              ...batches.map((batch) {
-                                final batchName =
-                                    batch['name']?.toString() ?? 'Unnamed';
-                                final batchStudentCount =
-                                    studentsAsync.value
-                                        ?.where(
-                                          (s) => s['batchName'] == batchName,
-                                        )
-                                        .length ??
-                                    0;
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8.0),
-                                  child: _buildFilterChip(
-                                    batchName,
-                                    batchStudentCount.toString(),
-                                    _selectedBatchName == batchName,
-                                    onTap: () {
-                                      setState(
-                                        () => _selectedBatchName = batchName,
-                                      );
-                                    },
-                                  ),
-                                );
-                              }),
-                            ],
-                          ),
+          // Class filters
+          batchesAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (err, stack) => const SizedBox.shrink(),
+            data: (batches) {
+              final allStudentsCount =
+                  studentsAsync.value?.length ?? 0;
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(horizontal: hPadding),
+                child: Row(
+                  children: [
+                    _buildFilterChip(
+                      'All Students',
+                      allStudentsCount.toString(),
+                      _selectedBatchName == 'All Students',
+                      onTap: () {
+                        setState(
+                          () => _selectedBatchName = 'All Students',
                         );
                       },
                     ),
-                    const SizedBox(height: 16),
-
-                    // Management Overview
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: studentsAsync.when(
-                        loading: () => const SizedBox.shrink(),
-                        error: (err, stack) => const SizedBox.shrink(),
-                        data: (students) {
-                          final totalStudents = students.length;
-                          final totalPendingFees = students.fold<num>(
-                            0,
-                            (sum, item) =>
-                                sum + ((item['pendingFees'] as num?) ?? 0),
-                          );
-
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.03),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: _buildStatItem(
-                                    'Total Students',
-                                    totalStudents.toString(),
-                                    Icons.people_outline,
-                                    const Color(0xFF2E6656),
-                                  ),
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 40,
-                                  color: Colors.grey.shade200,
-                                ),
-                                Expanded(
-                                  child: _buildStatItem(
-                                    'Present Today',
-                                    '0',
-                                    Icons.how_to_reg,
-                                    const Color(0xFF2E6656),
-                                  ),
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 40,
-                                  color: Colors.grey.shade200,
-                                ),
-                                Expanded(
-                                  child: _buildStatItem(
-                                    'Pending Fees',
-                                    '₹$totalPendingFees',
-                                    Icons.account_balance_wallet_outlined,
-                                    Colors.red,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Scrollable Student List
-                    Expanded(
-                      child: studentsAsync.when(
-                        loading: () => const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(20.0),
-                            child: CircularProgressIndicator(),
-                          ),
-                        ),
-                        error: (err, stack) => Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(20.0),
-                            child: Text(friendlyErrorMessage(err)),
-                          ),
-                        ),
-                        data: (students) {
-                          final filteredStudents = students.where((student) {
-                            final batchMatch =
-                                _selectedBatchName == 'All Students' ||
-                                student['batchName'] == _selectedBatchName;
-                            if (!batchMatch) return false;
-
-                            final name = (student['fullName'] ?? '')
-                                .toString()
-                                .toLowerCase();
-                            final rollNo = (student['rollNo'] ?? '')
-                                .toString()
-                                .toLowerCase();
-                            final q = _searchQuery.toLowerCase();
-                            return name.contains(q) || rollNo.contains(q);
-                          }).toList();
-
-                          if (students.isEmpty) {
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(40.0),
-                                child: Text('No students found.'),
-                              ),
+                    const SizedBox(width: 8),
+                    ...batches.map((batch) {
+                      final batchName =
+                          batch['name']?.toString() ?? 'Unnamed';
+                      final batchStudentCount =
+                          studentsAsync.value
+                              ?.where(
+                                (s) => s['batchName'] == batchName,
+                              )
+                              .length ??
+                          0;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: _buildFilterChip(
+                          batchName,
+                          batchStudentCount.toString(),
+                          _selectedBatchName == batchName,
+                          onTap: () {
+                            setState(
+                              () => _selectedBatchName = batchName,
                             );
-                          } else if (filteredStudents.isEmpty) {
-                            return Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(40.0),
-                                child: Text('No results for "$_searchQuery"'),
-                              ),
-                            );
-                          }
-
-                          return ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 160),
-                            itemCount: filteredStudents.length,
-                            itemBuilder: (context, index) {
-                              final student =
-                                  filteredStudents[index]
-                                      as Map<String, dynamic>;
-                              final rollNo = student['rollNo'] ?? 'N/A';
-                              final grade = student['grade'] ?? 'N/A';
-                              final batchName =
-                                  student['batchName']?.toString() ?? 'N/A';
-                              final phone =
-                                  student['phone']?.toString() ?? 'N/A';
-                              final pendingFees = student['pendingFees'] ?? 0;
-                              final attendance = student['attendance'] ?? 0;
-
-                              return InkWell(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => StudentDetailsScreen(
-                                        student: student,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.03,
-                                        ),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // Top Row
-                                      Row(
-                                        children: [
-                                          CircleAvatar(
-                                            radius: 24,
-                                            backgroundColor: const Color(
-                                              0xFF1F2E27,
-                                            ).withValues(alpha: 0.08),
-                                            child: const Icon(
-                                              Icons.person,
-                                              color: Color(0xFF1F2E27),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  student['fullName'] ??
-                                                      'Unknown',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 18,
-                                                    color: Color(0xFF1F2E27),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  'Roll No: $rollNo • Class $grade',
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    color: Colors.grey.shade600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 16),
-
-                                      // Tags Row
-                                      Row(
-                                        children: [
-                                          _buildTag(
-                                            Icons.calendar_today,
-                                            'Batch',
-                                            batchName,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          _buildTag(
-                                            Icons.phone,
-                                            'Phone',
-                                            phone,
-                                          ),
-                                        ],
-                                      ),
-
-                                      const SizedBox(height: 16),
-                                      const Divider(
-                                        height: 1,
-                                        color: Color(0xFFF0F0F0),
-                                      ),
-                                      const SizedBox(height: 16),
-
-                                      // Bottom Row
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          // Fees Pending
-                                          Row(
-                                            children: [
-                                              Text(
-                                                'Fees Pending ',
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: Colors.grey.shade600,
-                                                ),
-                                              ),
-                                              Text(
-                                                '₹$pendingFees',
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  color: Colors.red,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-
-                                          // Attendance & Arrow
-                                          Row(
-                                            children: [
-                                              Text(
-                                                'Attendance ',
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: Colors.grey.shade600,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Stack(
-                                                alignment: Alignment.center,
-                                                children: [
-                                                  SizedBox(
-                                                    width: 36,
-                                                    height: 36,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                          value:
-                                                              attendance / 100,
-                                                          backgroundColor:
-                                                              Colors
-                                                                  .grey
-                                                                  .shade200,
-                                                          color: const Color(
-                                                            0xFF2E6656,
-                                                          ),
-                                                          strokeWidth: 4,
-                                                        ),
-                                                  ),
-                                                  Text(
-                                                    '$attendance%',
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(width: 16),
-                                              const Icon(
-                                                Icons.chevron_right,
-                                                color: Colors.grey,
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 80), // bottom padding for FAB
+                          },
+                        ),
+                      );
+                    }),
                   ],
                 ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // Management Overview
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: hPadding),
+            child: studentsAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (err, stack) => const SizedBox.shrink(),
+              data: (students) {
+                final totalStudents = students.length;
+                final totalPendingFees = students.fold<num>(
+                  0,
+                  (sum, item) =>
+                      sum + ((item['pendingFees'] as num?) ?? 0),
+                );
+
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatItem(
+                          'Total Students',
+                          totalStudents.toString(),
+                          Icons.people_outline,
+                          const Color(0xFF2E6656),
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: Colors.grey.shade200,
+                      ),
+                      Expanded(
+                        child: _buildStatItem(
+                          'Present Today',
+                          '0',
+                          Icons.how_to_reg,
+                          const Color(0xFF2E6656),
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: Colors.grey.shade200,
+                      ),
+                      Expanded(
+                        child: _buildStatItem(
+                          'Pending Fees',
+                          '₹$totalPendingFees',
+                          Icons.account_balance_wallet_outlined,
+                          Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Scrollable Student List
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(studentsProvider);
+                ref.invalidate(batchesProvider);
+                try {
+                  await ref.read(studentsProvider.future);
+                } catch (_) {}
+              },
+              child: studentsAsync.when(
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+                error: (err, stack) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(40.0),
+                      child: Text(friendlyErrorMessage(err)),
+                    ),
+                  ),
+                ),
+                data: (students) {
+                  final filteredStudents = students.where((student) {
+                    final batchMatch =
+                        _selectedBatchName == 'All Students' ||
+                        student['batchName'] == _selectedBatchName;
+                    if (!batchMatch) return false;
+
+                    final name = (student['fullName'] ?? '')
+                        .toString()
+                        .toLowerCase();
+                    final rollNo = (student['rollNo'] ?? '')
+                        .toString()
+                        .toLowerCase();
+                    final q = _searchQuery.toLowerCase();
+                    return name.contains(q) || rollNo.contains(q);
+                  }).toList();
+
+                  if (students.isEmpty) {
+                    return const SingleChildScrollView(
+                      physics: AlwaysScrollableScrollPhysics(),
+                      child: Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(40.0),
+                          child: Text('No students found.'),
+                        ),
+                      ),
+                    );
+                  } else if (filteredStudents.isEmpty) {
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(40.0),
+                          child: Text('No results for "$_searchQuery"'),
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (isLandscape) {
+                    return GridView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, 120),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        mainAxisExtent: 200,
+                      ),
+                      itemCount: filteredStudents.length,
+                      itemBuilder: (context, index) {
+                        return _buildStudentCard(
+                          context,
+                          filteredStudents[index] as Map<String, dynamic>,
+                        );
+                      },
+                    );
+                  }
+
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(hPadding, 0, hPadding, 120),
+                    itemCount: filteredStudents.length,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _buildStudentCard(
+                          context,
+                          filteredStudents[index] as Map<String, dynamic>,
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
@@ -541,6 +371,192 @@ class _StudentsScreenState extends ConsumerState<StudentsScreen> {
         label: const Text('Add Student'),
       ),
     );
+  }
+
+  Widget _buildStudentCard(BuildContext context, Map<String, dynamic> student) {
+    final rollNo = student['rollNo'] ?? 'N/A';
+    final grade = student['grade'] ?? 'N/A';
+    final batchName = student['batchName']?.toString() ?? 'N/A';
+    final phone = student['phone']?.toString() ?? 'N/A';
+    final pendingFees = student['pendingFees'] ?? 0;
+    final attendance = student['attendance'] ?? 0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StudentDetailsScreen(student: student),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+          children: [
+            // Top Row
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: const Color(0xFF1F2E27).withValues(alpha: 0.08),
+                  child: const Icon(
+                    Icons.person,
+                    color: Color(0xFF1F2E27),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        student['fullName'] ?? 'Unknown',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Color(0xFF1F2E27),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Roll No: $rollNo • Class $grade',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Tags Row
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTag(
+                    Icons.calendar_today,
+                    'Batch',
+                    batchName,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildTag(
+                    Icons.phone,
+                    'Phone',
+                    phone,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 14),
+            const Divider(
+              height: 1,
+              color: Color(0xFFF0F0F0),
+            ),
+            const SizedBox(height: 10),
+
+            // Bottom Row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Fees Pending
+                Row(
+                  children: [
+                    Text(
+                      'Fees: ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    Text(
+                      '₹$pendingFees',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Attendance & Arrow
+                Row(
+                  children: [
+                    Text(
+                      'Attendance ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 30,
+                          height: 30,
+                          child: CircularProgressIndicator(
+                            value: (attendance is num ? attendance : 0) / 100,
+                            backgroundColor: Colors.grey.shade200,
+                            color: const Color(0xFF2E6656),
+                            strokeWidth: 3.5,
+                          ),
+                        ),
+                        Text(
+                          '$attendance%',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 10),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+);
   }
 
   Widget _buildFilterChip(
@@ -708,6 +724,7 @@ Future<void> showAddStudentDialog(
   }
   await showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => AddStudentDialog(
@@ -831,7 +848,12 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
         );
       }
       ref.invalidate(studentsProvider);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) {
+          nav.pop();
+        }
+      }
     } catch (e) {
       setState(() {
         _saving = false;
@@ -1039,7 +1061,12 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
                         color: Colors.black87,
                       ),
                     ),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      final nav = Navigator.of(context, rootNavigator: true);
+                      if (nav.canPop()) {
+                        nav.pop();
+                      }
+                    },
                   ),
                 ],
               ),
@@ -1319,7 +1346,12 @@ class _AddStudentDialogState extends ConsumerState<AddStudentDialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        final nav = Navigator.of(context, rootNavigator: true);
+                        if (nav.canPop()) {
+                          nav.pop();
+                        }
+                      },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         side: BorderSide(color: Colors.grey.shade300),

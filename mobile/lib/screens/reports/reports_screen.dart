@@ -5,6 +5,7 @@ import '../../providers/management_providers.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_dropdown.dart';
 import '../../widgets/feature_locked_view.dart';
+import '../../widgets/unified_app_header.dart';
 import 'ranked_students_screen.dart';
 
 class _SelectedBatchNotifier extends Notifier<int?> {
@@ -38,272 +39,302 @@ class ReportsScreen extends ConsumerWidget {
     final reportAsync = ref.watch(performanceReportProvider(selectedBatch));
     final batchesAsync = ref.watch(batchesProvider);
 
+    final authState = ref.watch(authProvider);
+    final instituteName = authState.instituteName ?? 'Institute';
+
+    final parts = instituteName.trim().split(' ');
+    final initials = parts.length > 1
+        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+        : (instituteName.isNotEmpty ? instituteName[0].toUpperCase() : 'A');
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isTablet = screenWidth >= 750;
+    final double hPadding = screenWidth >= 900 ? 36.0 : (screenWidth >= 650 ? 32.0 : 16.0);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF1F2E27),
+      backgroundColor: const Color(0xFFF4F6F3),
       resizeToAvoidBottomInset: false,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Fixed Green Header
-            Padding(
-              padding: const EdgeInsets.only(
-                left: 20.0,
-                right: 20.0,
-                top: 10.0,
-                bottom: 20.0,
-              ),
+      appBar: UnifiedAppHeader(
+        title: 'Reports',
+        subtitle: 'Batch Analytics & Performance',
+        initials: initials,
+        showQrScanner: false,
+        showNotifications: false,
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async =>
+            ref.invalidate(performanceReportProvider(selectedBatch)),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: 20.0),
+              physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Performance Reports',
+                    'Batch Analytics',
                     style: TextStyle(
-                      fontFamily: 'Playfair Display',
-                      color: Colors.white,
-                      fontSize: 28,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
+                      color: Color(0xFF1F2E27),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Batch-wise attendance and test scores',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                  const SizedBox(height: 12),
 
-            // White Container with fixed parts and scrollable list
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF4F6F3),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
-                child: RefreshIndicator(
-                  onRefresh: () async =>
-                      ref.invalidate(performanceReportProvider(selectedBatch)),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Batch Analytics',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1F2E27),
+                  // Batch Filter
+                  batchesAsync.when(
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
+                    data: (batches) {
+                      return CustomDropdown<int?>(
+                        label: 'Filter by Batch',
+                        hint: 'All Batches',
+                        value: selectedBatch,
+                        prefixIcon: Icons.class_outlined,
+                        options: [
+                          const DropdownOption<int?>(
+                            value: null,
+                            label: 'All Batches',
                           ),
-                        ),
-                        const SizedBox(height: 12),
+                          ...batches.cast<Map<String, dynamic>>().map(
+                            (b) => DropdownOption<int?>(
+                              value: b['id'] as int,
+                              label: b['name']?.toString() ?? '',
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) => ref
+                            .read(_selectedBatchProvider.notifier)
+                            .set(v),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
 
-                        // Batch Filter
-                        batchesAsync.when(
-                          loading: () => const SizedBox.shrink(),
-                          error: (_, _) => const SizedBox.shrink(),
-                          data: (batches) {
-                            return CustomDropdown<int?>(
-                              label: 'Filter by Batch',
-                              hint: 'All Batches',
-                              value: selectedBatch,
-                              prefixIcon: Icons.class_outlined,
-                              options: [
-                                const DropdownOption<int?>(
-                                  value: null,
-                                  label: 'All Batches',
+                  // Analytics Content
+                  reportAsync.when(
+                    loading: () => const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                    error: (err, stack) => Center(
+                      child: Text(
+                        friendlyErrorMessage(err),
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                    data: (report) {
+                      final topPerformersList = (report['topPerformers'] as List<dynamic>? ?? [])
+                          .take(3)
+                          .toList();
+                      final attentionList = (report['needingAttention'] as List<dynamic>? ?? [])
+                          .take(3)
+                          .toList();
+
+                      final topPerformersSection = Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionTitle(
+                            Icons.emoji_events,
+                            'Top Performers (Hall of Fame)',
+                            Colors.orange.shade700,
+                            onTapViewAll: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RankedStudentsScreen(
+                                    title: 'Top Performers (Hall of Fame)',
+                                    students: report['topPerformers'] as List<dynamic>? ?? [],
+                                  ),
                                 ),
-                                ...batches.cast<Map<String, dynamic>>().map(
-                                  (b) => DropdownOption<int?>(
-                                    value: b['id'] as int,
-                                    label: b['name']?.toString() ?? '',
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _buildTopPerformers(topPerformersList),
+                        ],
+                      );
+
+                      final attentionSection = Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionTitle(
+                            Icons.warning_amber_rounded,
+                            'Students Needing Attention',
+                            Colors.red.shade700,
+                            onTapViewAll: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RankedStudentsScreen(
+                                    title: 'Students Needing Attention',
+                                    students: report['needingAttention'] as List<dynamic>? ?? [],
+                                    isAttention: true,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _buildAttentionList(attentionList),
+                        ],
+                      );
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 4 Metric Cards
+                          if (isTablet)
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    'Avg Attendance',
+                                    report['avgAttendance'],
+                                    Icons.event_available,
+                                    const Color(0xFF2E6656),
+                                    isPercentage: true,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    'Avg Marks',
+                                    report['avgMarksPct'],
+                                    Icons.star,
+                                    const Color(0xFFA87D26),
+                                    isPercentage: true,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    'Total Tests',
+                                    report['totalTests'],
+                                    Icons.assignment_outlined,
+                                    const Color(0xFF6B4CA4),
+                                    isPercentage: false,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    'Total Classes',
+                                    report['totalClasses'],
+                                    Icons.menu_book,
+                                    const Color(0xFF2E7D32),
+                                    isPercentage: false,
                                   ),
                                 ),
                               ],
-                              onChanged: (v) => ref
-                                  .read(_selectedBatchProvider.notifier)
-                                  .set(v),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 24),
+                            )
+                          else ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    'Avg Attendance',
+                                    report['avgAttendance'],
+                                    Icons.event_available,
+                                    const Color(0xFF2E6656),
+                                    isPercentage: true,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    'Avg Marks',
+                                    report['avgMarksPct'],
+                                    Icons.star,
+                                    const Color(0xFFA87D26),
+                                    isPercentage: true,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    'Total Tests',
+                                    report['totalTests'],
+                                    Icons.assignment_outlined,
+                                    const Color(0xFF6B4CA4),
+                                    isPercentage: false,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _buildMetricCard(
+                                    'Total Classes',
+                                    report['totalClasses'],
+                                    Icons.menu_book,
+                                    const Color(0xFF2E7D32),
+                                    isPercentage: false,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 24),
 
-                        // Analytics Content
-                        reportAsync.when(
-                          loading: () => const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(32),
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                          error: (err, stack) => Center(
-                            child: Text(
-                              friendlyErrorMessage(err),
-                              style: const TextStyle(color: Colors.red),
-                            ),
-                          ),
-                          data: (report) {
-                            return Column(
+                          // Top Performers & Attention Required
+                          if (isTablet)
+                            Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // 4 Metric Cards
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildMetricCard(
-                                        'Avg Attendance',
-                                        report['avgAttendance'],
-                                        Icons.event_available,
-                                        const Color(0xFF2E6656),
-                                        isPercentage: true,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: _buildMetricCard(
-                                        'Avg Marks',
-                                        report['avgMarksPct'],
-                                        Icons.star,
-                                        const Color(0xFFA87D26),
-                                        isPercentage: true,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildMetricCard(
-                                        'Total Tests',
-                                        report['totalTests'],
-                                        Icons.assignment_outlined,
-                                        const Color(0xFF6B4CA4),
-                                        isPercentage: false,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: _buildMetricCard(
-                                        'Total Classes',
-                                        report['totalClasses'],
-                                        Icons.menu_book,
-                                        const Color(0xFF2E7D32),
-                                        isPercentage: false,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 24),
-
-                                // Top Performers
-                                _buildSectionTitle(
-                                  Icons.emoji_events,
-                                  'Top Performers (Hall of Fame)',
-                                  Colors.orange.shade700,
-                                  onTapViewAll: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => RankedStudentsScreen(
-                                          title:
-                                              'Top Performers (Hall of Fame)',
-                                          students:
-                                              report['topPerformers']
-                                                  as List<dynamic>? ??
-                                              [],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 12),
-                                _buildTopPerformers(
-                                  (report['topPerformers'] as List<dynamic>? ??
-                                          [])
-                                      .take(3)
-                                      .toList(),
-                                ),
-                                const SizedBox(height: 24),
-
-                                // Attention Required
-                                _buildSectionTitle(
-                                  Icons.warning_amber_rounded,
-                                  'Students Needing Attention',
-                                  Colors.red.shade700,
-                                  onTapViewAll: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => RankedStudentsScreen(
-                                          title: 'Students Needing Attention',
-                                          students:
-                                              report['needingAttention']
-                                                  as List<dynamic>? ??
-                                              [],
-                                          isAttention: true,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 12),
-                                _buildAttentionList(
-                                  (report['needingAttention']
-                                              as List<dynamic>? ??
-                                          [])
-                                      .take(3)
-                                      .toList(),
-                                ),
+                                Expanded(child: topPerformersSection),
+                                const SizedBox(width: 24),
+                                Expanded(child: attentionSection),
                               ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 24),
+                            )
+                          else ...[
+                            topPerformersSection,
+                            const SizedBox(height: 24),
+                            attentionSection,
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
 
-                        // Info Box
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F5E9),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.description_outlined,
-                                color: Colors.green.shade800,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  "Based on attendance records and test results entered for this institute.",
-                                  style: TextStyle(
-                                    color: Colors.green.shade900,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
+                  // Info Box
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.description_outlined,
+                          color: Colors.green.shade800,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            "Based on attendance records and test results entered for this institute.",
+                            style: TextStyle(
+                              color: Colors.green.shade900,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 32),
                       ],
                     ),
                   ),
-                ),
+                  const SizedBox(height: 32),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

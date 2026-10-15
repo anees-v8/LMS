@@ -1,7 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class Constants {
-  static const String baseUrl = 'https://my-app-tau-umber-67.vercel.app/api';
+  static String get baseUrl {
+    if (kIsWeb) {
+      return 'http://127.0.0.1:4000/api';
+    }
+    return 'https://my-app-tau-umber-67.vercel.app/api';
+  }
 
   static const String privacyPolicyUrl =
       'https://www.campusweb.co.in/legals/privacy-policy';

@@ -42,6 +42,10 @@ class _StudentScanAttendanceScreenState
       final api = ref.read(apiServiceProvider);
       final result = await scanAttendanceQr(api, value);
       if (!mounted) return;
+      // Invalidate providers so dashboard and profile reflect the new attendance immediately
+      ref.invalidate(studentProfileProvider);
+      ref.invalidate(studentDashboardProvider);
+      ref.invalidate(studentAttendanceProvider);
       setState(() {
         _success = true;
         _alreadyMarked = result['alreadyMarked'] == true;
@@ -116,84 +120,97 @@ class _StudentScanAttendanceScreenState
             ),
 
           if (showOverlay)
-            Container(
-              color: Colors.black.withValues(alpha: 0.85),
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 84,
-                        height: 84,
-                        decoration: BoxDecoration(
-                          color: _error != null
-                              ? AppColors.errorLight
-                              : AppColors.successLight,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _error != null
-                              ? Icons.close_rounded
-                              : Icons.check_rounded,
-                          color: _error != null
-                              ? AppColors.error
-                              : AppColors.success,
-                          size: 44,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        _error != null
-                            ? 'Could not mark attendance'
-                            : (_alreadyMarked
-                                  ? 'Already Marked'
-                                  : 'Attendance Marked!'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _error ??
-                            (_alreadyMarked
-                                ? "You've already been marked for today."
-                                : "You're marked Present for today."),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.75),
-                          fontSize: 13,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 28),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton(
-                          onPressed: () => _error != null
-                              ? _retry()
-                              : Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFA87D26),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.88),
+                alignment: Alignment.center,
+                child: Center(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 84,
+                            height: 84,
+                            decoration: BoxDecoration(
+                              color: _error != null
+                                  ? AppColors.errorLight
+                                  : AppColors.successLight,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              _error != null
+                                  ? Icons.close_rounded
+                                  : Icons.check_rounded,
+                              color: _error != null
+                                  ? AppColors.error
+                                  : AppColors.success,
+                              size: 44,
                             ),
                           ),
-                          child: Text(
-                            _error != null ? 'Try Again' : 'Done',
+                          const SizedBox(height: 20),
+                          Text(
+                            _error != null
+                                ? 'Could not mark attendance'
+                                : (_alreadyMarked
+                                      ? 'Already Marked'
+                                      : 'Attendance Marked!'),
                             style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            _error ??
+                                (_alreadyMarked
+                                    ? "You've already been marked for today."
+                                    : "You're marked Present for today."),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 28),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                if (_error != null) {
+                                  _retry();
+                                } else {
+                                  final nav = Navigator.of(context);
+                                  if (nav.canPop()) nav.pop();
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFA87D26),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(
+                                _error != null ? 'Try Again' : 'Done',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),

@@ -23,6 +23,7 @@ Future<void> showRecordPaymentBottomSheet(
 
   await showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => RecordPaymentBottomSheet(
@@ -101,7 +102,12 @@ class _RecordPaymentBottomSheetState
         ref.invalidate(studentDetailsProvider(widget.prefillStudentId!));
       }
 
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) {
+          nav.pop();
+        }
+      }
     } catch (e) {
       setState(() {
         _saving = false;
@@ -287,7 +293,12 @@ class _RecordPaymentBottomSheetState
                         color: Colors.black87,
                       ),
                     ),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      final nav = Navigator.of(context, rootNavigator: true);
+                      if (nav.canPop()) {
+                        nav.pop();
+                      }
+                    },
                   ),
                 ],
               ),
@@ -394,7 +405,12 @@ class _RecordPaymentBottomSheetState
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        final nav = Navigator.of(context, rootNavigator: true);
+                        if (nav.canPop()) {
+                          nav.pop();
+                        }
+                      },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         side: BorderSide(color: Colors.grey.shade300),

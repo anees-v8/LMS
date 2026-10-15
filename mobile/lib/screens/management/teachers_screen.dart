@@ -15,6 +15,9 @@ class TeachersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final teachersAsync = ref.watch(teachersProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isTablet = screenWidth >= 700;
+    final double hPadding = screenWidth >= 900 ? 36.0 : (screenWidth >= 650 ? 32.0 : 16.0);
 
     return Scaffold(
       backgroundColor: const Color(0xFF1F2E27),
@@ -26,9 +29,9 @@ class TeachersScreen extends ConsumerWidget {
           children: [
             // Fixed Green Header
             Padding(
-              padding: const EdgeInsets.only(
-                left: 20.0,
-                right: 20.0,
+              padding: EdgeInsets.only(
+                left: hPadding,
+                right: hPadding,
                 top: 10.0,
                 bottom: 20.0,
               ),
@@ -79,7 +82,7 @@ class TeachersScreen extends ConsumerWidget {
                           // Stats Header
                           Card(
                             color: Colors.white,
-                            margin: const EdgeInsets.all(16),
+                            margin: EdgeInsets.fromLTRB(hPadding, 16, hPadding, 12),
                             elevation: 1,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -155,7 +158,7 @@ class TeachersScreen extends ConsumerWidget {
 
                           // Search Row
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: EdgeInsets.symmetric(horizontal: hPadding),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -195,31 +198,74 @@ class TeachersScreen extends ConsumerWidget {
 
                           // Teacher List
                           Expanded(
-                            child: teachers.isEmpty
-                                ? const Center(
-                                    child: Text('No teachers found.'),
-                                  )
-                                : ListView.separated(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      16,
-                                      16,
-                                      160,
-                                    ),
-                                    itemCount: teachers.length,
-                                    separatorBuilder: (_, __) =>
-                                        const SizedBox(height: 12),
-                                    itemBuilder: (context, index) {
-                                      final teacher =
-                                          teachers[index]
-                                              as Map<String, dynamic>;
-                                      return _buildTeacherCard(
-                                        context,
-                                        ref,
-                                        teacher,
-                                      );
-                                    },
-                                  ),
+                            child: RefreshIndicator(
+                              onRefresh: () async {
+                                ref.invalidate(teachersProvider);
+                                try {
+                                  await ref.read(teachersProvider.future);
+                                } catch (_) {}
+                              },
+                              child: teachers.isEmpty
+                                  ? const SingleChildScrollView(
+                                      physics: AlwaysScrollableScrollPhysics(),
+                                      child: Center(
+                                        child: Padding(
+                                          padding: EdgeInsets.all(40.0),
+                                          child: Text('No teachers found.'),
+                                        ),
+                                      ),
+                                    )
+                                  : isTablet
+                                      ? GridView.builder(
+                                          physics:
+                                              const AlwaysScrollableScrollPhysics(),
+                                          padding: EdgeInsets.fromLTRB(
+                                            hPadding,
+                                            16,
+                                            hPadding,
+                                            160,
+                                          ),
+                                          gridDelegate:
+                                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 2,
+                                            crossAxisSpacing: 16,
+                                            mainAxisSpacing: 14,
+                                            mainAxisExtent: 148,
+                                          ),
+                                          itemCount: teachers.length,
+                                          itemBuilder: (context, index) {
+                                            final teacher = teachers[index]
+                                                as Map<String, dynamic>;
+                                            return _buildTeacherCard(
+                                              context,
+                                              ref,
+                                              teacher,
+                                            );
+                                          },
+                                        )
+                                      : ListView.separated(
+                                          physics:
+                                              const AlwaysScrollableScrollPhysics(),
+                                          padding: EdgeInsets.fromLTRB(
+                                            hPadding,
+                                            16,
+                                            hPadding,
+                                            160,
+                                          ),
+                                          itemCount: teachers.length,
+                                          separatorBuilder: (context, index) =>
+                                              const SizedBox(height: 12),
+                                          itemBuilder: (context, index) {
+                                            final teacher = teachers[index]
+                                                as Map<String, dynamic>;
+                                            return _buildTeacherCard(
+                                              context,
+                                              ref,
+                                              teacher,
+                                            );
+                                          },
+                                        ),
+                            ),
                           ),
                         ],
                       ),
@@ -291,28 +337,33 @@ class TeachersScreen extends ConsumerWidget {
     WidgetRef ref,
     Map<String, dynamic> teacher,
   ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => TeacherDetailsScreen(teacher: teacher),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Card(
-          margin: EdgeInsets.zero,
-          color: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey.shade200),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TeacherDetailsScreen(teacher: teacher),
+              ),
+            );
+          },
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -513,6 +564,7 @@ Future<void> _openAddTeacherSheet(BuildContext context, WidgetRef ref) async {
   if (!context.mounted) return;
   showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (ctx) =>
@@ -618,7 +670,8 @@ class _AddTeacherBottomSheetState
           // action failed. Report it separately so the admin knows to assign
           // manually from Teacher Details instead of retrying creation.
           if (mounted) {
-            Navigator.pop(context);
+            final nav = Navigator.of(context, rootNavigator: true);
+            if (nav.canPop()) nav.pop();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
@@ -632,7 +685,10 @@ class _AddTeacherBottomSheetState
         }
       }
 
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop();
+      }
     } catch (e) {
       setState(() {
         _saving = false;
@@ -643,20 +699,23 @@ class _AddTeacherBottomSheetState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 620,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        child: Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
           // Drag handle — consistent with every other bottom sheet in the app.
           Center(
             child: Container(
@@ -684,7 +743,10 @@ class _AddTeacherBottomSheetState
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    final nav = Navigator.of(context, rootNavigator: true);
+                    if (nav.canPop()) nav.pop();
+                  },
                 ),
               ],
             ),
@@ -841,6 +903,8 @@ class _AddTeacherBottomSheetState
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 }

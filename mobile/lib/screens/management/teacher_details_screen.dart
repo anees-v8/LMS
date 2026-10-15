@@ -29,6 +29,7 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
   void _showEditBottomSheet() {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _EditTeacherBottomSheet(
@@ -46,6 +47,7 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
   void _showStatusBottomSheet() {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _ChangeStatusBottomSheet(
@@ -63,7 +65,8 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
   Future<void> _confirmRemove() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      useRootNavigator: true,
+      builder: (dialogCtx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           'Remove Teacher',
@@ -74,12 +77,18 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () {
+              final nav = Navigator.of(dialogCtx, rootNavigator: true);
+              if (nav.canPop()) nav.pop(false);
+            },
             child: const Text('Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () {
+              final nav = Navigator.of(dialogCtx, rootNavigator: true);
+              if (nav.canPop()) nav.pop(true);
+            },
             child: const Text('Remove'),
           ),
         ],
@@ -157,6 +166,141 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
     final leaveStart = _teacher['leaveStart']?.toString();
     final leaveEnd = _teacher['leaveEnd']?.toString();
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isTablet = screenWidth >= 750;
+    final double hPadding = screenWidth >= 900 ? 36.0 : (screenWidth >= 650 ? 32.0 : 16.0);
+
+    final profileCard = Card(
+      color: Colors.white,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 42,
+              backgroundColor: Colors.orange.shade50,
+              child: const Icon(
+                Icons.person,
+                color: Colors.orange,
+                size: 44,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _teacher['fullName'] ?? 'Unknown Teacher',
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1F2E27),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildStatusBadge(status),
+            if (status == 'on_leave' && leaveStart != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Leave: $leaveStart → ${leaveEnd ?? '—'}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.orange.shade700,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    final contactCard = _buildInfoCard(
+      title: 'Contact Information',
+      children: [
+        _buildInfoRow(
+          Icons.phone_outlined,
+          'Phone Number',
+          _teacher['phone']?.toString() ?? 'N/A',
+        ),
+        const Divider(height: 24),
+        _buildInfoRow(
+          Icons.email_outlined,
+          'Email Address',
+          _teacher['email']?.toString().isNotEmpty == true
+              ? _teacher['email']
+              : 'No email provided',
+        ),
+      ],
+    );
+
+    final actionsCard = Card(
+      color: Colors.white,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Status & Actions',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1F2E27),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: _showStatusBottomSheet,
+                icon: const Icon(Icons.manage_accounts_outlined),
+                label: const Text('Change Status / Set Leave'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF1F2E27),
+                  side: BorderSide(color: Colors.grey.shade300),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final removeButton = SizedBox(
+      height: 50,
+      child: OutlinedButton.icon(
+        onPressed: _confirmRemove,
+        icon: const Icon(Icons.delete_outline, color: Colors.red),
+        label: const Text(
+          'Remove Teacher',
+          style: TextStyle(
+            color: Colors.red,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Colors.red),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F3),
       appBar: AppBar(
@@ -177,154 +321,53 @@ class _TeacherDetailsScreenState extends ConsumerState<TeacherDetailsScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Profile Card — full width
-            Card(
-              color: Colors.white,
-              elevation: 0,
-              margin: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 42,
-                      backgroundColor: Colors.orange.shade50,
-                      child: const Icon(
-                        Icons.person,
-                        color: Colors.orange,
-                        size: 44,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _teacher['fullName'] ?? 'Unknown Teacher',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1F2E27),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildStatusBadge(status),
-                    if (status == 'on_leave' && leaveStart != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Leave: $leaveStart → ${leaveEnd ?? '—'}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.orange.shade700,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: 20.0),
+            child: isTablet
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            profileCard,
+                            const SizedBox(height: 16),
+                            contactCard,
+                            const SizedBox(height: 16),
+                            actionsCard,
+                            const SizedBox(height: 20),
+                            removeButton,
+                          ],
                         ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        flex: 6,
+                        child: _buildAssignmentsCard(),
                       ),
                     ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Contact Info
-            _buildInfoCard(
-              title: 'Contact Information',
-              children: [
-                _buildInfoRow(
-                  Icons.phone_outlined,
-                  'Phone Number',
-                  _teacher['phone']?.toString() ?? 'N/A',
-                ),
-                const Divider(height: 24),
-                _buildInfoRow(
-                  Icons.email_outlined,
-                  'Email Address',
-                  _teacher['email']?.toString().isNotEmpty == true
-                      ? _teacher['email']
-                      : 'No email provided',
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Batch Assignments Card
-            _buildAssignmentsCard(),
-            const SizedBox(height: 16),
-
-            // Status & Actions Card
-            Card(
-              color: Colors.white,
-              elevation: 0,
-              margin: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Status & Actions',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1F2E27),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: OutlinedButton.icon(
-                        onPressed: _showStatusBottomSheet,
-                        icon: const Icon(Icons.manage_accounts_outlined),
-                        label: const Text('Change Status / Set Leave'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF1F2E27),
-                          side: BorderSide(color: Colors.grey.shade300),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Remove Teacher button
-            SizedBox(
-              height: 50,
-              child: OutlinedButton.icon(
-                onPressed: _confirmRemove,
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                label: const Text(
-                  'Remove Teacher',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.w600,
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      profileCard,
+                      const SizedBox(height: 16),
+                      contactCard,
+                      const SizedBox(height: 16),
+                      _buildAssignmentsCard(),
+                      const SizedBox(height: 16),
+                      actionsCard,
+                      const SizedBox(height: 24),
+                      removeButton,
+                      const SizedBox(height: 16),
+                    ],
                   ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
+          ),
         ),
       ),
     );
@@ -638,7 +681,10 @@ class _ChangeStatusBottomSheetState
       updatedData['leaveStart'] = data['leaveStart'];
       updatedData['leaveEnd'] = data['leaveEnd'];
       widget.onSaved(updatedData);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop();
+      }
     } catch (e) {
       setState(() {
         _saving = false;
@@ -689,20 +735,23 @@ class _ChangeStatusBottomSheetState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 620,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        child: Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
           // Drag handle — consistent with every other bottom sheet in the app.
           Center(
             child: Container(
@@ -730,7 +779,10 @@ class _ChangeStatusBottomSheetState
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    final nav = Navigator.of(context, rootNavigator: true);
+                    if (nav.canPop()) nav.pop();
+                  },
                 ),
               ],
             ),
@@ -904,6 +956,8 @@ class _ChangeStatusBottomSheetState
           ),
         ],
       ),
+    ),
+    ),
     );
   }
 }
@@ -985,7 +1039,10 @@ class _EditTeacherBottomSheetState
       updatedData['phone'] = data['phone'];
       updatedData['email'] = data['email'];
       widget.onSaved(updatedData);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop();
+      }
     } catch (e) {
       setState(() {
         _saving = false;
@@ -996,20 +1053,23 @@ class _EditTeacherBottomSheetState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 620,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        child: Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
           // Drag handle — consistent with every other bottom sheet in the app.
           Center(
             child: Container(
@@ -1037,7 +1097,10 @@ class _EditTeacherBottomSheetState
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    final nav = Navigator.of(context, rootNavigator: true);
+                    if (nav.canPop()) nav.pop();
+                  },
                 ),
               ],
             ),
@@ -1117,6 +1180,8 @@ class _EditTeacherBottomSheetState
           ),
         ],
       ),
+    ),
+    ),
     );
   }
 }

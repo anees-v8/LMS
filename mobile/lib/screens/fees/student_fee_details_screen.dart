@@ -12,6 +12,7 @@ import '../../widgets/installment_row.dart';
 import '../../widgets/payment_history_row.dart';
 import '../../widgets/feature_locked_view.dart';
 import 'receipt_screen.dart';
+import '../../services/receipt_service.dart';
 import 'package:intl/intl.dart';
 
 class StudentFeeDetailsScreen extends ConsumerStatefulWidget {
@@ -81,6 +82,10 @@ class _StudentFeeDetailsScreenState
       ],
     );
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWide = screenWidth >= 720;
+    final hPadding = isWide ? 24.0 : 16.0;
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: const Color(0xFFF8F9FA),
@@ -101,10 +106,10 @@ class _StudentFeeDetailsScreenState
                   collapseMode: CollapseMode.pin,
                   background: SafeArea(
                     child: Padding(
-                      padding: const EdgeInsets.only(
+                      padding: EdgeInsets.only(
                         top: 50,
-                        left: 24,
-                        right: 24,
+                        left: hPadding,
+                        right: hPadding,
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,23 +205,31 @@ class _StudentFeeDetailsScreenState
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: FilledButton.icon(
-            onPressed: () => showRecordPaymentBottomSheet(
-              context,
-              ref,
-              prefillStudentId: studentId,
-            ),
-            icon: const Icon(Icons.add),
-            label: const Text(
-              'Receive Payment',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFA87D26),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          padding: EdgeInsets.all(hPadding),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => showRecordPaymentBottomSheet(
+                    context,
+                    ref,
+                    prefillStudentId: studentId,
+                  ),
+                  icon: const Icon(Icons.add),
+                  label: const Text(
+                    'Receive Payment',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFA87D26),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -274,6 +287,11 @@ class _StudentFeeDetailsScreenState
       );
     }
 
+    final studentInfo = details?['student'] as Map<String, dynamic>?;
+    final rollNo = studentInfo?['roll_no']?.toString() ?? 'N/A';
+    final grade = studentInfo?['grade']?.toString() ?? 'N/A';
+    final fullName = s['fullName']?.toString() ?? 'Unknown Student';
+
     return Builder(
       builder: (BuildContext context) {
         return CustomScrollView(
@@ -293,6 +311,22 @@ class _StudentFeeDetailsScreenState
                   amount: '${h['amount'] ?? 0}',
                   method: h['method']?.toString() ?? 'N/A',
                   receiptNo: h['receiptNo']?.toString() ?? 'N/A',
+                  onDownload: () {
+                    final tenantName = ref.read(authProvider).instituteName ?? 'Apex Educational Institute';
+                    ReceiptService.downloadStudentFeeReceipt(
+                      context: context,
+                      instituteName: tenantName,
+                      studentName: fullName,
+                      rollNo: rollNo,
+                      gradeOrBatch: grade,
+                      receiptNo: h['receiptNo']?.toString() ?? 'REC-${DateTime.now().millisecondsSinceEpoch}',
+                      amount: h['amount'] ?? 0,
+                      date: h['date']?.toString() ?? DateTime.now().toIso8601String(),
+                      paymentMethod: h['method']?.toString(),
+                      description: h['description']?.toString(),
+                      pendingBalance: feesData?['pending'] as num?,
+                    );
+                  },
                 );
               }, childCount: history.length),
             ),
@@ -424,6 +458,22 @@ class _StudentFeeDetailsScreenState
                     amount: '${h['amount'] ?? 0}',
                     method: h['method']?.toString() ?? 'N/A',
                     receiptNo: h['receiptNo']?.toString() ?? 'N/A',
+                    onDownload: () {
+                      final tenantName = ref.read(authProvider).instituteName ?? 'Apex Educational Institute';
+                      ReceiptService.downloadStudentFeeReceipt(
+                        context: context,
+                        instituteName: tenantName,
+                        studentName: fullName,
+                        rollNo: rollNo,
+                        gradeOrBatch: grade,
+                        receiptNo: h['receiptNo']?.toString() ?? 'REC-${DateTime.now().millisecondsSinceEpoch}',
+                        amount: h['amount'] ?? 0,
+                        date: h['date']?.toString() ?? DateTime.now().toIso8601String(),
+                        paymentMethod: h['method']?.toString(),
+                        description: h['description']?.toString(),
+                        pendingBalance: feesData?['pending'] as num?,
+                      );
+                    },
                   ),
                 );
               }, childCount: history.length),
@@ -467,9 +517,184 @@ class _StudentFeeDetailsScreenState
     final rollNo = studentInfo?['roll_no']?.toString() ?? 'N/A';
     final grade = studentInfo?['grade']?.toString() ?? 'N/A';
     final fullName = s['fullName']?.toString() ?? 'Unknown Student';
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWide = screenWidth >= 800;
+    final hPadding = screenWidth >= 720 ? 24.0 : 16.0;
+
+    final installmentsBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Installment Schedule',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            TextButton(
+              onPressed: () => _tabController.animateTo(2),
+              child: const Text(
+                'View All',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              if (installments.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text('No installments found.'),
+                )
+              else
+                ...installments
+                    .take(3)
+                    .toList()
+                    .asMap()
+                    .entries
+                    .map(
+                      (e) => InstallmentRow(
+                        index: e.key + 1,
+                        title: e.value['title']?.toString() ?? '',
+                        amount: e.value['amount'] ?? 0,
+                        status: e.value['status']?.toString() ?? 'Upcoming',
+                        dueDate: e.value['dueDate']?.toString(),
+                      ),
+                    ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Fee Structure section
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F0EA),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.account_balance_wallet,
+                color: Color(0xFF2E6656),
+              ),
+            ),
+            title: const Text(
+              'Fee Structure',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text('Total ${installments.length} Components'),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text(
+                  'Total Amount',
+                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+                Text(
+                  '₹${overview?['total'] ?? 0}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2E6656),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+
+    final paymentsBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Payment History',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            TextButton(
+              onPressed: () => _tabController.animateTo(1),
+              child: const Text(
+                'View All',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              if (history.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text('No payment history found.'),
+                )
+              else
+                ...history
+                    .take(4)
+                    .map(
+                      (h) => PaymentHistoryRow(
+                        date: h['date']?.toString() ?? '',
+                        amount: h['amount']?.toString() ?? '0',
+                        method: h['method']?.toString() ?? 'Cash',
+                        receiptNo: h['receiptNo']?.toString() ?? '',
+                      ),
+                    ),
+            ],
+          ),
+        ),
+      ],
+    );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -517,17 +742,20 @@ class _StudentFeeDetailsScreenState
                 false,
                 () {
                   if (history.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ReceiptScreen(
-                          tenantName: 'Apex Educational Institute',
-                          studentName: fullName,
-                          rollNo: rollNo,
-                          grade: grade,
-                          paymentData: history.first as Map<String, dynamic>,
-                        ),
-                      ),
+                    final h = history.first as Map<String, dynamic>;
+                    final tenantName = ref.read(authProvider).instituteName ?? 'Apex Educational Institute';
+                    ReceiptService.downloadStudentFeeReceipt(
+                      context: context,
+                      instituteName: tenantName,
+                      studentName: fullName,
+                      rollNo: rollNo,
+                      gradeOrBatch: grade,
+                      receiptNo: h['receiptNo']?.toString() ?? 'REC-${DateTime.now().millisecondsSinceEpoch}',
+                      amount: h['amount'] ?? 0,
+                      date: h['date']?.toString() ?? DateTime.now().toIso8601String(),
+                      paymentMethod: h['method']?.toString(),
+                      description: h['description']?.toString(),
+                      pendingBalance: feesData?['pending'] as num?,
                     );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -541,170 +769,20 @@ class _StudentFeeDetailsScreenState
             ],
           ),
           const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Installment Schedule',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              TextButton(
-                onPressed: () => _tabController.animateTo(2),
-                child: const Text(
-                  'View All',
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
+          if (isWide)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (installments.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text('No installments found.'),
-                  )
-                else
-                  ...installments
-                      .take(3)
-                      .toList()
-                      .asMap()
-                      .entries
-                      .map(
-                        (e) => InstallmentRow(
-                          index: e.key + 1,
-                          title: e.value['title']?.toString() ?? '',
-                          amount: e.value['amount'] ?? 0,
-                          status: e.value['status']?.toString() ?? 'Upcoming',
-                          dueDate: e.value['dueDate']?.toString(),
-                        ),
-                      ),
+                Expanded(flex: 5, child: installmentsBlock),
+                const SizedBox(width: 20),
+                Expanded(flex: 6, child: paymentsBlock),
               ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Payment History',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              TextButton(
-                onPressed: () => _tabController.animateTo(1),
-                child: const Text(
-                  'View All',
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                if (history.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text('No payment history found.'),
-                  )
-                else
-                  ...history
-                      .take(3)
-                      .map(
-                        (h) => PaymentHistoryRow(
-                          date: h['date']?.toString() ?? '',
-                          amount: h['amount']?.toString() ?? '0',
-                          method: h['method']?.toString() ?? 'Cash',
-                          receiptNo: h['receiptNo']?.toString() ?? '',
-                        ),
-                      ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Fee Structure section
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F0EA),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.account_balance_wallet,
-                  color: Color(0xFF2E6656),
-                ),
-              ),
-              title: const Text(
-                'Fee Structure',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text('Total ${installments.length} Components'),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    'Total Amount',
-                    style: TextStyle(fontSize: 10, color: Colors.grey),
-                  ),
-                  Text(
-                    '₹${overview?['total'] ?? 0}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2E6656),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // (Notes section removed)
+            )
+          else ...[
+            installmentsBlock,
+            const SizedBox(height: 24),
+            paymentsBlock,
+          ],
           const SizedBox(height: 40),
         ],
       ),

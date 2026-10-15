@@ -173,6 +173,9 @@ class _BatchSubjectChaptersScreenState
   @override
   Widget build(BuildContext context) {
     final chaptersAsync = ref.watch(batchSubjectChaptersProvider(_key));
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isTablet = screenWidth >= 700;
+    final double hPadding = screenWidth >= 900 ? 36 : (screenWidth >= 650 ? 28 : 16);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F3),
@@ -196,134 +199,30 @@ class _BatchSubjectChaptersScreenState
               ),
             );
           }
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 160),
-            itemCount: chapters.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final chapter = chapters[index] as Map<String, dynamic>;
-              final isCompleted = chapter['completedAt'] != null;
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isCompleted
-                      ? const Color(0xFF2E6656).withValues(alpha: 0.05)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isCompleted
-                        ? const Color(0xFF2E6656).withValues(alpha: 0.3)
-                        : Colors.grey.shade200,
+          return isTablet
+              ? GridView.builder(
+                  padding: EdgeInsets.fromLTRB(hPadding, 20, hPadding, 160),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 14,
+                    mainAxisExtent: 96,
                   ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GestureDetector(
-                      onTap: () => _toggleComplete(chapter),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: isCompleted
-                              ? const Color(0xFF2E6656)
-                              : Colors.orange.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: isCompleted
-                            ? const Icon(Icons.check, color: Colors.white, size: 22)
-                            : Text(
-                                '${chapter['chapterNumber'] ?? index + 1}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  color: Colors.orange,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Chapter ${chapter['chapterNumber'] ?? index + 1}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade500,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            chapter['name'] ?? 'Untitled Chapter',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Color(0xFF1F2E27),
-                            ),
-                          ),
-                          if (isCompleted) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'Completed by ${chapter['completedByName'] ?? 'someone'} · '
-                              '${_formatDate(chapter['completedAt'] as String)}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF2E6656),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
-                      onPressed: () async {
-                        final action = await showActionMenuBottomSheet(
-                          context,
-                          title: chapter['name'] ?? 'Chapter',
-                          options: [
-                            ActionMenuOption(
-                              icon: isCompleted
-                                  ? Icons.replay_outlined
-                                  : Icons.check_circle_outline,
-                              label: isCompleted ? 'Mark Incomplete' : 'Mark Complete',
-                              value: 'toggle_complete',
-                              color: isCompleted ? null : const Color(0xFF2E6656),
-                            ),
-                            const ActionMenuOption(
-                              icon: Icons.edit_outlined,
-                              label: 'Rename',
-                              value: 'rename',
-                            ),
-                            const ActionMenuOption(
-                              icon: Icons.delete_outline,
-                              label: 'Remove',
-                              value: 'remove',
-                              color: Colors.red,
-                            ),
-                          ],
-                        );
-                        if (!context.mounted) return;
-                        if (action == 'toggle_complete') {
-                          _toggleComplete(chapter);
-                        } else if (action == 'rename') {
-                          _renameChapter(chapter);
-                        } else if (action == 'remove') {
-                          _removeChapter(chapter);
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
+                  itemCount: chapters.length,
+                  itemBuilder: (context, index) {
+                    final chapter = chapters[index] as Map<String, dynamic>;
+                    return _buildChapterCard(context, chapter, index);
+                  },
+                )
+              : ListView.separated(
+                  padding: EdgeInsets.fromLTRB(hPadding, 16, hPadding, 160),
+                  itemCount: chapters.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final chapter = chapters[index] as Map<String, dynamic>;
+                    return _buildChapterCard(context, chapter, index);
+                  },
+                );
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -332,6 +231,138 @@ class _BatchSubjectChaptersScreenState
         backgroundColor: const Color(0xFF1F2E27),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text('Add Chapter', style: TextStyle(color: Colors.white)),
+      ),
+    );
+  }
+
+  Widget _buildChapterCard(
+    BuildContext context,
+    Map<String, dynamic> chapter,
+    int index,
+  ) {
+    final isCompleted = chapter['completedAt'] != null;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isCompleted
+            ? const Color(0xFF2E6656).withValues(alpha: 0.05)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isCompleted
+              ? const Color(0xFF2E6656).withValues(alpha: 0.3)
+              : Colors.grey.shade200,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          GestureDetector(
+            onTap: () => _toggleComplete(chapter),
+            child: Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isCompleted
+                    ? const Color(0xFF2E6656)
+                    : Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: isCompleted
+                  ? const Icon(Icons.check, color: Colors.white, size: 22)
+                  : Text(
+                      '${chapter['chapterNumber'] ?? index + 1}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.orange,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Chapter ${chapter['chapterNumber'] ?? index + 1}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade500,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  chapter['name'] ?? 'Untitled Chapter',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Color(0xFF1F2E27),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (isCompleted) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Completed by ${chapter['completedByName'] ?? 'someone'} · '
+                    '${_formatDate(chapter['completedAt'] as String)}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF2E6656),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
+            onPressed: () async {
+              final action = await showActionMenuBottomSheet(
+                context,
+                title: chapter['name'] ?? 'Chapter',
+                options: [
+                  ActionMenuOption(
+                    icon: isCompleted
+                        ? Icons.replay_outlined
+                        : Icons.check_circle_outline,
+                    label: isCompleted ? 'Mark Incomplete' : 'Mark Complete',
+                    value: 'toggle_complete',
+                    color: isCompleted ? null : const Color(0xFF2E6656),
+                  ),
+                  const ActionMenuOption(
+                    icon: Icons.edit_outlined,
+                    label: 'Rename',
+                    value: 'rename',
+                  ),
+                  const ActionMenuOption(
+                    icon: Icons.delete_outline,
+                    label: 'Remove',
+                    value: 'remove',
+                    color: Colors.red,
+                  ),
+                ],
+              );
+              if (!context.mounted) return;
+              if (action == 'toggle_complete') {
+                _toggleComplete(chapter);
+              } else if (action == 'rename') {
+                _renameChapter(chapter);
+              } else if (action == 'remove') {
+                _removeChapter(chapter);
+              }
+            },
+          ),
+        ],
       ),
     );
   }

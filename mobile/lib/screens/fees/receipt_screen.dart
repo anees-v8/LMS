@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:printing/printing.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
+import '../../services/receipt_service.dart';
 
 class ReceiptScreen extends StatelessWidget {
   final String tenantName;
@@ -21,153 +19,17 @@ class ReceiptScreen extends StatelessWidget {
   });
 
   Future<void> _printReceipt(BuildContext context) async {
-    final pdf = pw.Document();
-
-    final dateStr = paymentData['date'] != null
-        ? DateFormat(
-            'dd MMM yyyy, hh:mm a',
-          ).format(DateTime.parse(paymentData['date'].toString()))
-        : 'N/A';
-
-    final displayGrade = grade.toLowerCase().startsWith('class')
-        ? grade
-        : 'Class $grade';
-
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        build: (pw.Context context) {
-          return pw.Container(
-            padding: const pw.EdgeInsets.all(32),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Center(
-                  child: pw.Text(
-                    tenantName.toUpperCase(),
-                    style: pw.TextStyle(
-                      fontSize: 24,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ),
-                pw.SizedBox(height: 8),
-                pw.Center(
-                  child: pw.Text(
-                    'FEE RECEIPT',
-                    style: pw.TextStyle(
-                      fontSize: 16,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.grey700,
-                    ),
-                  ),
-                ),
-                pw.SizedBox(height: 24),
-                pw.Divider(),
-                pw.SizedBox(height: 12),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text('Receipt No: ${paymentData['receiptNo'] ?? 'N/A'}'),
-                    pw.Text('Date: $dateStr'),
-                  ],
-                ),
-                pw.SizedBox(height: 12),
-                pw.Divider(),
-                pw.SizedBox(height: 24),
-                pw.Text(
-                  'Student Details',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 8),
-                pw.Text('Name: $studentName'),
-                pw.Text('$displayGrade - Roll No. $rollNo'),
-                pw.SizedBox(height: 24),
-                pw.Text(
-                  'Payment Details',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 8),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      'Description:',
-                      style: pw.TextStyle(color: PdfColors.grey700),
-                    ),
-                    pw.Text(paymentData['desc']?.toString() ?? 'Fee Payment'),
-                  ],
-                ),
-                pw.SizedBox(height: 8),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      'Payment Method:',
-                      style: pw.TextStyle(color: PdfColors.grey700),
-                    ),
-                    pw.Text(
-                      paymentData['method']?.toString().toUpperCase() ?? 'N/A',
-                    ),
-                  ],
-                ),
-                pw.SizedBox(height: 12),
-                pw.Divider(),
-                pw.SizedBox(height: 12),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      'Amount Paid:',
-                      style: pw.TextStyle(
-                        fontSize: 18,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.Text(
-                      'Rs. ${paymentData['amount'] ?? 0}',
-                      style: pw.TextStyle(
-                        fontSize: 18,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                pw.SizedBox(height: 12),
-                pw.Divider(),
-                pw.Spacer(),
-                pw.Center(
-                  child: pw.Text(
-                    'Thank you for the payment!',
-                    style: pw.TextStyle(fontStyle: pw.FontStyle.italic),
-                  ),
-                ),
-                pw.SizedBox(height: 32),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      '_____________________\nAuthorized Signatory',
-                      textAlign: pw.TextAlign.center,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Receipt_${paymentData['receiptNo'] ?? 'Fee'}',
+    await ReceiptService.downloadStudentFeeReceipt(
+      context: context,
+      instituteName: tenantName,
+      studentName: studentName,
+      rollNo: rollNo,
+      gradeOrBatch: grade,
+      receiptNo: paymentData['receiptNo']?.toString() ?? 'REC-${DateTime.now().millisecondsSinceEpoch}',
+      amount: paymentData['amount'] ?? 0,
+      date: paymentData['date']?.toString() ?? DateTime.now().toIso8601String(),
+      paymentMethod: paymentData['method']?.toString(),
+      description: paymentData['desc']?.toString() ?? paymentData['description']?.toString(),
     );
   }
 
@@ -186,12 +48,25 @@ class ReceiptScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1F2E27),
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Fee Receipt', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: Color(0xFF1F2E27)),
+        title: const Text(
+          'Fee Receipt',
+          style: TextStyle(
+            color: Color(0xFF1F2E27),
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
+            icon: const Icon(Icons.download_rounded, color: Color(0xFF2E6656)),
             onPressed: () => _printReceipt(context),
             tooltip: 'Download PDF',
           ),

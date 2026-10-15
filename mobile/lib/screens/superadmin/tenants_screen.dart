@@ -291,6 +291,7 @@ class _TenantsScreenState extends ConsumerState<TenantsScreen> {
         heroTag: null,
         onPressed: () => showModalBottomSheet(
           context: context,
+          useRootNavigator: true,
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
           builder: (ctx) => const _AddTenantBottomSheet(),
@@ -334,6 +335,7 @@ class _TenantsScreenState extends ConsumerState<TenantsScreen> {
   ) async {
     await showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AssignPlanBottomSheet(
@@ -722,7 +724,10 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
         contactPhone: _contactPhone.text.trim(),
       );
       ref.invalidate(tenantsProvider);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop();
+      }
     } catch (e) {
       setState(() {
         _saving = false;
@@ -774,7 +779,10 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.grey),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      final nav = Navigator.of(context, rootNavigator: true);
+                      if (nav.canPop()) nav.pop();
+                    },
                   ),
                 ],
               ),
@@ -936,7 +944,10 @@ class _AssignPlanBottomSheetState
       );
       ref.invalidate(tenantsProvider);
       ref.invalidate(tenantSubscriptionProvider(widget.tenantId));
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop();
+      }
     } catch (e) {
       setState(() {
         _saving = false;
@@ -995,7 +1006,10 @@ class _AssignPlanBottomSheetState
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.grey),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      final nav = Navigator.of(context, rootNavigator: true);
+                      if (nav.canPop()) nav.pop();
+                    },
                   ),
                 ],
               ),

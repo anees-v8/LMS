@@ -8,6 +8,8 @@ import '../../utils/greeting.dart';
 import 'student_chapter_content_screen.dart';
 import 'student_notifications_screen.dart';
 import 'student_scan_attendance_screen.dart';
+import 'student_profile_screen.dart';
+import '../../widgets/unified_app_header.dart';
 
 class StudentHomeScreen extends ConsumerWidget {
   const StudentHomeScreen({super.key});
@@ -24,148 +26,122 @@ class StudentHomeScreen extends ConsumerWidget {
     final unreadCount =
         ref.watch(studentUnreadNotificationCountProvider).asData?.value ?? 0;
 
+    final parts = studentName.trim().split(' ');
+    final initials = parts.length > 1
+        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+        : (studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S');
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: UnifiedAppHeader(
+        title: studentName,
+        subtitle: instituteName,
+        initials: initials,
+        unreadNotificationsCount: unreadCount,
+        onProfileTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const StudentProfileScreen(),
+            ),
+          );
+        },
+        onQrTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const StudentScanAttendanceScreen(),
+            ),
+          );
+        },
+        onNotificationsTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const StudentNotificationsScreen(),
+            ),
+          ).then(
+            (_) => ref.invalidate(studentUnreadNotificationCountProvider),
+          );
+        },
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(studentDashboardProvider);
+          ref.invalidate(studentUnreadNotificationCountProvider);
+          try {
+            await ref.read(studentDashboardProvider.future);
+          } catch (_) {}
         },
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            // ── Gradient Header ──────────────────────────────────────────────
+            // ── Clean Greeting Card ──────────────────────────────────────────
             SliverToBoxAdapter(
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF1F2E27), Color(0xFF2E6656)],
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(28),
-                    bottomRight: Radius.circular(28),
-                  ),
-                ),
-                child: SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.waving_hand_rounded,
+                          color: Color(0xFF16A34A),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              instituteName,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
+                              '$greeting, 👋',
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
                                 fontSize: 12,
-                                letterSpacing: 0.5,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                            Row(
-                              children: [
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            const StudentScanAttendanceScreen(),
-                                      ),
-                                    );
-                                  },
-                                  child: Container(
-                                    width: 38,
-                                    height: 38,
-                                    margin: const EdgeInsets.only(right: 10),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.12,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Icon(
-                                      Icons.qr_code_scanner_rounded,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            const StudentNotificationsScreen(),
-                                      ),
-                                    ).then(
-                                      (_) => ref.invalidate(
-                                        studentUnreadNotificationCountProvider,
-                                      ),
-                                    );
-                                  },
-                                  child: Badge(
-                                    isLabelVisible: unreadCount > 0,
-                                    label: Text(
-                                      '$unreadCount',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    backgroundColor: const Color(0xFFE53935),
-                                    offset: const Offset(-4, 4),
-                                    child: Container(
-                                      width: 38,
-                                      height: 38,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: const Icon(
-                                        Icons.notifications_outlined,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            const SizedBox(height: 2),
+                            Text(
+                              studentName,
+                              style: const TextStyle(
+                                color: Color(0xFF0F172A),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          '$greeting, 👋',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.75),
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          studentName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
             // ── Quick Stats ──────────────────────────────────────────────────
             SliverToBoxAdapter(

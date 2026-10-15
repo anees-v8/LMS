@@ -367,12 +367,11 @@ class AnalyticsScreen extends ConsumerWidget {
                                                 : null,
                                             onTap: () {
                                               ref
-                                                      .read(
-                                                        selectedAnalyticsMonthProvider
-                                                            .notifier,
-                                                      )
-                                                      .state =
-                                                  date;
+                                                  .read(
+                                                    selectedAnalyticsMonthProvider
+                                                        .notifier,
+                                                  )
+                                                  .setMonth(date);
                                               Navigator.pop(context);
                                             },
                                           );

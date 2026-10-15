@@ -133,13 +133,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
           SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 16.0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 16.0,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   AnimatedSize(
                     duration: const Duration(milliseconds: 300),
@@ -262,74 +265,110 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           child: (_needsAcceptance && !_checkingTerms)
                               ? Padding(
                                   padding: const EdgeInsets.only(top: 16),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: Checkbox(
-                                          value: _acceptedLegal,
-                                          onChanged: (v) => setState(
-                                            () => _acceptedLegal = v ?? false,
-                                          ),
-                                          activeColor: const Color(0xFF1F2E27),
-                                        ),
+                                  child: InkWell(
+                                    onTap: () => setState(
+                                      () => _acceptedLegal = !_acceptedLegal,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 4,
+                                        horizontal: 2,
                                       ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: 4,
-                                          ),
-                                          child: RichText(
-                                            text: TextSpan(
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                color: Colors.black87,
-                                                height: 1.4,
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: Checkbox(
+                                              value: _acceptedLegal,
+                                              materialTapTargetSize:
+                                                  MaterialTapTargetSize.shrinkWrap,
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              onChanged: (v) => setState(
+                                                () => _acceptedLegal =
+                                                    v ?? false,
                                               ),
-                                              children: [
-                                                const TextSpan(
-                                                  text: 'I accept the ',
-                                                ),
-                                                TextSpan(
-                                                  text: 'Privacy Policy',
-                                                  style: const TextStyle(
-                                                    color: Color(0xFFA87D26),
-                                                    fontWeight: FontWeight.w600,
-                                                    decoration: TextDecoration
-                                                        .underline,
-                                                  ),
-                                                  recognizer:
-                                                      TapGestureRecognizer()
-                                                        ..onTap = () => _openUrl(
-                                                          Constants
-                                                              .privacyPolicyUrl,
-                                                        ),
-                                                ),
-                                                const TextSpan(text: ' and '),
-                                                TextSpan(
-                                                  text: 'Terms & Conditions',
-                                                  style: const TextStyle(
-                                                    color: Color(0xFFA87D26),
-                                                    fontWeight: FontWeight.w600,
-                                                    decoration: TextDecoration
-                                                        .underline,
-                                                  ),
-                                                  recognizer: TapGestureRecognizer()
-                                                    ..onTap = () => _openUrl(
-                                                      Constants
-                                                          .termsAndConditionsUrl,
-                                                    ),
-                                                ),
-                                              ],
+                                              activeColor:
+                                                  const Color(0xFF1F2E27),
                                             ),
                                           ),
-                                        ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: RichText(
+                                              text: TextSpan(
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.black87,
+                                                  height: 1.4,
+                                                ),
+                                                children: [
+                                                  TextSpan(
+                                                    text: 'I accept the ',
+                                                    recognizer:
+                                                        TapGestureRecognizer()
+                                                          ..onTap = () =>
+                                                              setState(
+                                                                () =>
+                                                                    _acceptedLegal =
+                                                                        !_acceptedLegal,
+                                                              ),
+                                                  ),
+                                                  TextSpan(
+                                                    text: 'Privacy Policy',
+                                                    style: const TextStyle(
+                                                      color: Color(0xFFA87D26),
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      decoration: TextDecoration
+                                                          .underline,
+                                                    ),
+                                                    recognizer:
+                                                        TapGestureRecognizer()
+                                                          ..onTap = () =>
+                                                              _openUrl(
+                                                                Constants
+                                                                    .privacyPolicyUrl,
+                                                              ),
+                                                  ),
+                                                  TextSpan(
+                                                    text: ' and ',
+                                                    recognizer:
+                                                        TapGestureRecognizer()
+                                                          ..onTap = () =>
+                                                              setState(
+                                                                () =>
+                                                                    _acceptedLegal =
+                                                                        !_acceptedLegal,
+                                                              ),
+                                                  ),
+                                                  TextSpan(
+                                                    text: 'Terms & Conditions',
+                                                    style: const TextStyle(
+                                                      color: Color(0xFFA87D26),
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      decoration: TextDecoration
+                                                          .underline,
+                                                    ),
+                                                    recognizer:
+                                                        TapGestureRecognizer()
+                                                          ..onTap = () =>
+                                                              _openUrl(
+                                                                Constants
+                                                                    .termsAndConditionsUrl,
+                                                              ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 )
                               : const SizedBox.shrink(),
@@ -342,7 +381,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 height: 56,
                                 child: CustomButton(
                                   text: 'Sign In →',
-                                  onPressed: _handleLogin,
+                                  onPressed: (_needsAcceptance &&
+                                          !_acceptedLegal)
+                                      ? null
+                                      : _handleLogin,
                                 ),
                               ),
                         const SizedBox(height: 24),
@@ -358,8 +400,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
-        ],
+        ),
       ),
-    );
+    ],
+  ),
+);
   }
 }

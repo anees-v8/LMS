@@ -17,6 +17,9 @@ class BatchesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final batchesAsync = ref.watch(batchesProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isTablet = screenWidth >= 700;
+    final double hPadding = screenWidth >= 900 ? 36.0 : (screenWidth >= 650 ? 32.0 : 16.0);
 
     return Scaffold(
       backgroundColor: const Color(0xFF1F2E27),
@@ -28,9 +31,9 @@ class BatchesScreen extends ConsumerWidget {
           children: [
             // Fixed Green Header
             Padding(
-              padding: const EdgeInsets.only(
-                left: 20.0,
-                right: 20.0,
+              padding: EdgeInsets.only(
+                left: hPadding,
+                right: hPadding,
                 top: 10.0,
                 bottom: 20.0,
               ),
@@ -85,15 +88,16 @@ class BatchesScreen extends ConsumerWidget {
                     return RefreshIndicator(
                       onRefresh: () async => ref.invalidate(batchesProvider),
                       child: CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
                           if (batches.isNotEmpty) ...[
                             SliverToBoxAdapter(
                               child: Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  16,
-                                  16,
-                                  8,
+                                padding: EdgeInsets.fromLTRB(
+                                  hPadding,
+                                  20,
+                                  hPadding,
+                                  10,
                                 ),
                                 child: Row(
                                   children: [
@@ -105,7 +109,7 @@ class BatchesScreen extends ConsumerWidget {
                                         const Color(0xFF2E6656),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: isTablet ? 14 : 8),
                                     Expanded(
                                       child: _buildStatCard(
                                         'Enrolled Students',
@@ -114,7 +118,7 @@ class BatchesScreen extends ConsumerWidget {
                                         Colors.blue.shade700,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: isTablet ? 14 : 8),
                                     Expanded(
                                       child: _buildStatCard(
                                         'Avg. Batch Size',
@@ -161,298 +165,53 @@ class BatchesScreen extends ConsumerWidget {
                             )
                           else
                             SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(
-                                16,
-                                16,
-                                16,
+                              padding: EdgeInsets.fromLTRB(
+                                hPadding,
+                                14,
+                                hPadding,
                                 160,
                               ),
-                              sliver: SliverList(
-                                delegate: SliverChildBuilderDelegate((
-                                  context,
-                                  index,
-                                ) {
-                                  final batch =
-                                      batches[index] as Map<String, dynamic>;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: InkWell(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => BatchStudentsScreen(
-                                              batchId: batch['id'] as int,
-                                              batchName:
-                                                  batch['name']?.toString() ??
-                                                  'Batch',
+                              sliver: isTablet
+                                  ? SliverGrid(
+                                      gridDelegate:
+                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        crossAxisSpacing: 16,
+                                        mainAxisSpacing: 14,
+                                        mainAxisExtent: 135,
+                                      ),
+                                      delegate: SliverChildBuilderDelegate(
+                                        (context, index) {
+                                          final batch = batches[index]
+                                              as Map<String, dynamic>;
+                                          return _buildBatchCard(
+                                            context,
+                                            ref,
+                                            batch,
+                                          );
+                                        },
+                                        childCount: batches.length,
+                                      ),
+                                    )
+                                  : SliverList(
+                                      delegate: SliverChildBuilderDelegate(
+                                        (context, index) {
+                                          final batch = batches[index]
+                                              as Map<String, dynamic>;
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 12,
                                             ),
-                                          ),
-                                        );
-                                      },
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(
-                                                alpha: 0.03,
-                                              ),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 4),
+                                            child: _buildBatchCard(
+                                              context,
+                                              ref,
+                                              batch,
                                             ),
-                                          ],
-                                          border: Border.all(
-                                            color: Colors.grey.shade200,
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16.0),
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                width: 48,
-                                                height: 48,
-                                                decoration: BoxDecoration(
-                                                  color: const Color(
-                                                    0xFF2E6656,
-                                                  ).withValues(alpha: 0.1),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: const Icon(
-                                                  Icons.class_outlined,
-                                                  color: Color(0xFF2E6656),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 16),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      batch['name'] ??
-                                                          'Unknown Batch',
-                                                      style: const TextStyle(
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: Color(
-                                                          0xFF1F2E27,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      '${batch['studentCount'] ?? 0} students enrolled',
-                                                      style: TextStyle(
-                                                        color: Colors
-                                                            .grey
-                                                            .shade600,
-                                                        fontSize: 13,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                      ),
-                                                    ),
-                                                    if ((batch['subjectNames']
-                                                                as List<
-                                                                  dynamic
-                                                                >?)
-                                                            ?.isNotEmpty ??
-                                                        false) ...[
-                                                      const SizedBox(height: 6),
-                                                      Wrap(
-                                                        spacing: 6,
-                                                        runSpacing: 4,
-                                                        children:
-                                                            (batch['subjectNames']
-                                                                    as List<
-                                                                      dynamic
-                                                                    >)
-                                                                .map((name) {
-                                                                  return Container(
-                                                                    padding: const EdgeInsets.symmetric(
-                                                                      horizontal:
-                                                                          8,
-                                                                      vertical:
-                                                                          3,
-                                                                    ),
-                                                                    decoration: BoxDecoration(
-                                                                      color:
-                                                                          const Color(
-                                                                            0xFF2E6656,
-                                                                          ).withValues(
-                                                                            alpha:
-                                                                                0.08,
-                                                                          ),
-                                                                      borderRadius:
-                                                                          BorderRadius.circular(
-                                                                            8,
-                                                                          ),
-                                                                    ),
-                                                                    child: Text(
-                                                                      name.toString(),
-                                                                      style: const TextStyle(
-                                                                        color: Color(
-                                                                          0xFF2E6656,
-                                                                        ),
-                                                                        fontSize:
-                                                                            11,
-                                                                        fontWeight:
-                                                                            FontWeight.w600,
-                                                                      ),
-                                                                    ),
-                                                                  );
-                                                                })
-                                                                .toList(),
-                                                      ),
-                                                    ],
-                                                  ],
-                                                ),
-                                              ),
-                                              if (batch['grade'] != null)
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 10,
-                                                        vertical: 4,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(
-                                                      0xFFA87D26,
-                                                    ).withValues(alpha: 0.12),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          20,
-                                                        ),
-                                                  ),
-                                                  child: Text(
-                                                    batch['grade'].toString(),
-                                                    style: const TextStyle(
-                                                      color: Color(0xFFA87D26),
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ),
-                                              IconButton(
-                                                icon: Icon(
-                                                  Icons.more_vert,
-                                                  color: Colors.grey.shade600,
-                                                ),
-                                                onPressed: () async {
-                                                  final action =
-                                                      await showActionMenuBottomSheet(
-                                                        context,
-                                                        title:
-                                                            batch['name'] ??
-                                                            'Batch',
-                                                        options: const [
-                                                          ActionMenuOption(
-                                                            icon: Icons
-                                                                .edit_outlined,
-                                                            label: 'Edit',
-                                                            value: 'edit',
-                                                          ),
-                                                          ActionMenuOption(
-                                                            icon: Icons
-                                                                .calendar_month_outlined,
-                                                            label: 'Schedule',
-                                                            value: 'schedule',
-                                                          ),
-                                                          ActionMenuOption(
-                                                            icon: Icons
-                                                                .menu_book_outlined,
-                                                            label:
-                                                                'Manage Chapters',
-                                                            value: 'chapters',
-                                                          ),
-                                                          ActionMenuOption(
-                                                            icon: Icons
-                                                                .delete_outline,
-                                                            label: 'Delete',
-                                                            value: 'delete',
-                                                            color: Colors.red,
-                                                          ),
-                                                        ],
-                                                      );
-                                                  if (!context.mounted) {
-                                                    return;
-                                                  }
-                                                  if (action == 'edit') {
-                                                    showBatchFormBottomSheet(
-                                                      context,
-                                                      ref,
-                                                      existing: batch,
-                                                    );
-                                                  } else if (action ==
-                                                      'schedule') {
-                                                    final batchId =
-                                                        batch['id'] as int;
-                                                    final batchName =
-                                                        batch['name']
-                                                            ?.toString() ??
-                                                        'Batch';
-                                                    final subjectIds =
-                                                        (batch['subjectIds']
-                                                                    as List<
-                                                                      dynamic
-                                                                    >?)
-                                                                ?.map((e) => (e as num).toInt())
-                                                                .toList() ??
-                                                            <int>[];
-                                                    showBatchScheduleBottomSheet(
-                                                      context,
-                                                      ref,
-                                                      batchId: batchId,
-                                                      batchName: batchName,
-                                                      subjectIds: subjectIds,
-                                                    );
-                                                  } else if (action ==
-                                                      'chapters') {
-                                                    Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (_) =>
-                                                            BatchSubjectsScreen(
-                                                              batchId:
-                                                                  batch['id'],
-                                                              batchName:
-                                                                  batch['name'] ??
-                                                                  'Batch',
-                                                              subjects:
-                                                                  (batch['subjects']
-                                                                      as List<
-                                                                        dynamic
-                                                                      >?) ??
-                                                                  const [],
-                                                            ),
-                                                      ),
-                                                    );
-                                                  } else if (action ==
-                                                      'delete') {
-                                                    _confirmDeleteBatch(
-                                                      context,
-                                                      ref,
-                                                      batch,
-                                                    );
-                                                  }
-                                                },
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                          );
+                                        },
+                                        childCount: batches.length,
                                       ),
                                     ),
-                                  );
-                                }, childCount: batches.length),
-                              ),
                             ),
                         ],
                       ),
@@ -472,6 +231,382 @@ class BatchesScreen extends ConsumerWidget {
         label: const Text(
           'Create Batch',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBatchCard(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> batch,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: 0.03,
+            ),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.grey.shade200,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => BatchStudentsScreen(
+                  batchId: batch['id'] as int,
+                  batchName:
+                      batch['name']?.toString() ??
+                      'Batch',
+                ),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(
+                      0xFF2E6656,
+                    ).withValues(alpha: 0.1),
+                    borderRadius:
+                        BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.class_outlined,
+                    color: Color(0xFF2E6656),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        batch['name'] ??
+                            'Unknown Batch',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight:
+                              FontWeight.bold,
+                          color: Color(
+                            0xFF1F2E27,
+                          ),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${batch['studentCount'] ?? 0} students enrolled',
+                        style: TextStyle(
+                          color: Colors
+                              .grey
+                              .shade600,
+                          fontSize: 13,
+                          fontWeight:
+                              FontWeight.w500,
+                        ),
+                      ),
+                      if ((batch['subjectNames']
+                                  as List<
+                                    dynamic
+                                  >?)
+                              ?.isNotEmpty ??
+                          false) ...[
+                        const SizedBox(height: 6),
+                        Builder(
+                          builder: (context) {
+                            final allSubs = (batch['subjectNames'] as List<dynamic>).map((e) => e.toString()).toList();
+                            return Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                ...allSubs.take(2).map((name) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF2E6656).withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      name,
+                                      style: const TextStyle(
+                                        color: Color(0xFF2E6656),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  );
+                                }),
+                                if (allSubs.length > 2)
+                                  GestureDetector(
+                                    onTap: () {
+                                      showModalBottomSheet(
+                                        context: context,
+                                        useRootNavigator: true,
+                                        backgroundColor: Colors.transparent,
+                                        builder: (ctx) => Center(
+                                          child: ConstrainedBox(
+                                            constraints: const BoxConstraints(maxWidth: 480),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(20),
+                                              decoration: const BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                              ),
+                                              child: SafeArea(
+                                                top: false,
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Center(
+                                                      child: Container(
+                                                        margin: const EdgeInsets.only(bottom: 12),
+                                                        height: 4,
+                                                        width: 40,
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.grey.shade300,
+                                                          borderRadius: BorderRadius.circular(2),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Row(
+                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                      children: [
+                                                        Text(
+                                                          '${batch['name'] ?? "Batch"} Subjects',
+                                                          style: const TextStyle(
+                                                            fontSize: 18,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: Color(0xFF1F2E27),
+                                                          ),
+                                                        ),
+                                                        IconButton(
+                                                          icon: const Icon(Icons.close, color: Colors.grey),
+                                                          onPressed: () {
+                                                            final nav = Navigator.of(ctx, rootNavigator: true);
+                                                            if (nav.canPop()) nav.pop();
+                                                          },
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 12),
+                                                    Wrap(
+                                                      spacing: 8,
+                                                      runSpacing: 8,
+                                                      children: allSubs.map((s) => Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xFF2E6656).withValues(alpha: 0.1),
+                                                          borderRadius: BorderRadius.circular(10),
+                                                        ),
+                                                        child: Text(
+                                                          s,
+                                                          style: const TextStyle(
+                                                            color: Color(0xFF2E6656),
+                                                            fontWeight: FontWeight.w600,
+                                                            fontSize: 13,
+                                                          ),
+                                                        ),
+                                                      )).toList(),
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFA87D26).withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: const Color(0xFFA87D26).withValues(alpha: 0.3),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '+${allSubs.length - 2} more',
+                                        style: const TextStyle(
+                                          color: Color(0xFFA87D26),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (batch['grade'] != null)
+                  Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    padding:
+                        const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                    decoration: BoxDecoration(
+                      color: const Color(
+                        0xFFA87D26,
+                      ).withValues(alpha: 0.12),
+                      borderRadius:
+                          BorderRadius.circular(
+                            20,
+                          ),
+                    ),
+                    child: Text(
+                      batch['grade'].toString(),
+                      style: const TextStyle(
+                        color: Color(0xFFA87D26),
+                        fontWeight:
+                            FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                IconButton(
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: Colors.grey.shade600,
+                  ),
+                  onPressed: () async {
+                    final action =
+                        await showActionMenuBottomSheet(
+                          context,
+                          title:
+                              batch['name'] ??
+                              'Batch',
+                          options: const [
+                            ActionMenuOption(
+                              icon: Icons
+                                  .edit_outlined,
+                              label: 'Edit',
+                              value: 'edit',
+                            ),
+                            ActionMenuOption(
+                              icon: Icons
+                                  .calendar_month_outlined,
+                              label: 'Schedule',
+                              value: 'schedule',
+                            ),
+                            ActionMenuOption(
+                              icon: Icons
+                                  .menu_book_outlined,
+                              label:
+                                  'Manage Chapters',
+                              value: 'chapters',
+                            ),
+                            ActionMenuOption(
+                              icon: Icons
+                                  .delete_outline,
+                              label: 'Delete',
+                              value: 'delete',
+                              color: Colors.red,
+                            ),
+                          ],
+                        );
+                    if (!context.mounted) {
+                      return;
+                    }
+                    if (action == 'edit') {
+                      showBatchFormBottomSheet(
+                        context,
+                        ref,
+                        existing: batch,
+                      );
+                    } else if (action ==
+                        'schedule') {
+                      final batchId =
+                          batch['id'] as int;
+                      final batchName =
+                          batch['name']
+                              ?.toString() ??
+                          'Batch';
+                      final subjectIds =
+                          (batch['subjectIds']
+                                      as List<
+                                        dynamic
+                                      >?)
+                                  ?.map((e) => (e as num).toInt())
+                                  .toList() ??
+                              <int>[];
+                      showBatchScheduleBottomSheet(
+                        context,
+                        ref,
+                        batchId: batchId,
+                        batchName: batchName,
+                        subjectIds: subjectIds,
+                      );
+                    } else if (action ==
+                        'chapters') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              BatchSubjectsScreen(
+                                batchId:
+                                    batch['id'],
+                                batchName:
+                                    batch['name'] ??
+                                    'Batch',
+                                subjects:
+                                    (batch['subjects']
+                                        as List<
+                                          dynamic
+                                        >?) ??
+                                    const [],
+                              ),
+                        ),
+                      );
+                    } else if (action ==
+                        'delete') {
+                      _confirmDeleteBatch(
+                        context,
+                        ref,
+                        batch,
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -603,6 +738,7 @@ Future<void> showBatchFormBottomSheet(
 }) async {
   final result = await showModalBottomSheet<Map<String, dynamic>>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => _BatchFormBottomSheet(existing: existing),
@@ -741,7 +877,10 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
       // (showBatchFormBottomSheet) uses this to immediately open the
       // schedule editor for a brand-new batch. Edits don't need this since
       // the batch already has a schedule the admin can open separately.
-      Navigator.pop(context, _isEdit ? null : savedBatch);
+      final nav = Navigator.of(context, rootNavigator: true);
+      if (nav.canPop()) {
+        nav.pop(_isEdit ? null : savedBatch);
+      }
     } catch (e) {
       setState(() {
         _saving = false;
@@ -752,20 +891,23 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 620,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        child: Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
           // Drag handle — consistent with every other bottom sheet in the app.
           Center(
             child: Container(
@@ -793,7 +935,12 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    final nav = Navigator.of(context, rootNavigator: true);
+                    if (nav.canPop()) {
+                      nav.pop();
+                    }
+                  },
                 ),
               ],
             ),
@@ -1004,7 +1151,9 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildInstallmentDropdown() {
@@ -1157,6 +1306,7 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
   void _showSubjectPickerSheet(List<dynamic> subjects) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
@@ -1288,7 +1438,12 @@ class _BatchFormBottomSheetState extends ConsumerState<_BatchFormBottomSheet> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: () => Navigator.pop(ctx),
+                        onPressed: () {
+                          final nav = Navigator.of(ctx, rootNavigator: true);
+                          if (nav.canPop()) {
+                            nav.pop();
+                          }
+                        },
                         child: Text(
                           'Done (${_selectedSubjectIds.length} Selected)',
                           style: const TextStyle(

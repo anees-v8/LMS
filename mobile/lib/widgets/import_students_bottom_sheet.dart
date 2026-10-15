@@ -21,6 +21,7 @@ Future<void> showImportStudentsSheet(
 ) {
   return showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => ImportStudentsSheet(onImported: onImported),
@@ -140,7 +141,10 @@ class _ImportStudentsSheetState extends State<ImportStudentsSheet> {
 
       final result = jsonDecode(res.body) as Map<String, dynamic>;
       if (!mounted) return;
-      Navigator.pop(context);
+      final nav = Navigator.of(context, rootNavigator: true);
+      if (nav.canPop()) {
+        nav.pop();
+      }
       widget.onImported();
       await _showResultDialog(context, result);
     } catch (e) {
@@ -262,7 +266,12 @@ class _ImportStudentsSheetState extends State<ImportStudentsSheet> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        final nav = Navigator.of(context, rootNavigator: true);
+                        if (nav.canPop()) {
+                          nav.pop();
+                        }
+                      },
                     ),
                   ],
                 ),

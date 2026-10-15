@@ -32,6 +32,9 @@ class _BatchStudentsScreenState extends ConsumerState<BatchStudentsScreen> {
   @override
   Widget build(BuildContext context) {
     final studentsAsync = ref.watch(batchStudentsProvider(widget.batchId));
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isTablet = screenWidth >= 700;
+    final double hPadding = screenWidth >= 900 ? 32 : (screenWidth >= 650 ? 24 : 16);
 
     return Scaffold(
       backgroundColor: const Color(0xFF1F2E27),
@@ -43,9 +46,9 @@ class _BatchStudentsScreenState extends ConsumerState<BatchStudentsScreen> {
           children: [
             // Fixed Green Header
             Padding(
-              padding: const EdgeInsets.only(
-                left: 12.0,
-                right: 20.0,
+              padding: EdgeInsets.only(
+                left: screenWidth >= 650 ? hPadding - 8 : 12.0,
+                right: hPadding,
                 top: 10.0,
                 bottom: 20.0,
               ),
@@ -116,15 +119,18 @@ class _BatchStudentsScreenState extends ConsumerState<BatchStudentsScreen> {
                       children: [
                         // Search Bar
                         Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Container(
-                            height: 48,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
+                          padding: EdgeInsets.fromLTRB(hPadding, 16.0, hPadding, 12.0),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 800),
+                              child: Container(
+                                height: 48,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
                             child: Row(
                               children: [
                                 Icon(
@@ -180,152 +186,60 @@ class _BatchStudentsScreenState extends ConsumerState<BatchStudentsScreen> {
                             ),
                           ),
                         ),
+                      ),
+                    ),
 
                         // Students List
                         Expanded(
                           child: filteredStudents.isEmpty
                               ? const Center(child: Text('No students found.'))
-                              : ListView.builder(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  itemCount: filteredStudents.length,
-                                  itemBuilder: (context, index) {
-                                    final student =
-                                        filteredStudents[index]
+                              : isTablet
+                                  ? GridView.builder(
+                                      padding: EdgeInsets.fromLTRB(
+                                        hPadding,
+                                        8,
+                                        hPadding,
+                                        80,
+                                      ),
+                                      gridDelegate:
+                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        crossAxisSpacing: 16,
+                                        mainAxisSpacing: 12,
+                                        mainAxisExtent: 88,
+                                      ),
+                                      itemCount: filteredStudents.length,
+                                      itemBuilder: (context, index) {
+                                        final student = filteredStudents[index]
                                             as Map<String, dynamic>;
-                                    final String name =
-                                        student['fullName'] ?? 'Unknown';
-                                    final String initials = name
-                                        .split(' ')
-                                        .take(2)
-                                        .map((e) => e.isNotEmpty ? e[0] : '')
-                                        .join()
-                                        .toUpperCase();
-
-                                    return Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 12,
+                                        return _buildStudentCard(
+                                          context,
+                                          student,
+                                        );
+                                      },
+                                    )
+                                  : ListView.builder(
+                                      padding: EdgeInsets.fromLTRB(
+                                        hPadding,
+                                        8,
+                                        hPadding,
+                                        80,
                                       ),
-                                      child: InkWell(
-                                        onTap: () {
-                                          Navigator.push(
+                                      itemCount: filteredStudents.length,
+                                      itemBuilder: (context, index) {
+                                        final student = filteredStudents[index]
+                                            as Map<String, dynamic>;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
+                                          child: _buildStudentCard(
                                             context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  StudentDetailsScreen(
-                                                    student: student,
-                                                  ),
-                                            ),
-                                          );
-                                        },
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(16),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            border: Border.all(
-                                              color: Colors.grey.shade200,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withValues(
-                                                  alpha: 0.02,
-                                                ),
-                                                blurRadius: 4,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ],
+                                            student,
                                           ),
-                                          child: Row(
-                                            children: [
-                                              CircleAvatar(
-                                                radius: 24,
-                                                backgroundColor: const Color(
-                                                  0xFF2E6656,
-                                                ).withValues(alpha: 0.1),
-                                                child: Text(
-                                                  initials.isNotEmpty
-                                                      ? initials
-                                                      : '?',
-                                                  style: const TextStyle(
-                                                    color: Color(0xFF2E6656),
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 16),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      name,
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontSize: 16,
-                                                        color: Color(
-                                                          0xFF1F2E27,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      'Roll: ${student['rollNo'] ?? 'N/A'} • ${student['grade'] ?? ''}',
-                                                      style: TextStyle(
-                                                        color: Colors
-                                                            .grey
-                                                            .shade600,
-                                                        fontSize: 12,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Row(
-                                                      children: [
-                                                        Icon(
-                                                          Icons.phone_outlined,
-                                                          size: 12,
-                                                          color: Colors
-                                                              .grey
-                                                              .shade600,
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 4,
-                                                        ),
-                                                        Text(
-                                                          student['phone']
-                                                                  ?.toString() ??
-                                                              student['parentPhone']
-                                                                  ?.toString() ??
-                                                              'N/A',
-                                                          style: TextStyle(
-                                                            color: Colors
-                                                                .grey
-                                                                .shade600,
-                                                            fontSize: 12,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              const Icon(
-                                                Icons.chevron_right,
-                                                color: Colors.grey,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                                        );
+                                      },
+                                    ),
                         ),
                       ],
                     );
@@ -334,6 +248,135 @@ class _BatchStudentsScreenState extends ConsumerState<BatchStudentsScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudentCard(
+    BuildContext context,
+    Map<String, dynamic> student,
+  ) {
+    final String name = student['fullName'] ?? 'Unknown';
+    final String initials = name
+        .split(' ')
+        .take(2)
+        .map((e) => e.isNotEmpty ? e[0] : '')
+        .join()
+        .toUpperCase();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.shade200,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: 0.02,
+            ),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StudentDetailsScreen(
+                  student: student,
+                ),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: const Color(
+                    0xFF2E6656,
+                  ).withValues(alpha: 0.1),
+                  child: Text(
+                    initials.isNotEmpty ? initials : '?',
+                    style: const TextStyle(
+                      color: Color(0xFF2E6656),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Color(
+                            0xFF1F2E27,
+                          ),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Roll: ${student['rollNo'] ?? 'N/A'} • ${student['grade'] ?? ''}',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.phone_outlined,
+                            size: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              student['phone']?.toString() ??
+                                  student['parentPhone']?.toString() ??
+                                  'N/A',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  color: Colors.grey,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

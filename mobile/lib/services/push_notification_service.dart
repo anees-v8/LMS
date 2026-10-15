@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show Platform;
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,7 +35,8 @@ class PushNotificationService {
   factory PushNotificationService() => _instance;
   PushNotificationService._internal();
 
-  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  FirebaseMessaging? get _fcm =>
+      kIsWeb ? null : FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   final ApiService _api = ApiService();
@@ -42,10 +44,11 @@ class PushNotificationService {
   GlobalKey<NavigatorState>? _navigatorKey;
 
   Future<void> initialize(GlobalKey<NavigatorState> navigatorKey) async {
+    if (kIsWeb) return;
     _navigatorKey = navigatorKey;
 
     // 1. Request permissions (Android 13+ & iOS)
-    NotificationSettings settings = await _fcm.requestPermission(
+    NotificationSettings settings = await _fcm!.requestPermission(
       alert: true,
       badge: true,
       sound: true,
@@ -111,7 +114,7 @@ class PushNotificationService {
     });
 
     // 6. Handle clicks when app is killed completely and opened via push
-    final initialMessage = await _fcm.getInitialMessage();
+    final initialMessage = await _fcm!.getInitialMessage();
     if (initialMessage != null) {
       refreshNotificationProviders();
       // Delay slightly to let the app finish booting before navigating
@@ -122,7 +125,7 @@ class PushNotificationService {
 
     // Optional: get the token initially (we also send this on login)
     try {
-      final token = await _fcm.getToken();
+      final token = await _fcm!.getToken();
       if (token != null) {
         debugPrint("FCM Token: $token");
         // We will send this to backend when the user logs in
@@ -132,7 +135,7 @@ class PushNotificationService {
     }
 
     // Listen for token refreshes
-    _fcm.onTokenRefresh.listen((newToken) {
+    _fcm!.onTokenRefresh.listen((newToken) {
       debugPrint("FCM Token refreshed: $newToken");
       sendTokenToBackend(newToken);
     });
@@ -206,8 +209,9 @@ class PushNotificationService {
 
   /// Send the FCM token to the backend (call this after successful login)
   Future<void> sendTokenToBackend([String? token]) async {
+    if (kIsWeb) return;
     try {
-      final fcmToken = token ?? await _fcm.getToken();
+      final fcmToken = token ?? await _fcm?.getToken();
       if (fcmToken == null) return;
 
       final platform = Platform.isIOS ? 'ios' : 'android';
@@ -224,8 +228,9 @@ class PushNotificationService {
 
   /// Unregister device token (call this on logout)
   Future<void> removeTokenFromBackend() async {
+    if (kIsWeb) return;
     try {
-      final fcmToken = await _fcm.getToken();
+      final fcmToken = await _fcm?.getToken();
       if (fcmToken == null) return;
 
       debugPrint("Removing FCM token from backend");
@@ -234,7 +239,7 @@ class PushNotificationService {
       // We'll update api_service.dart next.
       await _api.delete('/auth/device-token', {'token': fcmToken});
       // Optionally delete local token
-      await _fcm.deleteToken();
+      await _fcm?.deleteToken();
     } catch (e) {
       debugPrint("Error deleting device token from backend: $e");
     }

@@ -12,6 +12,7 @@ class SubjectsScreen extends ConsumerWidget {
   void _showAddSubjectBottomSheet(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AddSubjectBottomSheet(),
@@ -25,6 +26,7 @@ class SubjectsScreen extends ConsumerWidget {
   ) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AddSubjectBottomSheet(subject: subject),
@@ -85,6 +87,9 @@ class SubjectsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final subjectsAsync = ref.watch(subjectsProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isTablet = screenWidth >= 700;
+    final double hPadding = screenWidth >= 900 ? 36.0 : (screenWidth >= 650 ? 32.0 : 16.0);
 
     return Scaffold(
       backgroundColor: const Color(0xFF1F2E27),
@@ -96,9 +101,9 @@ class SubjectsScreen extends ConsumerWidget {
           children: [
             // Fixed Green Header
             Padding(
-              padding: const EdgeInsets.only(
-                left: 20.0,
-                right: 20.0,
+              padding: EdgeInsets.only(
+                left: hPadding,
+                right: hPadding,
                 top: 10.0,
                 bottom: 20.0,
               ),
@@ -142,83 +147,99 @@ class SubjectsScreen extends ConsumerWidget {
                   error: (err, stack) =>
                       Center(child: Text(friendlyErrorMessage(err))),
                   data: (subjects) {
-                    if (subjects.isEmpty)
+                    if (subjects.isEmpty) {
                       return const Center(child: Text('No subjects found.'));
+                    }
+
+                    Widget buildSubjectItem(int index) {
+                      final subject = subjects[index] as Map<String, dynamic>;
+                      return Card(
+                        margin: EdgeInsets.only(bottom: isTablet ? 0 : 12),
+                        color: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        child: Center(
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.blue.shade50,
+                              child: Icon(
+                                Icons.menu_book,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                            title: Text(
+                              subject['name'] ?? 'Unknown Subject',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1F2E27),
+                              ),
+                            ),
+                            trailing: IconButton(
+                              icon: Icon(
+                                Icons.more_vert,
+                                color: Colors.grey.shade600,
+                              ),
+                              onPressed: () async {
+                                final action = await showActionMenuBottomSheet(
+                                  context,
+                                  title: subject['name'] ?? 'Subject',
+                                  options: const [
+                                    ActionMenuOption(
+                                      icon: Icons.edit_outlined,
+                                      label: 'Edit',
+                                      value: 'edit',
+                                    ),
+                                    ActionMenuOption(
+                                      icon: Icons.delete_outline,
+                                      label: 'Delete',
+                                      value: 'delete',
+                                      color: Colors.red,
+                                    ),
+                                  ],
+                                );
+                                if (!context.mounted) return;
+                                if (action == 'edit') {
+                                  _showEditSubjectBottomSheet(
+                                    context,
+                                    ref,
+                                    subject,
+                                  );
+                                } else if (action == 'delete') {
+                                  _deleteSubject(context, ref, subject);
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
                     return RefreshIndicator(
                       onRefresh: () async => ref.invalidate(subjectsProvider),
-                      child: ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 160),
-                        itemCount: subjects.length,
-                        itemBuilder: (context, index) {
-                          final subject =
-                              subjects[index] as Map<String, dynamic>;
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            color: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.grey.shade200),
+                      child: isTablet
+                          ? GridView.builder(
+                              padding: EdgeInsets.fromLTRB(hPadding, 16, hPadding, 160),
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 12,
+                                mainAxisExtent: 76,
+                              ),
+                              itemCount: subjects.length,
+                              itemBuilder: (context, index) => buildSubjectItem(index),
+                            )
+                          : ListView.builder(
+                              padding: EdgeInsets.fromLTRB(hPadding, 16, hPadding, 160),
+                              itemCount: subjects.length,
+                              itemBuilder: (context, index) => buildSubjectItem(index),
                             ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              leading: CircleAvatar(
-                                backgroundColor: Colors.blue.shade50,
-                                child: Icon(
-                                  Icons.menu_book,
-                                  color: Colors.blue.shade700,
-                                ),
-                              ),
-                              title: Text(
-                                subject['name'] ?? 'Unknown Subject',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1F2E27),
-                                ),
-                              ),
-                              trailing: IconButton(
-                                icon: Icon(
-                                  Icons.more_vert,
-                                  color: Colors.grey.shade600,
-                                ),
-                                onPressed: () async {
-                                  final action =
-                                      await showActionMenuBottomSheet(
-                                        context,
-                                        title: subject['name'] ?? 'Subject',
-                                        options: const [
-                                          ActionMenuOption(
-                                            icon: Icons.edit_outlined,
-                                            label: 'Edit',
-                                            value: 'edit',
-                                          ),
-                                          ActionMenuOption(
-                                            icon: Icons.delete_outline,
-                                            label: 'Delete',
-                                            value: 'delete',
-                                            color: Colors.red,
-                                          ),
-                                        ],
-                                      );
-                                  if (!context.mounted) return;
-                                  if (action == 'edit') {
-                                    _showEditSubjectBottomSheet(
-                                      context,
-                                      ref,
-                                      subject,
-                                    );
-                                  } else if (action == 'delete') {
-                                    _deleteSubject(context, ref, subject);
-                                  }
-                                },
-                              ),
-                            ),
-                          );
-                        },
-                      ),
                     );
                   },
                 ),
@@ -227,12 +248,11 @@ class SubjectsScreen extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         heroTag: null,
+        backgroundColor: const Color(0xFF2E6656),
         onPressed: () => _showAddSubjectBottomSheet(context, ref),
-        backgroundColor: const Color(0xFF1F2E27),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add Subject', style: TextStyle(color: Colors.white)),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -291,7 +311,10 @@ class _AddSubjectBottomSheetState
         );
       }
       ref.invalidate(subjectsProvider);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop();
+      }
     } catch (e) {
       setState(() {
         _saving = false;
@@ -302,20 +325,23 @@ class _AddSubjectBottomSheetState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 540,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        child: Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
           // Drag handle — consistent with every other bottom sheet in the app.
           Center(
             child: Container(
@@ -343,7 +369,10 @@ class _AddSubjectBottomSheetState
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    final nav = Navigator.of(context, rootNavigator: true);
+                    if (nav.canPop()) nav.pop();
+                  },
                 ),
               ],
             ),
@@ -410,6 +439,8 @@ class _AddSubjectBottomSheetState
           ),
         ],
       ),
+    ),
+    ),
     );
   }
 }

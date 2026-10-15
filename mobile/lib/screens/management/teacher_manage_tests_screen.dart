@@ -205,6 +205,7 @@ class TeacherManageTestsScreen extends ConsumerWidget {
     // so we can jump straight into its question editor — no extra tap needed.
     final created = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -313,7 +314,10 @@ class _CreateTestModalState extends ConsumerState<_CreateTestModal> {
         'isOnline': _isOnline,
       });
       widget.onCreated();
-      if (mounted) Navigator.pop(context, created as Map<String, dynamic>);
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop(created as Map<String, dynamic>);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -369,7 +373,10 @@ class _CreateTestModalState extends ConsumerState<_CreateTestModal> {
                   ),
                 ),
                 IconButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    final nav = Navigator.of(context, rootNavigator: true);
+                    if (nav.canPop()) nav.pop();
+                  },
                   icon: const Icon(Icons.close),
                 ),
               ],

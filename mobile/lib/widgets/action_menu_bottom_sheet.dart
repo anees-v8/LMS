@@ -30,6 +30,7 @@ Future<String?> showActionMenuBottomSheet(
 }) {
   return showModalBottomSheet<String>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (ctx) => _ActionMenuBottomSheet(title: title, options: options),
@@ -44,19 +45,22 @@ class _ActionMenuBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
             // Drag handle — consistent with every other bottom sheet in the app.
             Center(
               child: Container(
@@ -87,7 +91,12 @@ class _ActionMenuBottomSheet extends StatelessWidget {
             const SizedBox(height: 4),
             for (final option in options)
               InkWell(
-                onTap: () => Navigator.pop(context, option.value),
+                onTap: () {
+                  final nav = Navigator.of(context, rootNavigator: true);
+                  if (nav.canPop()) {
+                    nav.pop(option.value);
+                  }
+                },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -117,6 +126,8 @@ class _ActionMenuBottomSheet extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }

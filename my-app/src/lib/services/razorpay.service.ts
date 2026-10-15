@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import Razorpay from 'razorpay';
 import { Resend } from 'resend';
 import { query } from '../db';
+import { recordPayment } from './admin.service';
 import env from '../config/env';
 import ApiError from '../utils/ApiError';
 import logger from '../utils/logger';
@@ -278,7 +279,7 @@ export async function verifyPayment(
  * Used when a Student pays their Fee to the Institute.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-async function getTenantRazorpayKeys(tenantId: number) {
+export async function getTenantRazorpayKeys(tenantId: number) {
   const { rows } = await query(
     `SELECT razorpay_key_id AS key_id, razorpay_secret AS secret FROM tenants WHERE id = $1`,
     [tenantId]
@@ -347,4 +348,170 @@ export async function verifyFeePayment(
   }
 
   return { success: true, paymentId, amountPaid, feeStructureId };
+}
+
+/**
+ * Verify Razorpay Webhook signature using HMAC SHA256 timing-safe comparison.
+ */
+export function verifyWebhookSignature(
+  rawBody: string | Buffer,
+  signature: string,
+  secret: string
+): boolean {
+  if (!signature || !secret) return false;
+  try {
+    const expected = crypto
+      .createHmac('sha256', secret)
+      .update(rawBody)
+      .digest('hex');
+    if (expected.length !== signature.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(expected, 'utf8'), Buffer.from(signature, 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Process Razorpay webhook events: order.paid, payment.captured, payment.failed.
+ * Handles both SaaS subscription activation and Student fee recording idempotently.
+ */
+export async function processWebhookEvent(event: any): Promise<{ handled: boolean; reason?: string }> {
+  const eventType = event?.event;
+  if (!eventType) return { handled: false, reason: 'NO_EVENT_TYPE' };
+
+  if (eventType === 'order.paid' || eventType === 'payment.captured') {
+    const payment = event.payload?.payment?.entity;
+    const order = event.payload?.order?.entity;
+
+    const orderId = payment?.order_id || order?.id;
+    const paymentId = payment?.id;
+    const amountPaise = Number(payment?.amount || order?.amount || 0);
+    const receipt = order?.receipt || '';
+    const notes = { ...(order?.notes || {}), ...(payment?.notes || {}) };
+
+    if (!orderId && !paymentId) {
+      return { handled: false, reason: 'NO_ORDER_OR_PAYMENT_ID' };
+    }
+
+    const tenantIdStr = notes.tenantId;
+    const tenantId = tenantIdStr ? parseInt(tenantIdStr, 10) : null;
+    if (!tenantId || isNaN(tenantId)) {
+      logger.warn('Razorpay webhook: Missing tenantId in notes', { orderId, paymentId, notes });
+      return { handled: false, reason: 'NO_TENANT_ID' };
+    }
+
+    // Check idempotency: If this order/payment was already recorded
+    const { rows: existingAudit } = await query(
+      `SELECT id FROM audit_log
+        WHERE tenant_id = $1
+          AND action IN ('payment_verified', 'fee_payment_recorded')
+          AND (meta->>'orderId' = $2 OR meta->>'paymentId' = $3)`,
+      [tenantId, orderId, paymentId]
+    );
+
+    if (existingAudit.length > 0) {
+      logger.info(`Razorpay webhook: Order ${orderId} / Payment ${paymentId} already processed (idempotent).`);
+      return { handled: true, reason: 'ALREADY_PROCESSED' };
+    }
+
+    // Check if it's a student fee payment
+    const isFee = (receipt && receipt.startsWith('fee_')) || Boolean(notes.studentId);
+
+    if (isFee) {
+      const studentId = parseInt(notes.studentId, 10);
+      if (!studentId || isNaN(studentId)) {
+        logger.warn('Razorpay webhook: Missing studentId for fee payment', { orderId, notes });
+        return { handled: false, reason: 'MISSING_STUDENT_ID' };
+      }
+
+      const amountRupees = Math.round(amountPaise / 100);
+      const feeDueId = notes.feeDueId
+        ? parseInt(notes.feeDueId, 10)
+        : notes.feeStructureId
+        ? parseInt(notes.feeStructureId, 10)
+        : undefined;
+
+      const { rows: sRows } = await query<{ user_id: number }>(
+        `SELECT user_id FROM students WHERE id = $1 AND tenant_id = $2`,
+        [studentId, tenantId]
+      );
+      const actorUserId = sRows[0]?.user_id || 0;
+
+      await recordPayment(tenantId, actorUserId, {
+        studentId,
+        feeDueId,
+        amountPaid: amountRupees,
+        method: 'upi',
+      });
+
+      logger.info(`Razorpay webhook: Recorded fee payment of ₹${amountRupees} for student ${studentId}`, {
+        tenantId,
+        paymentId,
+        orderId,
+      });
+      return { handled: true };
+    } else {
+      // Platform subscription payment
+      const sub = await getSubscription(tenantId);
+      const cycleMonths = CYCLE_MONTHS[notes.billingCycle || sub.billingCycle || 'monthly'] ?? 1;
+
+      const { rows: countRows } = await query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM students WHERE tenant_id = $1`,
+        [tenantId]
+      );
+      const studentCountSnapshot = parseInt(countRows[0]?.count ?? '0', 10);
+
+      const { rows: adminRows } = await query<{ id: number }>(
+        `SELECT id FROM users WHERE tenant_id = $1 AND role = 'coaching_admin' LIMIT 1`,
+        [tenantId]
+      );
+      const actorUserId = adminRows[0]?.id || 0;
+
+      const { rows } = await query<{ status: string; nextBillingDate: Date | null }>(
+        `UPDATE subscriptions
+            SET status = 'active',
+                next_billing_date = now() + ($2 || ' months')::interval,
+                student_count_snapshot = $3,
+                amount = COALESCE(per_student_rate, amount) * GREATEST($3, 1) * $4
+          WHERE tenant_id = $1
+          RETURNING status, next_billing_date AS "nextBillingDate"`,
+        [tenantId, cycleMonths, studentCountSnapshot, cycleMonths]
+      );
+
+      await query(
+        `INSERT INTO audit_log (tenant_id, actor_user_id, action, entity, meta)
+         VALUES ($1, $2, 'payment_verified', 'subscription', $3::jsonb)`,
+        [
+          tenantId,
+          actorUserId,
+          JSON.stringify({
+            orderId,
+            paymentId,
+            studentCountSnapshot,
+            cycleMonths,
+            source: 'webhook',
+          }),
+        ]
+      );
+
+      logger.info(`Razorpay webhook: Activated subscription for tenant ${tenantId}`, {
+        tenantId,
+        nextBillingDate: rows[0]?.nextBillingDate,
+        paymentId,
+        orderId,
+      });
+      return { handled: true };
+    }
+  } else if (eventType === 'payment.failed') {
+    const payment = event.payload?.payment?.entity;
+    logger.warn('Razorpay webhook: Payment failed event received', {
+      paymentId: payment?.id,
+      orderId: payment?.order_id,
+      errorCode: payment?.error_code,
+      errorDesc: payment?.error_description,
+    });
+    return { handled: true, reason: 'PAYMENT_FAILED_LOGGED' };
+  }
+
+  return { handled: false, reason: `UNHANDLED_EVENT_${eventType}` };
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,10 +47,16 @@ void _startConnectivityRefreshListener() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  if (!kIsWeb) {
+    try {
+      await Firebase.initializeApp();
+      await PushNotificationService().initialize(navigatorKey);
+      _startConnectivityRefreshListener();
+    } catch (e) {
+      debugPrint('Firebase init error: $e');
+    }
+  }
   await CacheService.instance.init();
-  await PushNotificationService().initialize(navigatorKey);
-  _startConnectivityRefreshListener();
 
   runApp(
     // UncontrolledProviderScope reuses rootProviderContainer instead of
@@ -253,6 +260,31 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           },
         ),
       ),
+      builder: (context, child) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        if (screenWidth > 1280) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFE2E8F0),
+            body: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4F6F3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.10),
+                      blurRadius: 24,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: ClipRect(child: child),
+              ),
+            ),
+          );
+        }
+        return child ?? const SizedBox.shrink();
+      },
       home: const SplashScreen(),
     );
   }

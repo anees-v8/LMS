@@ -26,6 +26,7 @@ Future<void> showAssignTeacherBottomSheet(
   }
   await showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => _AssignTeacherBottomSheet(
@@ -100,7 +101,12 @@ class _AssignTeacherBottomSheetState
           batchId: null,
         )),
       );
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) {
+          nav.pop();
+        }
+      }
     } catch (e) {
       setState(() {
         _saving = false;
@@ -155,7 +161,12 @@ class _AssignTeacherBottomSheetState
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    final nav = Navigator.of(context, rootNavigator: true);
+                    if (nav.canPop()) {
+                      nav.pop();
+                    }
+                  },
                 ),
               ],
             ),

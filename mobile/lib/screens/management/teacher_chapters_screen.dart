@@ -47,7 +47,8 @@ class _TeacherChaptersScreenState extends ConsumerState<TeacherChaptersScreen> {
       });
       _nameController.clear();
       if (mounted) {
-        Navigator.pop(context); // close modal
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop(); // close modal
         ref.invalidate(
           teacherChaptersProvider((
             batchId: widget.batchId,
@@ -93,6 +94,7 @@ class _TeacherChaptersScreenState extends ConsumerState<TeacherChaptersScreen> {
   void _showCreateModal() {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
@@ -136,7 +138,10 @@ class _TeacherChaptersScreenState extends ConsumerState<TeacherChaptersScreen> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.grey),
-                      onPressed: () => Navigator.pop(ctx),
+                      onPressed: () {
+                        final nav = Navigator.of(ctx, rootNavigator: true);
+                        if (nav.canPop()) nav.pop();
+                      },
                     ),
                   ],
                 ),

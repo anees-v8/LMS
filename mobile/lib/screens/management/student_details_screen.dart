@@ -7,8 +7,10 @@ import '../../providers/management_providers.dart' as mgmt;
 import 'student_report_screen.dart';
 import '../../services/api_service.dart';
 import '../../widgets/record_payment_bottom_sheet.dart';
-import 'students_screen.dart';
 import '../../widgets/payment_history_row.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/receipt_service.dart';
+import 'students_screen.dart';
 
 class StudentDetailsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> student;
@@ -189,6 +191,10 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
     required num attendance,
     required num pendingFees,
   }) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWide = screenWidth >= 720;
+    final hPadding = isWide ? 24.0 : 16.0;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -198,7 +204,7 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
           children: [
             Container(height: 60, color: AppColors.primaryDark),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: hPadding),
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -297,7 +303,7 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
 
         // Metrics
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(horizontal: hPadding),
           child: Row(
             children: [
               Expanded(
@@ -326,7 +332,7 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
         // Quick actions
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(horizontal: hPadding),
           child: Row(
             children: [
               _buildActionIcon(
@@ -477,39 +483,73 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
 
   // ── Overview tab content ──────────────────────────────────────────────────
   Widget _buildOverviewContent(Map<String, dynamic> s) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWide = screenWidth >= 720;
+    final hPadding = isWide ? 24.0 : 16.0;
+
+    final personalCard = _buildInfoCard(
+      title: 'Personal Information',
+      icon: Icons.person,
+      fields: {
+        'Full Name': s['fullName']?.toString() ?? 'N/A',
+        'Phone': s['phone']?.toString() ?? 'N/A',
+      },
+    );
+
+    final parentCard = _buildInfoCard(
+      title: 'Parent / Guardian',
+      icon: Icons.people,
+      fields: {
+        'Parent Name': s['parentName']?.toString() ?? 'N/A',
+        'Parent Phone': s['parentPhone']?.toString() ?? 'N/A',
+      },
+    );
+
+    final academicCard = _buildInfoCard(
+      title: 'Academic Information',
+      icon: Icons.school,
+      fields: {
+        'Class': s['grade']?.toString() ?? 'N/A',
+        'Batch': s['batchName']?.toString() ?? 'N/A',
+        'Roll No': s['rollNo']?.toString() ?? 'N/A',
+      },
+    );
+
+    if (isWide) {
+      return Padding(
+        padding: EdgeInsets.all(hPadding),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                children: [
+                  personalCard,
+                  const SizedBox(height: 16),
+                  parentCard,
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: academicCard,
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(hPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildInfoCard(
-            title: 'Personal Information',
-            icon: Icons.person,
-            fields: {
-              'Full Name': s['fullName']?.toString() ?? 'N/A',
-              'Phone': s['phone']?.toString() ?? 'N/A',
-            },
-          ),
+          personalCard,
           const SizedBox(height: 16),
-          _buildInfoCard(
-            title: 'Parent / Guardian',
-            icon: Icons.people,
-            fields: {
-              'Parent Name': s['parentName']?.toString() ?? 'N/A',
-              'Parent Phone': s['parentPhone']?.toString() ?? 'N/A',
-            },
-          ),
+          parentCard,
           const SizedBox(height: 16),
-          _buildInfoCard(
-            title: 'Academic Information',
-            icon: Icons.school,
-            fields: {
-              'Class': s['grade']?.toString() ?? 'N/A',
-              'Batch': s['batchName']?.toString() ?? 'N/A',
-              'Roll No': s['rollNo']?.toString() ?? 'N/A',
-            },
-          ),
+          academicCard,
         ],
       ),
     );
@@ -741,96 +781,122 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
 
     final attPct = totalDays > 0 ? (presentDays / totalDays) * 100 : 0.0;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWide = screenWidth >= 800;
+    final hPadding = screenWidth >= 720 ? 24.0 : 16.0;
+
+    final ringCard = Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 90,
+            height: 90,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CircularProgressIndicator(
+                  value: totalDays > 0 ? presentDays / totalDays : 0,
+                  strokeWidth: 10,
+                  backgroundColor: Colors.grey.shade100,
+                  color: attPct >= 75 ? Colors.green : Colors.orange,
+                ),
+                Center(
+                  child: Text(
+                    '${attPct.toInt()}%',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildAttStat(
+                  'Present',
+                  '$presentDays days',
+                  Colors.green,
+                ),
+                const SizedBox(height: 8),
+                _buildAttStat('Absent', '$absentDays days', Colors.red),
+                const SizedBox(height: 8),
+                _buildAttStat(
+                  'Total',
+                  '$totalDays days',
+                  Colors.blueGrey,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final monthlyBreakdown = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Monthly Breakdown',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        const SizedBox(height: 12),
+        if (monthlyData.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(child: Text('No attendance records found.')),
+          )
+        else
+          ...monthlyData.map(
+            (m) => _buildMonthRow(
+              month: m['month']?.toString() ?? '',
+              present: (m['present'] as num?)?.toInt() ?? 0,
+              total: (m['total'] as num?)?.toInt() ?? 0,
+            ),
+          ),
+      ],
+    );
+
+    if (isWide) {
+      return Padding(
+        padding: EdgeInsets.all(hPadding),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 5, child: ringCard),
+            const SizedBox(width: 20),
+            Expanded(flex: 6, child: monthlyBreakdown),
+          ],
+        ),
+      );
+    }
+
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(hPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Big attendance ring card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 90,
-                  height: 90,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CircularProgressIndicator(
-                        value: totalDays > 0 ? presentDays / totalDays : 0,
-                        strokeWidth: 10,
-                        backgroundColor: Colors.grey.shade100,
-                        color: attPct >= 75 ? Colors.green : Colors.orange,
-                      ),
-                      Center(
-                        child: Text(
-                          '${attPct.toInt()}%',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildAttStat(
-                        'Present',
-                        '$presentDays days',
-                        Colors.green,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildAttStat('Absent', '$absentDays days', Colors.red),
-                      const SizedBox(height: 8),
-                      _buildAttStat(
-                        'Total',
-                        '$totalDays days',
-                        Colors.blueGrey,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ringCard,
           const SizedBox(height: 20),
-          const Text(
-            'Monthly Breakdown',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-          ),
-          const SizedBox(height: 12),
-          if (monthlyData.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: Text('No attendance records found.')),
-            )
-          else
-            ...monthlyData.map(
-              (m) => _buildMonthRow(
-                month: m['month']?.toString() ?? '',
-                present: (m['present'] as num?)?.toInt() ?? 0,
-                total: (m['total'] as num?)?.toInt() ?? 0,
-              ),
-            ),
+          monthlyBreakdown,
         ],
       ),
     );
@@ -937,7 +1003,10 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
     final history = feesData?['history'] as List<dynamic>? ?? [];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: EdgeInsets.symmetric(
+        horizontal: MediaQuery.of(context).size.width >= 720 ? 24.0 : 16.0,
+        vertical: 16,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -978,6 +1047,20 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                       amount: h['amount']?.toString() ?? '0',
                       method: h['method']?.toString() ?? 'Cash',
                       receiptNo: h['receiptNo']?.toString() ?? '',
+                      onDownload: () {
+                        final auth = ref.read(authProvider);
+                        ReceiptService.downloadStudentFeeReceipt(
+                          context: context,
+                          instituteName: auth.instituteName ?? 'Institute',
+                          studentName: widget.student['fullName']?.toString() ?? 'Student',
+                          rollNo: widget.student['rollNo']?.toString(),
+                          gradeOrBatch: widget.student['grade']?.toString() ?? widget.student['batchName']?.toString(),
+                          receiptNo: h['receiptNo']?.toString() ?? 'N/A',
+                          amount: h['amount'] ?? 0,
+                          date: h['date']?.toString() ?? '',
+                          paymentMethod: h['method']?.toString(),
+                        );
+                      },
                     ),
                   ),
               ],

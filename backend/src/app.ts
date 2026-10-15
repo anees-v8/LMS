@@ -50,7 +50,14 @@ app.use(
     credentials: !corsIsWildcard,
   })
 );
-app.use(express.json({ limit: '1mb' }));
+app.use(
+  express.json({
+    limit: '1mb',
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 // Custom request/response logger for detailed readable terminal output
 app.use(requestLogger);
 app.use(globalLimiter);

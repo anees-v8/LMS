@@ -68,27 +68,43 @@ class TeacherScheduleList extends ConsumerWidget {
 
               return Column(
                 children: classes.map((c) {
-                  // Basic logic to check if a class is currently live
-                  // For simplicity, we just check if it's the first class or we parse time.
-                  // Mocking isLive for the demo based on index for now, or just setting all to false unless time matches.
-                  // Real implementation would parse startTime/endTime and compare with DateTime.now()
-                  final isLive =
-                      classes.indexOf(c) ==
-                      0; // Just mock the first one as live for demo
-                  final isAttendanceMarked = c['isAttendanceMarked'] ?? false;
+                  final startRaw = c['startTime']?.toString() ?? '';
+                  final endRaw = c['endTime']?.toString() ?? '';
+                  final startDt = _parseTimeToToday(startRaw);
+                  final endDt = _parseTimeToToday(endRaw);
+                  final now = DateTime.now();
+
+                  final bool isLive = startDt != null &&
+                      endDt != null &&
+                      now.isAfter(startDt.subtract(const Duration(minutes: 5))) &&
+                      now.isBefore(endDt.add(const Duration(minutes: 15)));
+
+                  final bool isUpcoming = startDt != null &&
+                      now.isBefore(startDt.subtract(const Duration(minutes: 5)));
+
+                  final bool isPast = endDt != null &&
+                      now.isAfter(endDt.add(const Duration(minutes: 15)));
+
+                  final bool isAttendanceMarked = c['isAttendanceMarked'] == true;
+
+                  final formattedTime = (startRaw.isNotEmpty && endRaw.isNotEmpty)
+                      ? '${_formatTime12h(startRaw)} - ${_formatTime12h(endRaw)}'
+                      : (c['startTime'] != null ? '${c['startTime']} - ${c['endTime']}' : 'Time not set');
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: _buildScheduleCard(
                       context,
                       ref: ref,
-                      time: '${c['startTime']} - ${c['endTime']}',
+                      time: formattedTime,
                       batchName: c['batch'] ?? 'Unknown Batch',
                       subject: c['subject'] ?? 'General',
-                      subjectId: c['subjectId'],
+                      subjectId: c['subjectId'] ?? 0,
                       isLive: isLive,
-                      batchId: c['batchId'],
-                      batchScheduleId: c['batchScheduleId'],
+                      isUpcoming: isUpcoming,
+                      isPast: isPast,
+                      batchId: c['batchId'] ?? 0,
+                      batchScheduleId: c['batchScheduleId'] ?? 0,
                       isAttendanceMarked: isAttendanceMarked,
                     ),
                   );
@@ -101,6 +117,36 @@ class TeacherScheduleList extends ConsumerWidget {
     );
   }
 
+  DateTime? _parseTimeToToday(String? timeStr) {
+    if (timeStr == null || timeStr.trim().isEmpty) return null;
+    try {
+      final trimmed = timeStr.trim().toUpperCase();
+      final isPM = trimmed.contains('PM');
+      final isAM = trimmed.contains('AM');
+      final clean = trimmed.replaceAll('AM', '').replaceAll('PM', '').trim();
+      final parts = clean.split(':');
+      if (parts.isEmpty) return null;
+      int hour = int.parse(parts[0].trim());
+      int minute = parts.length > 1 ? int.parse(parts[1].trim()) : 0;
+      if (isPM && hour < 12) hour += 12;
+      if (isAM && hour == 12) hour = 0;
+      final now = DateTime.now();
+      return DateTime(now.year, now.month, now.day, hour, minute);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _formatTime12h(String? timeStr) {
+    if (timeStr == null || timeStr.isEmpty) return '';
+    final dt = _parseTimeToToday(timeStr);
+    if (dt == null) return timeStr;
+    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final period = dt.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
+  }
+
   Widget _buildScheduleCard(
     BuildContext context, {
     required WidgetRef ref,
@@ -109,19 +155,33 @@ class TeacherScheduleList extends ConsumerWidget {
     required String subject,
     required int subjectId,
     required bool isLive,
+    required bool isUpcoming,
+    required bool isPast,
     required int batchId,
     required int batchScheduleId,
     required bool isAttendanceMarked,
   }) {
+    Color borderColor;
+    Color topBarColor;
+    if (isLive) {
+      borderColor = AppColors.primary.withValues(alpha: 0.35);
+      topBarColor = AppColors.primary.withValues(alpha: 0.05);
+    } else if (isPast && !isAttendanceMarked) {
+      borderColor = AppColors.error.withValues(alpha: 0.3);
+      topBarColor = AppColors.error.withValues(alpha: 0.05);
+    } else if (isPast && isAttendanceMarked) {
+      borderColor = AppColors.success.withValues(alpha: 0.3);
+      topBarColor = AppColors.success.withValues(alpha: 0.05);
+    } else {
+      borderColor = Colors.grey.shade200;
+      topBarColor = Colors.grey.shade50;
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isLive
-              ? AppColors.primary.withValues(alpha: 0.3)
-              : Colors.grey.shade200,
-        ),
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -136,9 +196,7 @@ class TeacherScheduleList extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: isLive
-                  ? AppColors.primary.withValues(alpha: 0.05)
-                  : Colors.grey.shade50,
+              color: topBarColor,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -149,14 +207,22 @@ class TeacherScheduleList extends ConsumerWidget {
                 Icon(
                   Icons.access_time,
                   size: 16,
-                  color: isLive ? AppColors.primary : Colors.grey.shade600,
+                  color: isLive
+                      ? AppColors.primary
+                      : (isPast && !isAttendanceMarked
+                          ? AppColors.error
+                          : Colors.grey.shade600),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   time,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: isLive ? AppColors.primary : Colors.grey.shade700,
+                    color: isLive
+                        ? AppColors.primary
+                        : (isPast && !isAttendanceMarked
+                            ? AppColors.error
+                            : Colors.grey.shade700),
                   ),
                 ),
                 const Spacer(),
@@ -167,10 +233,11 @@ class TeacherScheduleList extends ConsumerWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
+                      color: AppColors.success.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: const [
                         Icon(Icons.circle, size: 8, color: AppColors.success),
                         SizedBox(width: 4),
@@ -185,13 +252,65 @@ class TeacherScheduleList extends ConsumerWidget {
                       ],
                     ),
                   )
+                else if (isPast && isAttendanceMarked)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.check_circle_outline, size: 12, color: AppColors.success),
+                        SizedBox(width: 4),
+                        Text(
+                          'Completed',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.success,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (isPast && !isAttendanceMarked)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.warning_amber_rounded, size: 12, color: AppColors.error),
+                        SizedBox(width: 4),
+                        Text(
+                          'Missed',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.error,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
                 else
                   Text(
                     'Upcoming',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade500,
-                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
               ],
@@ -216,6 +335,18 @@ class TeacherScheduleList extends ConsumerWidget {
                   style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
                 ),
 
+                if (isPast && !isAttendanceMarked) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Lecture ended without attendance recorded.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.error.withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+
                 if (isLive) ...[
                   const SizedBox(height: 16),
                   SizedBox(
@@ -223,7 +354,7 @@ class TeacherScheduleList extends ConsumerWidget {
                     height: 48,
                     child: CustomButton(
                       text: isAttendanceMarked
-                          ? 'Attendance Marked'
+                          ? 'Attendance Marked ✓'
                           : 'Mark Attendance',
                       backgroundColor: isAttendanceMarked
                           ? AppColors.success
@@ -242,10 +373,68 @@ class TeacherScheduleList extends ConsumerWidget {
                                   ),
                                 ),
                               ).then((_) {
-                                // Refresh schedule after returning
                                 ref.invalidate(todayScheduleProvider);
                               });
                             },
+                    ),
+                  ),
+                ] else if (isPast && !isAttendanceMarked) ...[
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.history_rounded, size: 18),
+                      label: const Text(
+                        'Mark Late Attendance',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                        side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TeacherAttendanceScreen(
+                              batchId: batchId,
+                              batchName: batchName,
+                              subjectId: subjectId,
+                              batchScheduleId: batchScheduleId,
+                            ),
+                          ),
+                        ).then((_) {
+                          ref.invalidate(todayScheduleProvider);
+                        });
+                      },
+                    ),
+                  ),
+                ] else if (isPast && isAttendanceMarked) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.check_circle_rounded, color: AppColors.success, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          'Attendance recorded for this class',
+                          style: TextStyle(
+                            color: AppColors.success,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

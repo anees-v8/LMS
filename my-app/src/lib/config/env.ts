@@ -65,6 +65,7 @@ export interface TelegramConfig {
 export interface RazorpayConfig {
   keyId: string;
   secret: string;
+  webhookSecret: string;
   readonly enabled: boolean;
 }
 
@@ -161,6 +162,7 @@ export const env: AppEnv = {
   razorpay: {
     keyId: optional('RAZORPAY_KEY_ID', ''),
     secret: optional('RAZORPAY_SECRET', ''),
+    webhookSecret: optional('RAZORPAY_WEBHOOK_SECRET', ''),
     get enabled(): boolean {
       return Boolean(this.keyId && this.secret && !this.keyId.includes('xxxx'));
     },

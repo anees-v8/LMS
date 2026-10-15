@@ -35,6 +35,7 @@ Future<void> showBatchScheduleBottomSheet(
   if (!context.mounted) return;
   await showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => _BatchScheduleBottomSheet(
@@ -185,7 +186,12 @@ class _BatchScheduleBottomSheetState
             .toList(),
       );
       ref.invalidate(batchScheduleProvider(widget.batchId));
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) {
+          nav.pop();
+        }
+      }
     } catch (e) {
       setState(() {
         _saving = false;
@@ -534,18 +540,21 @@ class _BatchScheduleBottomSheetState
   Widget build(BuildContext context) {
     final scheduleAsync = ref.watch(batchScheduleProvider(widget.batchId));
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Padding(
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 640,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        child: Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -578,7 +587,12 @@ class _BatchScheduleBottomSheetState
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    final nav = Navigator.of(context, rootNavigator: true);
+                    if (nav.canPop()) {
+                      nav.pop();
+                    }
+                  },
                 ),
               ],
             ),
@@ -689,6 +703,8 @@ class _BatchScheduleBottomSheetState
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }

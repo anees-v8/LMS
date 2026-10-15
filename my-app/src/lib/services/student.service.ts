@@ -88,7 +88,9 @@ export async function dashboard(tenantId: number, userId: number): Promise<Stude
       await query<LiveClassItem>(
         `SELECT id, title, meet_url AS "meetUrl", scheduled_at AS "scheduledAt"
        FROM live_classes
-      WHERE tenant_id=$1 AND batch_id = ANY($2::int[]) AND scheduled_at >= now() - interval '1 hour'
+      WHERE tenant_id=$1 AND batch_id = ANY($2::int[]) 
+        AND ended_at IS NULL
+        AND scheduled_at >= now() - interval '1 hour'
       ORDER BY scheduled_at ASC LIMIT 1`,
         [tenantId, safeBatches]
       )
@@ -121,18 +123,28 @@ export async function dashboard(tenantId: number, userId: number): Promise<Stude
     )
   ).rows;
 
-  // Attendance %
-  const attRow = (
-    await query<{ total: number; present: number }>(
-      `SELECT
-         COUNT(*)::int AS total,
-         COUNT(*) FILTER (WHERE status='present' OR status='late')::int AS present
-       FROM attendance
-       WHERE tenant_id=$1 AND student_id=$2`,
-      [tenantId, studentId]
+  // Attendance %: calculated from student's attended sessions vs total conducted sessions for their batch(es)
+  const attStats = (
+    await query<{ attended: number; totalConducted: number }>(
+      `WITH conducted AS (
+         SELECT date, batch_id, subject_id FROM attendance
+          WHERE tenant_id=$1 AND batch_id = ANY($2::int[])
+         UNION
+         SELECT date, batch_id, subject_id FROM attendance_sessions
+          WHERE tenant_id=$1 AND batch_id = ANY($2::int[])
+       )
+       SELECT
+         (SELECT COUNT(*)::int FROM attendance
+           WHERE tenant_id=$1 AND student_id=$3 AND (status='present' OR status='late')) AS attended,
+         (SELECT COUNT(*)::int FROM conducted) AS "totalConducted"`,
+      [tenantId, safeBatches, studentId]
     )
   ).rows[0];
-  const attendancePct = attRow.total > 0 ? Math.round((attRow.present / attRow.total) * 100) : 0;
+
+  const attendancePct =
+    attStats && attStats.totalConducted > 0
+      ? Math.min(100, Math.round((attStats.attended / attStats.totalConducted) * 100))
+      : 0;
 
   // Today's schedule (IST — the server may run in UTC, see istDate.ts).
   // LEFT JOINs because a schedule slot may not have a teacher assigned yet
@@ -962,16 +974,30 @@ export async function getProfile(tenantId: number, userId: number): Promise<Stud
 
   if (!profileRow) throw ApiError.notFound('STUDENT_PROFILE_NOT_FOUND');
 
-  const attRow = (
-    await query<{ total: number; present: number }>(
-      `SELECT COUNT(*)::int AS total,
-              COUNT(*) FILTER (WHERE status='present' OR status='late')::int AS present
-         FROM attendance WHERE tenant_id=$1 AND student_id=$2`,
-      [tenantId, studentId]
+  const batchIds = await enrolledBatchIds(tenantId, studentId);
+  const safeBatches = batchIds.length ? batchIds : [-1];
+
+  const attStats = (
+    await query<{ attended: number; totalConducted: number }>(
+      `WITH conducted AS (
+         SELECT date, batch_id, subject_id FROM attendance
+          WHERE tenant_id=$1 AND batch_id = ANY($2::int[])
+         UNION
+         SELECT date, batch_id, subject_id FROM attendance_sessions
+          WHERE tenant_id=$1 AND batch_id = ANY($2::int[])
+       )
+       SELECT
+         (SELECT COUNT(*)::int FROM attendance
+           WHERE tenant_id=$1 AND student_id=$3 AND (status='present' OR status='late')) AS attended,
+         (SELECT COUNT(*)::int FROM conducted) AS "totalConducted"`,
+      [tenantId, safeBatches, studentId]
     )
   ).rows[0];
+
   const attendancePct =
-    attRow && attRow.total > 0 ? Math.round((attRow.present / attRow.total) * 100) : 0;
+    attStats && attStats.totalConducted > 0
+      ? Math.min(100, Math.round((attStats.attended / attStats.totalConducted) * 100))
+      : 0;
 
   const testStats = (
     await query<{ testsGiven: number; avgScore: number | null }>(

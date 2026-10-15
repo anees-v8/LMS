@@ -112,6 +112,7 @@ class CustomDropdown<T> extends StatelessWidget {
   Future<void> _openOptionsSheet(BuildContext context) async {
     final picked = await showModalBottomSheet<T>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _DropdownOptionsSheet<T>(
@@ -181,7 +182,12 @@ class _DropdownOptionsSheet<T> extends StatelessWidget {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: () => Navigator.pop(context, const _NoSelection()),
+                  onPressed: () {
+                    final nav = Navigator.of(context, rootNavigator: true);
+                    if (nav.canPop()) {
+                      nav.pop(const _NoSelection());
+                    }
+                  },
                 ),
               ],
             ),
@@ -197,7 +203,12 @@ class _DropdownOptionsSheet<T> extends StatelessWidget {
                 final isSelected = option.value == selectedValue;
                 return InkWell(
                   borderRadius: BorderRadius.circular(12),
-                  onTap: () => Navigator.pop(context, option.value),
+                  onTap: () {
+                    final nav = Navigator.of(context, rootNavigator: true);
+                    if (nav.canPop()) {
+                      nav.pop(option.value);
+                    }
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,

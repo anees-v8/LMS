@@ -208,6 +208,7 @@ class PlansScreen extends ConsumerWidget {
                                       TextButton.icon(
                                         onPressed: () => showModalBottomSheet(
                                           context: context,
+                                          useRootNavigator: true,
                                           isScrollControlled: true,
                                           backgroundColor: Colors.transparent,
                                           builder: (_) => _PlanFormBottomSheet(
@@ -254,6 +255,7 @@ class PlansScreen extends ConsumerWidget {
         heroTag: null,
         onPressed: () => showModalBottomSheet(
           context: context,
+          useRootNavigator: true,
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
           builder: (_) => const _PlanFormBottomSheet(),
@@ -420,7 +422,10 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
         );
       }
       ref.invalidate(plansProvider);
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop();
+      }
     } catch (e) {
       setState(() {
         _saving = false;
@@ -472,7 +477,10 @@ class _PlanFormBottomSheetState extends ConsumerState<_PlanFormBottomSheet> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.grey),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      final nav = Navigator.of(context, rootNavigator: true);
+                      if (nav.canPop()) nav.pop();
+                    },
                   ),
                 ],
               ),

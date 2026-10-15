@@ -42,6 +42,7 @@ class _QuizEditorScreenState extends ConsumerState<QuizEditorScreen> {
   void _showAddQuestionModal({Map<String, dynamic>? existingQuestion}) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -494,7 +495,8 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
           _resetForNextQuestion();
         }
       } else if (mounted) {
-        Navigator.pop(context);
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop();
       }
     } catch (e) {
       if (mounted) {
@@ -548,7 +550,10 @@ class _AddQuestionSheetState extends State<_AddQuestionSheet> {
                   ),
                 ),
                 IconButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    final nav = Navigator.of(context, rootNavigator: true);
+                    if (nav.canPop()) nav.pop();
+                  },
                   icon: const Icon(Icons.close),
                 ),
               ],

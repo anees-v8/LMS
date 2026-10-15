@@ -150,15 +150,22 @@ class NotificationsListView extends StatelessWidget {
             ),
           );
         }
+        final screenWidth = MediaQuery.of(context).size.width;
+        final double hPadding = screenWidth >= 900 ? 36.0 : (screenWidth >= 650 ? 32.0 : 16.0);
         return RefreshIndicator(
           onRefresh: onRefresh,
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: notifications.length,
-            itemBuilder: (context, index) {
-              final n = notifications[index] as Map<String, dynamic>;
-              return _buildNotificationItem(n);
-            },
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: ListView.builder(
+                padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: 8),
+                itemCount: notifications.length,
+                itemBuilder: (context, index) {
+                  final n = notifications[index] as Map<String, dynamic>;
+                  return _buildNotificationItem(n);
+                },
+              ),
+            ),
           ),
         );
       },

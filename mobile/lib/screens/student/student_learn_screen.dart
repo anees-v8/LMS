@@ -13,8 +13,16 @@ class StudentLearnScreen extends ConsumerWidget {
     final subjectsAsync = ref.watch(studentSubjectsProvider);
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(studentSubjectsProvider);
+          try {
+            await ref.read(studentSubjectsProvider.future);
+          } catch (_) {}
+        },
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
           // ── App Bar ───────────────────────────────────────────────────
           SliverAppBar(
             floating: true,
@@ -105,8 +113,9 @@ class StudentLearnScreen extends ConsumerWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _SubjectCard extends StatelessWidget {

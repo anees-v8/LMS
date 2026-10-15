@@ -10,6 +10,7 @@ import '../../widgets/profile/profile_notification_toggle.dart';
 import '../../widgets/profile/profile_logout_button.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/receipt_service.dart';
 
 class StudentProfileScreen extends ConsumerWidget {
   const StudentProfileScreen({super.key});
@@ -59,8 +60,16 @@ class StudentProfileScreen extends ConsumerWidget {
             orElse: () => 'View fee payments and receipts',
           );
 
-          return CustomScrollView(
-            slivers: [
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(studentProfileProvider);
+              ref.invalidate(studentFeesProvider);
+              ref.invalidate(studentAttendanceProvider);
+              ref.invalidate(studentPerformanceProvider);
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
               SliverToBoxAdapter(
                 child: ProfileHeader(
                   name: studentName,
@@ -145,7 +154,8 @@ class StudentProfileScreen extends ConsumerWidget {
                 ),
               ),
             ],
-          );
+          ),
+        );
         },
       ),
     );
@@ -154,6 +164,7 @@ class StudentProfileScreen extends ConsumerWidget {
   void _showAttendanceSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AttendanceSheet(),
@@ -163,6 +174,7 @@ class StudentProfileScreen extends ConsumerWidget {
   void _showPerformanceSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _PerformanceSheet(),
@@ -172,6 +184,7 @@ class StudentProfileScreen extends ConsumerWidget {
   void _showFeesSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _FeesSheet(),
@@ -193,6 +206,9 @@ class _AttendanceSheet extends ConsumerWidget {
       initialChildSize: 0.65,
       maxChildSize: 0.9,
       minChildSize: 0.4,
+      expand: false,
+      snap: true,
+      shouldCloseOnMinExtent: true,
       builder: (_, controller) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -209,15 +225,27 @@ class _AttendanceSheet extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'My Attendance',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryDark,
-                ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 16, 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'My Attendance',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.grey),
+                    onPressed: () {
+                      final nav = Navigator.of(context, rootNavigator: true);
+                      if (nav.canPop()) nav.pop();
+                    },
+                  ),
+                ],
               ),
             ),
             const Divider(height: 1),
@@ -323,6 +351,9 @@ class _PerformanceSheet extends ConsumerWidget {
       initialChildSize: 0.65,
       maxChildSize: 0.9,
       minChildSize: 0.4,
+      expand: false,
+      snap: true,
+      shouldCloseOnMinExtent: true,
       builder: (_, controller) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -339,15 +370,27 @@ class _PerformanceSheet extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Performance Analytics',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryDark,
-                ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 16, 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Performance Analytics',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.grey),
+                    onPressed: () {
+                      final nav = Navigator.of(context, rootNavigator: true);
+                      if (nav.canPop()) nav.pop();
+                    },
+                  ),
+                ],
               ),
             ),
             const Divider(height: 1),
@@ -446,6 +489,9 @@ class _FeesSheet extends ConsumerWidget {
       initialChildSize: 0.7,
       maxChildSize: 0.9,
       minChildSize: 0.4,
+      expand: false,
+      snap: true,
+      shouldCloseOnMinExtent: true,
       builder: (_, controller) => Container(
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -462,15 +508,27 @@ class _FeesSheet extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Fee Details',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryDark,
-                ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 16, 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Fee Details',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.grey),
+                    onPressed: () {
+                      final nav = Navigator.of(context, rootNavigator: true);
+                      if (nav.canPop()) nav.pop();
+                    },
+                  ),
+                ],
               ),
             ),
             const Divider(height: 1),
@@ -578,6 +636,7 @@ class _FeesSheet extends ConsumerWidget {
                             onPressed: () {
                               showModalBottomSheet(
                                 context: context,
+                                useRootNavigator: true,
                                 isScrollControlled: true,
                                 backgroundColor: Colors.transparent,
                                 builder: (_) =>
@@ -683,6 +742,30 @@ class _FeesSheet extends ConsumerWidget {
                                     fontSize: 15,
                                   ),
                                 ),
+                                const SizedBox(width: 6),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.download_rounded,
+                                    color: Color(0xFFA87D26),
+                                    size: 22,
+                                  ),
+                                  tooltip: 'Download Receipt',
+                                  onPressed: () {
+                                    final profile = ref.read(studentProfileProvider).value;
+                                    final auth = ref.read(authProvider);
+                                    ReceiptService.downloadStudentFeeReceipt(
+                                      context: context,
+                                      instituteName: auth.instituteName ?? 'Institute',
+                                      studentName: profile?['fullName'] as String? ?? 'Student',
+                                      rollNo: profile?['rollNo']?.toString(),
+                                      gradeOrBatch: profile?['batchName']?.toString(),
+                                      receiptNo: p['receiptNo']?.toString() ?? 'N/A',
+                                      amount: p['amount'] ?? 0,
+                                      date: p['paidOn']?.toString() ?? '',
+                                      paymentMethod: p['method']?.toString() ?? 'Online',
+                                    );
+                                  },
+                                ),
                               ],
                             ),
                           );
@@ -787,9 +870,11 @@ class _StudentPayFeeSheetState extends ConsumerState<_StudentPayFeeSheet> {
       ref.invalidate(studentDashboardProvider);
 
       if (mounted) {
-        Navigator.pop(context); // close pay sheet
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop(); // close pay sheet
         showDialog(
           context: context,
+          useRootNavigator: true,
           builder: (ctx) => AlertDialog(
             icon: const Icon(
               Icons.check_circle_rounded,
@@ -806,7 +891,10 @@ class _StudentPayFeeSheetState extends ConsumerState<_StudentPayFeeSheet> {
                   backgroundColor: const Color(0xFF1F2E27),
                   foregroundColor: Colors.white,
                 ),
-                onPressed: () => Navigator.pop(ctx),
+                onPressed: () {
+                  final dNav = Navigator.of(ctx, rootNavigator: true);
+                  if (dNav.canPop()) dNav.pop();
+                },
                 child: const Text('OK'),
               ),
             ],
@@ -932,13 +1020,25 @@ class _StudentPayFeeSheetState extends ConsumerState<_StudentPayFeeSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Pay Institute Fees',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primaryDark,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Pay Institute Fees',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryDark,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () {
+                    final nav = Navigator.of(context, rootNavigator: true);
+                    if (nav.canPop()) nav.pop();
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(

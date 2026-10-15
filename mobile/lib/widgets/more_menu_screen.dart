@@ -49,6 +49,9 @@ class MoreMenuScreen extends ConsumerWidget {
       AppColors.info,
     ];
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double hPadding = screenWidth >= 900 ? 36.0 : (screenWidth >= 650 ? 32.0 : 16.0);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
@@ -58,33 +61,38 @@ class MoreMenuScreen extends ConsumerWidget {
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ProfileMenuList(
-                items: List.generate(items.length, (index) {
-                  final item = items[index];
-                  final color = colors[index % colors.length];
-                  return ProfileMenuItemData(
-                    icon: item.icon,
-                    iconBg: color.withValues(alpha: 0.1),
-                    iconColor: color,
-                    label: item.label,
-                    onTap:
-                        item.onTap ??
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => item.destination!),
-                        ),
-                  );
-                }),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hPadding),
+                  child: Column(
+                    children: [
+                      ProfileMenuList(
+                        items: List.generate(items.length, (index) {
+                          final item = items[index];
+                          final color = colors[index % colors.length];
+                          return ProfileMenuItemData(
+                            icon: item.icon,
+                            iconBg: color.withValues(alpha: 0.1),
+                            iconColor: color,
+                            label: item.label,
+                            onTap:
+                                item.onTap ??
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => item.destination!),
+                                ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 16),
+                      const ProfileLogoutButton(),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, 40),
-              child: ProfileLogoutButton(),
             ),
           ),
         ],

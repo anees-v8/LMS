@@ -9,6 +9,8 @@ class FeeAnalyticCard extends StatelessWidget {
   final String? subtitle;
   final Color? subtitleColor;
   final IconData? subtitleIcon;
+  final double? width;
+  final EdgeInsetsGeometry? margin;
 
   const FeeAnalyticCard({
     super.key,
@@ -20,13 +22,15 @@ class FeeAnalyticCard extends StatelessWidget {
     this.subtitle,
     this.subtitleColor,
     this.subtitleIcon,
+    this.width = 220,
+    this.margin = const EdgeInsets.only(right: 16),
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 220,
-      margin: const EdgeInsets.only(right: 16),
+      width: width,
+      margin: margin,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,

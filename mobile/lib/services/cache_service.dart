@@ -1,20 +1,19 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
-/// Singleton SQLite key-value cache.
-///
-/// Each entry stores the full JSON API response keyed by a string
-/// (usually the endpoint or a derived slug). This avoids typed table
-/// schemas and means zero migrations when API responses evolve.
+/// Singleton key-value cache with SQLite on mobile and in-memory Map on Web.
 class CacheService {
   CacheService._();
   static final CacheService instance = CacheService._();
 
   Database? _db;
+  final Map<String, dynamic> _webCache = {};
 
   // ── Lifecycle ─────────────────────────────────────────────────────────
   Future<void> init() async {
+    if (kIsWeb) return;
     if (_db != null) return;
     final dbPath = join(await getDatabasesPath(), 'app_cache.db');
     _db = await openDatabase(
@@ -41,6 +40,9 @@ class CacheService {
   // ── Read ──────────────────────────────────────────────────────────────
   /// Returns the decoded JSON for [key], or null if not cached yet.
   Future<dynamic> read(String key) async {
+    if (kIsWeb) {
+      return _webCache[key];
+    }
     final rows = await _database.query(
       'cache_store',
       columns: ['json_value'],
@@ -59,6 +61,10 @@ class CacheService {
   // ── Write ─────────────────────────────────────────────────────────────
   /// Encodes [data] as JSON and upserts it under [key].
   Future<void> write(String key, dynamic data) async {
+    if (kIsWeb) {
+      _webCache[key] = data;
+      return;
+    }
     final encoded = json.encode(data);
     await _database.insert('cache_store', {
       'cache_key': key,
@@ -70,6 +76,10 @@ class CacheService {
   // ── Clear ─────────────────────────────────────────────────────────────
   /// Wipes all cached rows. Call this on user logout.
   Future<void> clearAll() async {
+    if (kIsWeb) {
+      _webCache.clear();
+      return;
+    }
     await _database.delete('cache_store');
   }
 }

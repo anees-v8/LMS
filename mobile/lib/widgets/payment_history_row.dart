@@ -7,6 +7,7 @@ class PaymentHistoryRow extends StatelessWidget {
   final String amount;
   final String method;
   final String receiptNo;
+  final VoidCallback? onDownload;
 
   const PaymentHistoryRow({
     super.key,
@@ -14,6 +15,7 @@ class PaymentHistoryRow extends StatelessWidget {
     required this.amount,
     required this.method,
     required this.receiptNo,
+    this.onDownload,
   });
 
   @override
@@ -96,8 +98,12 @@ class PaymentHistoryRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 16),
-          const Icon(Icons.download_outlined, color: Colors.grey, size: 20),
+          const SizedBox(width: 12),
+          IconButton(
+            icon: const Icon(Icons.download_rounded, color: AppColors.primary, size: 22),
+            tooltip: 'Download Receipt',
+            onPressed: onDownload,
+          ),
         ],
       ),
     );

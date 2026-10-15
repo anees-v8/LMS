@@ -10,6 +10,8 @@ import '../management/batches_screen.dart';
 import '../fees/fees_management_screen.dart';
 import '../reports/reports_screen.dart';
 import '../notifications/admin_notifications_screen.dart';
+import '../management/admin_profile_screen.dart';
+import '../../widgets/unified_app_header.dart';
 import '../../providers/management_providers.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_shell.dart';
@@ -129,101 +131,69 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final dashboardAsync = ref.watch(dashboardProvider);
     final authState = ref.watch(authProvider);
+    final unreadCount = ref.watch(unreadNotificationCountProvider).value ?? 0;
 
     final String name = authState.instituteName ?? 'Dashboard';
-    final String location = 'Maharashtra'; // Placeholder
+
+    final parts = name.trim().split(' ');
+    final initials = parts.length > 1
+        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+        : (name.isNotEmpty ? name[0].toUpperCase() : 'A');
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1F2E27),
+      backgroundColor: const Color(0xFFF4F6F3),
       resizeToAvoidBottomInset: false,
+      appBar: UnifiedAppHeader(
+        title: name,
+        subtitle: 'Admin Portal',
+        initials: initials,
+        unreadNotificationsCount: unreadCount,
+        showQrScanner: false,
+        onProfileTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AdminProfileScreen()),
+          );
+        },
+        onNotificationsTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const AdminNotificationsScreen(),
+            ),
+          ).then((_) => ref.invalidate(unreadNotificationCountProvider));
+        },
+      ),
       body: dashboardAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text(friendlyErrorMessage(err))),
         data: (dash) {
           final sub = dash['subscription'];
           final overview = dash['overview'] ?? {};
-          final bool isActive = true; // Dashboard is accessible, so active.
 
-          return SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Fixed Green Header
-                Padding(
-                  padding: const EdgeInsets.only(
-                    left: 20.0,
-                    right: 12.0,
-                    top: 10.0,
-                    bottom: 20.0,
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+          final screenWidth = MediaQuery.of(context).size.width;
+          final bool isTablet = screenWidth >= 650;
+          final bool isLandscape = screenWidth >= 900;
+          final double hPadding = screenWidth > 720 ? 24 : 16;
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(dashboardProvider);
+              ref.invalidate(unreadNotificationCountProvider);
+              try {
+                await ref.read(dashboardProvider.future);
+              } catch (_) {}
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: 16.0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          name,
-                          style: const TextStyle(
-                            fontFamily: 'Playfair Display',
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Consumer(
-                        builder: (context, ref, _) {
-                          final unreadCount =
-                              ref
-                                  .watch(unreadNotificationCountProvider)
-                                  .value ??
-                              0;
-                          return IconButton(
-                            icon: Badge(
-                              isLabelVisible: unreadCount > 0,
-                              label: Text(
-                                '$unreadCount',
-                                style: const TextStyle(fontSize: 10),
-                              ),
-                              child: const Icon(
-                                Icons.notifications_none,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const AdminNotificationsScreen(),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-                // White Container with fixed parts and scrollable list
-                Expanded(
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF4F6F3),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(24),
-                        topRight: Radius.circular(24),
-                      ),
-                    ),
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Subscription Banner
+                  // Subscription Banner
                           if (sub != null) ...[
                             Builder(
                               builder: (context) {
@@ -488,282 +458,341 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // 2x2 Grid
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildStatCard(
-                                  icon: Icons.people,
-                                  iconColor: Colors.teal,
-                                  iconBg: Colors.teal.shade50,
-                                  title: 'Total Students',
-                                  value: '${overview['totalStudents'] ?? 0}',
-                                  growth: overview['studentsGrowth'] ?? 0,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildStatCard(
-                                  icon: Icons.badge,
-                                  iconColor: Colors.blueGrey,
-                                  iconBg: Colors.blueGrey.shade50,
-                                  title: 'Total Teachers',
-                                  value: '${overview['totalTeachers'] ?? 0}',
-                                  growth: overview['teachersGrowth'],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildStatCard(
-                                  icon: Icons.attach_money,
-                                  iconColor: Colors.amber.shade700,
-                                  iconBg: Colors.amber.shade50,
-                                  title: 'Fees Collected',
-                                  value: '₹${overview['feesCollected'] ?? 0}',
-                                  growth: overview['feesCollectedGrowth'] ?? 0,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildStatCard(
-                                  icon: Icons.warning_amber_rounded,
-                                  iconColor: Colors.red.shade700,
-                                  iconBg: Colors.red.shade50,
-                                  title: 'Fees Pending',
-                                  value: '₹${overview['feesPending'] ?? 0}',
-                                  growth: overview['feesPendingGrowth'] ?? 0,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Quick Actions Row
-                          Container(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.03),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          // Stat Cards: 4 in a row on tablet (portrait/landscape), 2x2 grid on mobile
+                          if (isTablet)
+                            Row(
                               children: [
-                                _buildActionBtn(
-                                  Icons.people,
-                                  'Students',
-                                  onTap: () {
-                                    final appShell = context
-                                        .findAncestorStateOfType<
-                                          AppShellState
-                                        >();
-                                    if (appShell != null) {
-                                      appShell.switchTab(
-                                        1,
-                                      ); // Students tab index
-                                    } else {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              const StudentsScreen(),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                                _buildActionBtn(
-                                  Icons.badge,
-                                  'Teachers',
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const TeachersScreen(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                _buildActionBtn(
-                                  Icons.currency_rupee,
-                                  'Fees',
-                                  onTap: () {
-                                    final appShell = context
-                                        .findAncestorStateOfType<
-                                          AppShellState
-                                        >();
-                                    if (appShell != null) {
-                                      appShell.switchTab(2); // Fees tab index
-                                    } else {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              const FeesManagementScreen(),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                                _buildActionBtn(
-                                  Icons.payment,
-                                  'Add Payment',
-                                  onTap: () {
-                                    final appShell = context
-                                        .findAncestorStateOfType<
-                                          AppShellState
-                                        >();
-                                    if (appShell != null) {
-                                      appShell.switchTab(2); // Fees tab index
-                                    } else {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              const FeesManagementScreen(),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                                _buildActionBtn(
-                                  Icons.bar_chart,
-                                  'Reports',
-                                  onTap: () {
-                                    final appShell = context
-                                        .findAncestorStateOfType<
-                                          AppShellState
-                                        >();
-                                    if (appShell != null) {
-                                      appShell.switchTab(
-                                        3,
-                                      ); // Reports tab index
-                                    } else {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => const ReportsScreen(),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Fees Overview (Pie Chart)
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.03),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Expanded(
-                                      child: Text(
-                                        'Fees Overview',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                SizedBox(
-                                  height: 100,
-                                  child: _buildFeesPieChart(
-                                    dash['feesChart'] ?? {},
+                                Expanded(
+                                  child: _buildStatCard(
+                                    icon: Icons.people,
+                                    iconColor: Colors.teal,
+                                    iconBg: Colors.teal.shade50,
+                                    title: 'Total Students',
+                                    value: '${overview['totalStudents'] ?? 0}',
+                                    growth: overview['studentsGrowth'] ?? 0,
                                   ),
                                 ),
-                                const SizedBox(height: 16),
-                                _buildFeeLegend(dash['feesChart'] ?? {}),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Upcoming Schedule
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Upcoming Schedule',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildStatCard(
+                                    icon: Icons.badge,
+                                    iconColor: Colors.blueGrey,
+                                    iconBg: Colors.blueGrey.shade50,
+                                    title: 'Total Teachers',
+                                    value: '${overview['totalTeachers'] ?? 0}',
+                                    growth: overview['teachersGrowth'],
+                                  ),
                                 ),
-                              ),
-                              GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const BatchesScreen(),
-                                    ),
-                                  );
-                                },
-                                child: Row(
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildStatCard(
+                                    icon: Icons.attach_money,
+                                    iconColor: Colors.amber.shade700,
+                                    iconBg: Colors.amber.shade50,
+                                    title: 'Fees Collected',
+                                    value: '₹${overview['feesCollected'] ?? 0}',
+                                    growth: overview['feesCollectedGrowth'] ?? 0,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildStatCard(
+                                    icon: Icons.warning_amber_rounded,
+                                    iconColor: Colors.red.shade700,
+                                    iconBg: Colors.red.shade50,
+                                    title: 'Fees Pending',
+                                    value: '₹${overview['feesPending'] ?? 0}',
+                                    growth: overview['feesPendingGrowth'] ?? 0,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Column(
+                              children: [
+                                Row(
                                   children: [
-                                    const Text(
-                                      'View All',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        icon: Icons.people,
+                                        iconColor: Colors.teal,
+                                        iconBg: Colors.teal.shade50,
+                                        title: 'Total Students',
+                                        value: '${overview['totalStudents'] ?? 0}',
+                                        growth: overview['studentsGrowth'] ?? 0,
                                       ),
                                     ),
-                                    Icon(
-                                      Icons.arrow_forward,
-                                      size: 14,
-                                      color: AppColors.textPrimary,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        icon: Icons.badge,
+                                        iconColor: Colors.blueGrey,
+                                        iconBg: Colors.blueGrey.shade50,
+                                        title: 'Total Teachers',
+                                        value: '${overview['totalTeachers'] ?? 0}',
+                                        growth: overview['teachersGrowth'],
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          _buildUpcomingScheduleList(
-                            dash['upcomingSchedule'] as List<dynamic>? ?? [],
-                          ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        icon: Icons.attach_money,
+                                        iconColor: Colors.amber.shade700,
+                                        iconBg: Colors.amber.shade50,
+                                        title: 'Fees Collected',
+                                        value: '₹${overview['feesCollected'] ?? 0}',
+                                        growth: overview['feesCollectedGrowth'] ?? 0,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        icon: Icons.warning_amber_rounded,
+                                        iconColor: Colors.red.shade700,
+                                        iconBg: Colors.red.shade50,
+                                        title: 'Fees Pending',
+                                        value: '₹${overview['feesPending'] ?? 0}',
+                                        growth: overview['feesPendingGrowth'] ?? 0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+
+                          // Landscape 2-Column Split vs Portrait/Mobile Single Column
+                          if (isLandscape) ...[
+                            const SizedBox(height: 20),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Left Column (flex 5): Quick Actions + Fees Overview
+                                Expanded(
+                                  flex: 5,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      _buildQuickActionsRow(context),
+                                      const SizedBox(height: 20),
+                                      _buildFeesOverviewCard(dash['feesChart'] ?? {}),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 20),
+                                // Right Column (flex 6): Upcoming Schedule
+                                Expanded(
+                                  flex: 6,
+                                  child: _buildUpcomingScheduleSection(
+                                    context,
+                                    dash['upcomingSchedule'] as List<dynamic>? ?? [],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            const SizedBox(height: 24),
+                            _buildQuickActionsRow(context),
+                            const SizedBox(height: 24),
+                            _buildFeesOverviewCard(dash['feesChart'] ?? {}),
+                            const SizedBox(height: 24),
+                            _buildUpcomingScheduleSection(
+                              context,
+                              dash['upcomingSchedule'] as List<dynamic>? ?? [],
+                            ),
+                          ],
                         ],
                       ),
                     ),
                   ),
                 ),
-              ],
-            ),
-          );
-        },
+              );
+            },
+          ),
+        );
+      }
+
+  Widget _buildQuickActionsRow(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildActionBtn(
+            Icons.people,
+            'Students',
+            onTap: () {
+              final appShell = context.findAncestorStateOfType<AppShellState>();
+              if (appShell != null) {
+                appShell.switchTab(1); // Students tab index
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StudentsScreen()),
+                );
+              }
+            },
+          ),
+          _buildActionBtn(
+            Icons.badge,
+            'Teachers',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TeachersScreen()),
+              );
+            },
+          ),
+          _buildActionBtn(
+            Icons.class_outlined,
+            'Batches',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BatchesScreen()),
+              );
+            },
+          ),
+          _buildActionBtn(
+            Icons.payment,
+            'Add Payment',
+            onTap: () {
+              final appShell = context.findAncestorStateOfType<AppShellState>();
+              if (appShell != null) {
+                appShell.switchTab(2); // Fees tab index
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FeesManagementScreen()),
+                );
+              }
+            },
+          ),
+          _buildActionBtn(
+            Icons.bar_chart,
+            'Reports',
+            onTap: () {
+              final appShell = context.findAncestorStateOfType<AppShellState>();
+              if (appShell != null) {
+                appShell.switchTab(3); // Reports tab index
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ReportsScreen()),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeesOverviewCard(Map<String, dynamic> feesChart) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              Expanded(
+                child: Text(
+                  'Fees Overview',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 100,
+            child: _buildFeesPieChart(feesChart),
+          ),
+          const SizedBox(height: 16),
+          _buildFeeLegend(feesChart),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUpcomingScheduleSection(
+    BuildContext context,
+    List<dynamic> upcomingSchedule,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Upcoming Schedule',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BatchesScreen()),
+                );
+              },
+              child: Row(
+                children: [
+                  const Text(
+                    'View All',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward,
+                    size: 14,
+                    color: AppColors.textPrimary,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildUpcomingScheduleList(upcomingSchedule),
+      ],
     );
   }
 

@@ -26,6 +26,9 @@ class AdminProfileScreen extends ConsumerWidget {
     final email = auth.email;
     final instituteName = auth.instituteName;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double hPadding = screenWidth >= 900 ? 36.0 : (screenWidth >= 650 ? 32.0 : 16.0);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
@@ -37,100 +40,94 @@ class AdminProfileScreen extends ConsumerWidget {
               subtitleLine2: 'Coaching Admin',
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 20)),
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ProfileInfoCard(
-                rows: [
-                  ProfileInfoRowData(
-                    icon: Icons.phone_rounded,
-                    label: 'Phone',
-                    value: phone,
-                  ),
-                  if (email != null && email.isNotEmpty)
-                    ProfileInfoRowData(
-                      icon: Icons.email_rounded,
-                      label: 'Email',
-                      value: email,
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ProfileSecurityCard(
-                actions: [
-                  ProfileSecurityAction(
-                    icon: Icons.payment_rounded,
-                    title: 'Payment Gateway (Razorpay)',
-                    subtitle: 'Configure your institute API keys',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const PaymentSettingsScreen(),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: 20),
+                  child: Column(
+                    children: [
+                      ProfileInfoCard(
+                        rows: [
+                          ProfileInfoRowData(
+                            icon: Icons.phone_rounded,
+                            label: 'Phone',
+                            value: phone,
+                          ),
+                          if (email != null && email.isNotEmpty)
+                            ProfileInfoRowData(
+                              icon: Icons.email_rounded,
+                              label: 'Email',
+                              value: email,
+                            ),
+                        ],
                       ),
-                    ),
-                  ),
-                  ProfileSecurityAction(
-                    icon: Icons.email_outlined,
-                    title: email != null && email.isNotEmpty
-                        ? 'Change Email'
-                        : 'Add Email',
-                    subtitle: email == null || email.isEmpty
-                        ? 'Required for password reset'
-                        : null,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ChangeEmailScreen(),
-                      ),
-                    ),
-                  ),
-                  ProfileSecurityAction(
-                    icon: Icons.lock_outline,
-                    title: 'Change Password',
-                    subtitle: email == null || email.isEmpty
-                        ? 'Add an email first'
-                        : null,
-                    onTap: () {
-                      if (email == null || email.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Add an email first — it\'s where the confirmation code will be sent.',
+                      const SizedBox(height: 16),
+                      ProfileSecurityCard(
+                        actions: [
+                          ProfileSecurityAction(
+                            icon: Icons.payment_rounded,
+                            title: 'Payment Gateway (Razorpay)',
+                            subtitle: 'Configure your institute API keys',
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const PaymentSettingsScreen(),
+                              ),
                             ),
                           ),
-                        );
-                        return;
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ChangePasswordScreen(),
-                        ),
-                      );
-                    },
+                          ProfileSecurityAction(
+                            icon: Icons.email_outlined,
+                            title: email != null && email.isNotEmpty
+                                ? 'Change Email'
+                                : 'Add Email',
+                            subtitle: email == null || email.isEmpty
+                                ? 'Required for password reset'
+                                : null,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ChangeEmailScreen(),
+                              ),
+                            ),
+                          ),
+                          ProfileSecurityAction(
+                            icon: Icons.lock_outline,
+                            title: 'Change Password',
+                            subtitle: email == null || email.isEmpty
+                                ? 'Add an email first'
+                                : null,
+                            onTap: () {
+                              if (email == null || email.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Add an email first — it\'s where the confirmation code will be sent.',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ChangePasswordScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      const ProfileNotificationToggle(),
+                      const SizedBox(height: 20),
+                      const ProfileLogoutButton(),
+                      const SizedBox(height: 40),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: ProfileNotificationToggle(),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, 40),
-              child: ProfileLogoutButton(),
             ),
           ),
         ],

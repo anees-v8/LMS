@@ -11,6 +11,8 @@ class AdminNotificationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notificationsAsync = ref.watch(notificationsProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double hPadding = screenWidth >= 900 ? 36.0 : (screenWidth >= 650 ? 32.0 : 20.0);
 
     return Scaffold(
       backgroundColor: const Color(0xFF1F2E27),
@@ -22,9 +24,9 @@ class AdminNotificationsScreen extends ConsumerWidget {
           children: [
             // Fixed Green Header
             Padding(
-              padding: const EdgeInsets.only(
-                left: 20.0,
-                right: 20.0,
+              padding: EdgeInsets.only(
+                left: hPadding,
+                right: hPadding,
                 top: 10.0,
                 bottom: 20.0,
               ),

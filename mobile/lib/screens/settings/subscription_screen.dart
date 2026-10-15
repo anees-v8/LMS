@@ -8,6 +8,7 @@ import '../../services/api_service.dart';
 import '../../widgets/custom_button.dart';
 import 'package:intl/intl.dart';
 import 'browse_plans_screen.dart';
+import '../../services/receipt_service.dart';
 
 class SubscriptionScreen extends ConsumerStatefulWidget {
   const SubscriptionScreen({super.key});
@@ -141,6 +142,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   @override
   Widget build(BuildContext context) {
     final subAsync = ref.watch(subscriptionStatusProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double hPadding = screenWidth >= 900 ? 36.0 : (screenWidth >= 650 ? 32.0 : 20.0);
 
     return Scaffold(
       backgroundColor: const Color(0xFF1F2E27),
@@ -152,9 +155,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           children: [
             // Fixed Green Header
             Padding(
-              padding: const EdgeInsets.only(
-                left: 20.0,
-                right: 20.0,
+              padding: EdgeInsets.only(
+                left: hPadding,
+                right: hPadding,
                 top: 10.0,
                 bottom: 20.0,
               ),
@@ -265,9 +268,15 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                     return RefreshIndicator(
                       onRefresh: () async =>
                           ref.invalidate(subscriptionStatusProvider),
-                      child: ListView(
-                        padding: const EdgeInsets.all(24),
-                        children: [
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 800),
+                          child: ListView(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: hPadding,
+                              vertical: 24,
+                            ),
+                            children: [
                           Card(
                             elevation: 0,
                             color: Colors.white,
@@ -381,9 +390,51 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                                 ),
                               ),
                             ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  final authState = ref.read(authProvider);
+                                  final tenantName = authState.instituteName ?? 'My Institute';
+                                  final dash = ref.read(dashboardProvider).value;
+                                  final activeCount = (dash?['overview']?['totalStudents'] as num?)?.toInt() ?? 0;
+                                  final rate = sub['perStudentRate'] ?? 10;
+                                  final totalAmt = activeCount > 0 ? (activeCount * (rate as num)) : 499;
+
+                                  ReceiptService.downloadSubscriptionInvoice(
+                                    context: context,
+                                    instituteName: tenantName,
+                                    planName: planName,
+                                    billingCycle: billingCycle.toString(),
+                                    amount: totalAmt,
+                                    paymentId: sub['lastPaymentId']?.toString() ?? 'PAY-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
+                                    orderId: sub['lastOrderId']?.toString(),
+                                    paidOn: nextBillingDate != null ? nextBillingDate.subtract(const Duration(days: 30)) : DateTime.now(),
+                                    nextBillingDate: nextBillingDate,
+                                    studentCount: activeCount,
+                                  );
+                                },
+                                icon: const Icon(Icons.receipt_long_outlined, size: 20),
+                                label: const Text(
+                                  'Download Tax Invoice / Receipt',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF2E6656),
+                                  side: const BorderSide(color: Color(0xFF2E6656), width: 1.2),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ],
                       ),
+                    ),
+                    ),
                     );
                   },
                 ),
