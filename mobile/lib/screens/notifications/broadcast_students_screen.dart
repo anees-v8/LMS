@@ -131,12 +131,13 @@ class _BroadcastStudentsScreenState
                     topRight: Radius.circular(24),
                   ),
                 ),
-                child: Center(
+                child: Align(
+                  alignment: Alignment.topCenter,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 720),
                     child: SingleChildScrollView(
                       padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: 20),
-                  child: Column(
+                      child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(

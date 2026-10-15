@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../providers/payment_providers.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -10,137 +9,11 @@ import 'package:intl/intl.dart';
 import 'browse_plans_screen.dart';
 import '../../services/receipt_service.dart';
 
-class SubscriptionScreen extends ConsumerStatefulWidget {
+class SubscriptionScreen extends ConsumerWidget {
   const SubscriptionScreen({super.key});
 
   @override
-  ConsumerState<SubscriptionScreen> createState() => _SubscriptionScreenState();
-}
-
-class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
-  late Razorpay _razorpay;
-  bool _isProcessing = false;
-  String? _orderId;
-
-  @override
-  void initState() {
-    super.initState();
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
-  }
-
-  @override
-  void dispose() {
-    _razorpay.clear();
-    super.dispose();
-  }
-
-  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
-    if (_orderId == null) return;
-    try {
-      setState(() => _isProcessing = true);
-      final api = ref.read(apiServiceProvider);
-      await verifyPayment(
-        api,
-        _orderId!,
-        response.paymentId ?? 'mock',
-        response.signature,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Payment Successful! Subscription renewed.'),
-          ),
-        );
-        ref.invalidate(subscriptionStatusProvider);
-
-        // Invalidate global state providers so dashboard updates instantly
-        ref.invalidate(dashboardProvider);
-        ref.invalidate(authProvider);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Verification failed: ${friendlyErrorMessage(e)}'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
-  }
-
-  void _handlePaymentError(PaymentFailureResponse response) {
-    setState(() => _isProcessing = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Payment Failed: ${response.message}')),
-    );
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    setState(() => _isProcessing = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('External Wallet Selected: ${response.walletName}'),
-      ),
-    );
-  }
-
-  Future<void> _startPaymentFlow() async {
-    setState(() => _isProcessing = true);
-    try {
-      final api = ref.read(apiServiceProvider);
-      final orderResult = await createPaymentOrder(api);
-
-      _orderId = orderResult['orderId'];
-
-      if (orderResult['mock'] == true) {
-        // Backend returned mock=true (Razorpay disabled), so simulate success
-        final mockPaymentId =
-            'pay_mock_${DateTime.now().millisecondsSinceEpoch}';
-        _handlePaymentSuccess(
-          PaymentSuccessResponse(
-            mockPaymentId,
-            _orderId,
-            'mock_signature',
-            null,
-          ),
-        );
-        return;
-      }
-
-      final options = {
-        'key': orderResult['keyId'],
-        'amount': orderResult['amount'],
-        'name': 'Apex Academy Subscription',
-        'description': 'Subscription Renewal',
-        'order_id': orderResult['orderId'],
-        'prefill': {
-          'contact': '', // Could fill with user details if available
-          'email': '',
-        },
-      };
-
-      _razorpay.open(options);
-    } catch (e) {
-      setState(() => _isProcessing = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Could not start payment: ${friendlyErrorMessage(e)}',
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final subAsync = ref.watch(subscriptionStatusProvider);
     final screenWidth = MediaQuery.of(context).size.width;
     final double hPadding = screenWidth >= 900 ? 36.0 : (screenWidth >= 650 ? 32.0 : 20.0);
@@ -277,168 +150,179 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                               vertical: 24,
                             ),
                             children: [
-                          Card(
-                            elevation: 0,
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              side: BorderSide(color: Colors.grey.shade200),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
+                              Card(
+                                elevation: 0,
+                                color: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: BorderSide(color: Colors.grey.shade200),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        planName,
-                                        style: const TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF1F2E27),
-                                        ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            planName,
+                                            style: const TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF1F2E27),
+                                            ),
+                                          ),
+                                          Container(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: statusColor.withValues(
+                                                alpha: 0.1,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                            child: Text(
+                                              statusText,
+                                              style: TextStyle(
+                                                color: statusColor,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: statusColor.withValues(
-                                            alpha: 0.1,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          statusText,
-                                          style: TextStyle(
-                                            color: statusColor,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
-                                        ),
+                                      const SizedBox(height: 24),
+                                      _buildInfoRow(
+                                        'Billing Cycle',
+                                        billingCycle.toString().toUpperCase(),
                                       ),
+                                      const Divider(height: 32),
+                                      _buildInfoRow(
+                                        'Rate Per Student',
+                                        '₹${sub['perStudentRate']} / cycle',
+                                      ),
+                                      const Divider(height: 32),
+                                      if (isTrial && trialEndsAt != null)
+                                        _buildInfoRow(
+                                          'Trial Ends On',
+                                          DateFormat(
+                                            'MMM dd, yyyy',
+                                          ).format(trialEndsAt),
+                                        ),
+                                      if (!isTrial && nextBillingDate != null)
+                                        _buildInfoRow(
+                                          'Next Billing Date',
+                                          DateFormat(
+                                            'MMM dd, yyyy',
+                                          ).format(nextBillingDate),
+                                        ),
                                     ],
                                   ),
-                                  const SizedBox(height: 24),
-                                  _buildInfoRow(
-                                    'Billing Cycle',
-                                    billingCycle.toString().toUpperCase(),
-                                  ),
-                                  const Divider(height: 32),
-                                  _buildInfoRow(
-                                    'Rate Per Student',
-                                    '₹${sub['perStudentRate']} / cycle',
-                                  ),
-                                  const Divider(height: 32),
-                                  if (isTrial && trialEndsAt != null)
-                                    _buildInfoRow(
-                                      'Trial Ends On',
-                                      DateFormat(
-                                        'MMM dd, yyyy',
-                                      ).format(trialEndsAt),
+                                ),
+                              ),
+                              const SizedBox(height: 32),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 52,
+                                child: CustomButton(
+                                  text: 'Upgrade / Downgrade Plan',
+                                  onPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const BrowsePlansScreen(),
                                     ),
-                                  if (!isTrial && nextBillingDate != null)
-                                    _buildInfoRow(
-                                      'Next Billing Date',
-                                      DateFormat(
-                                        'MMM dd, yyyy',
-                                      ).format(nextBillingDate),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          if (_isProcessing)
-                            const Center(child: CircularProgressIndicator())
-                          else ...[
-                            SizedBox(
-                              width: double.infinity,
-                              height: 52,
-                              child: CustomButton(
-                                text: ended ? 'Renew Subscription' : 'Pay Now',
-                                onPressed: () => _startPaymentFlow(),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 52,
-                              child: OutlinedButton(
-                                onPressed: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const BrowsePlansScreen(),
                                   ),
                                 ),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF1F2E27),
-                                  side: BorderSide(color: Colors.grey.shade300),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Upgrade / Downgrade Plan',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
-                                ),
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 52,
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  final authState = ref.read(authProvider);
-                                  final tenantName = authState.instituteName ?? 'My Institute';
-                                  final dash = ref.read(dashboardProvider).value;
-                                  final activeCount = (dash?['overview']?['totalStudents'] as num?)?.toInt() ?? 0;
-                                  // Use actual paid amount: prefer transaction's lastPaymentAmount, then sub['amount'], then currentCycleAmount
-                                  final paidAmount = sub['lastPaymentAmount'] ?? sub['amount'] ?? sub['currentCycleAmount'] ?? (activeCount > 0 ? (activeCount * ((sub['perStudentRate'] ?? 10) as num)) : 499);
-                                  final lastPaidStr = sub['lastPaidAt']?.toString();
-                                  final paidOnDate = lastPaidStr != null
-                                      ? DateTime.tryParse(lastPaidStr)
-                                      : (nextBillingDate != null ? nextBillingDate.subtract(const Duration(days: 30)) : DateTime.now());
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 52,
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    final authState = ref.read(authProvider);
+                                    final tenantName =
+                                        authState.instituteName ??
+                                            'My Institute';
+                                    final dash =
+                                        ref.read(dashboardProvider).value;
+                                    final activeCount =
+                                        (dash?['overview']?['totalStudents']
+                                                as num?)
+                                            ?.toInt() ??
+                                        0;
+                                    // Use actual paid amount: prefer transaction's lastPaymentAmount, then sub['amount'], then currentCycleAmount
+                                    final paidAmount =
+                                        sub['lastPaymentAmount'] ??
+                                            sub['amount'] ??
+                                            sub['currentCycleAmount'] ??
+                                            (activeCount > 0
+                                                ? (activeCount *
+                                                    ((sub['perStudentRate'] ??
+                                                            10)
+                                                        as num))
+                                                : 499);
+                                    final lastPaidStr =
+                                        sub['lastPaidAt']?.toString();
+                                    final paidOnDate = lastPaidStr != null
+                                        ? DateTime.tryParse(lastPaidStr)
+                                        : (nextBillingDate != null
+                                            ? nextBillingDate.subtract(
+                                                const Duration(days: 30))
+                                            : DateTime.now());
 
-                                  ReceiptService.downloadSubscriptionInvoice(
-                                    context: context,
-                                    instituteName: tenantName,
-                                    planName: planName,
-                                    billingCycle: billingCycle.toString(),
-                                    amount: paidAmount,
-                                    paymentId: sub['lastPaymentId']?.toString() ?? 'PAY-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
-                                    orderId: sub['lastOrderId']?.toString(),
-                                    paidOn: paidOnDate,
-                                    nextBillingDate: nextBillingDate,
-                                    studentCount: (sub['studentCountSnapshot'] as num?)?.toInt() ?? activeCount,
-                                  );
-                                },
-                                icon: const Icon(Icons.receipt_long_outlined, size: 20),
-                                label: const Text(
-                                  'Download Tax Invoice / Receipt',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF2E6656),
-                                  side: const BorderSide(color: Color(0xFF2E6656), width: 1.2),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                                    ReceiptService.downloadSubscriptionInvoice(
+                                      context: context,
+                                      instituteName: tenantName,
+                                      planName: planName,
+                                      billingCycle: billingCycle.toString(),
+                                      amount: paidAmount,
+                                      paymentId: sub['lastPaymentId']
+                                              ?.toString() ??
+                                          'PAY-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}',
+                                      orderId: sub['lastOrderId']?.toString(),
+                                      paidOn: paidOnDate,
+                                      nextBillingDate: nextBillingDate,
+                                      studentCount: (sub['studentCountSnapshot']
+                                                  as num?)
+                                              ?.toInt() ??
+                                          activeCount,
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.receipt_long_outlined,
+                                    size: 20,
+                                  ),
+                                  label: const Text(
+                                    'Download Tax Invoice / Receipt',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF2E6656),
+                                    side: const BorderSide(
+                                      color: Color(0xFF2E6656),
+                                      width: 1.2,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ],
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    ),
                     );
                   },
                 ),
