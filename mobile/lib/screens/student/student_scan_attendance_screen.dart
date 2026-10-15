@@ -84,7 +84,7 @@ class _StudentScanAttendanceScreenState
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: AppColors.primaryDark,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),

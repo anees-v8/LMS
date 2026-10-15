@@ -40,7 +40,7 @@ class StudentTestResultScreen extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                    colors: [AppColors.primaryDark, AppColors.primary],
                   ),
                 ),
                 child: SafeArea(

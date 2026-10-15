@@ -680,9 +680,49 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
   final _adminPassword = TextEditingController();
   bool _saving = false;
   String? _error;
+  bool _isSlugManuallyEdited = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _name.addListener(_onNameChanged);
+    _slug.addListener(_onSlugChanged);
+  }
+
+  void _onNameChanged() {
+    if (!_isSlugManuallyEdited) {
+      final generated = _generateSlug(_name.text);
+      if (_slug.text != generated) {
+        _slug.value = TextEditingValue(
+          text: generated,
+          selection: TextSelection.collapsed(offset: generated.length),
+        );
+      }
+    }
+  }
+
+  void _onSlugChanged() {
+    if (_slug.text.isEmpty) {
+      _isSlugManuallyEdited = false;
+    } else if (_slug.text != _generateSlug(_name.text)) {
+      _isSlugManuallyEdited = true;
+    }
+  }
+
+  String _generateSlug(String text) {
+    return text
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9\s-]'), '')
+        .replaceAll(RegExp(r'\s+'), '-')
+        .replaceAll(RegExp(r'-+'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
+  }
 
   @override
   void dispose() {
+    _name.removeListener(_onNameChanged);
+    _slug.removeListener(_onSlugChanged);
     _name.dispose();
     _slug.dispose();
     _city.dispose();
@@ -695,13 +735,17 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
   }
 
   Future<void> _submit() async {
+    final effectiveSlug = _slug.text.trim().isNotEmpty
+        ? _slug.text.trim()
+        : _generateSlug(_name.text);
+
     if (_name.text.trim().isEmpty ||
-        _slug.text.trim().isEmpty ||
+        effectiveSlug.isEmpty ||
         _adminName.text.trim().isEmpty ||
         _adminPhone.text.trim().isEmpty ||
         _adminEmail.text.trim().isEmpty ||
         _adminPassword.text.isEmpty) {
-      const msg = 'Name, slug, admin name, phone, email and password are required.';
+      const msg = 'Name, admin name, phone, email and password are required.';
       setState(() => _error = msg);
       AppToast.showError(context, msg);
       return;
@@ -714,7 +758,7 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
       await registerTenant(
         ref.read(apiServiceProvider),
         name: _name.text.trim(),
-        slug: _slug.text.trim(),
+        slug: effectiveSlug,
         adminName: _adminName.text.trim(),
         adminPhone: _adminPhone.text.trim(),
         adminEmail: _adminEmail.text.trim(),
@@ -827,7 +871,7 @@ class _AddTenantBottomSheetState extends ConsumerState<_AddTenantBottomSheet> {
               ),
               const SizedBox(height: 16),
               CustomTextField(
-                label: 'Slug',
+                label: 'Slug (Auto-generated)',
                 hint: 'lowercase-hyphenated, e.g. bright-future',
                 controller: _slug,
                 prefixIcon: Icons.link,

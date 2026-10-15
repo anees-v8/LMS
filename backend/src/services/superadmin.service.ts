@@ -6,11 +6,12 @@ import { writeAudit } from '../utils/audit.js';
 
 export interface RegisterTenantInput {
   name: string;
-  slug: string;
+  slug?: string;
   city?: string;
   contactPhone?: string;
   adminName: string;
   adminPhone: string;
+  adminEmail: string;
   adminPassword: string;
   plan?: string;
   amount?: number;
@@ -28,6 +29,7 @@ interface AdminResult {
   id: number;
   fullName: string;
   phone: string;
+  email: string | null;
   role: string;
 }
 
@@ -41,15 +43,25 @@ export async function registerTenant(
 ): Promise<{ tenant: TenantResult; adminUser: AdminResult }> {
   const {
     name,
-    slug,
+    slug: rawSlug,
     city,
     contactPhone,
     adminName,
     adminPhone,
+    adminEmail,
     adminPassword,
     plan = 'flat',
     amount = env.billing.defaultAmount,
   } = input;
+
+  const normalizedEmail = adminEmail.trim().toLowerCase();
+  const slug = (rawSlug || name)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
 
   const hash = await bcrypt.hash(adminPassword, 10);
 
@@ -57,7 +69,7 @@ export async function registerTenant(
     const existing = await client.query(`SELECT 1 FROM tenants WHERE slug = $1`, [slug]);
     if (existing.rowCount) throw ApiError.conflict('SLUG_TAKEN', 'This slug / institute URL is already taken');
 
-    const emailTaken = await client.query(`SELECT 1 FROM users WHERE lower(email) = lower($1)`, [adminEmail]);
+    const emailTaken = await client.query(`SELECT 1 FROM users WHERE lower(email) = lower($1)`, [normalizedEmail]);
     if (emailTaken.rowCount) throw ApiError.conflict('EMAIL_TAKEN', 'This email is already in use by another account');
 
     const phoneTaken = await client.query(
@@ -104,10 +116,10 @@ export async function registerTenant(
 
     const admin = (
       await client.query<AdminResult>(
-        `INSERT INTO users (tenant_id, role, full_name, phone, password_hash)
-       VALUES ($1,'coaching_admin',$2,$3,$4)
-       RETURNING id, full_name AS "fullName", phone, role`,
-        [tenant.id, adminName, adminPhone, hash]
+        `INSERT INTO users (tenant_id, role, full_name, phone, email, password_hash)
+       VALUES ($1,'coaching_admin',$2,$3,$4,$5)
+       RETURNING id, full_name AS "fullName", phone, email, role`,
+        [tenant.id, adminName, adminPhone, normalizedEmail, hash]
       )
     ).rows[0];
 
@@ -118,7 +130,7 @@ export async function registerTenant(
         action: 'tenant_created',
         entity: 'tenant',
         entityId: tenant.id,
-        meta: { name: tenant.name, slug: tenant.slug, adminPhone },
+        meta: { name: tenant.name, slug: tenant.slug, adminPhone, adminEmail: normalizedEmail },
       },
       client
     );

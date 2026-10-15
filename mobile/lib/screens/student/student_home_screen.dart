@@ -8,7 +8,6 @@ import '../../utils/greeting.dart';
 import 'student_chapter_content_screen.dart';
 import 'student_notifications_screen.dart';
 import 'student_scan_attendance_screen.dart';
-import 'student_profile_screen.dart';
 import '../../widgets/unified_app_header.dart';
 import '../../widgets/ask_doubt_bottom_sheet.dart';
 
@@ -33,19 +32,14 @@ class StudentHomeScreen extends ConsumerWidget {
         : (studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.background,
       appBar: UnifiedAppHeader(
         title: studentName,
         subtitle: instituteName,
         initials: initials,
         unreadNotificationsCount: unreadCount,
         onProfileTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const StudentProfileScreen(),
-            ),
-          );
+          ref.read(studentShellTabIndexProvider.notifier).setTab(4);
         },
         onQrTap: () {
           Navigator.push(
@@ -86,7 +80,7 @@ class StudentHomeScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(color: AppColors.borderLight),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.02),
@@ -100,12 +94,12 @@ class StudentHomeScreen extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF0FDF4),
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
                           Icons.waving_hand_rounded,
-                          color: Color(0xFF16A34A),
+                          color: AppColors.primary,
                           size: 22,
                         ),
                       ),
@@ -117,7 +111,7 @@ class StudentHomeScreen extends ConsumerWidget {
                             Text(
                               '$greeting, 👋',
                               style: const TextStyle(
-                                color: Color(0xFF64748B),
+                                color: AppColors.textSecondary,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -126,7 +120,7 @@ class StudentHomeScreen extends ConsumerWidget {
                             Text(
                               studentName,
                               style: const TextStyle(
-                                color: Color(0xFF0F172A),
+                                color: AppColors.primaryDark,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -609,14 +603,14 @@ class StudentHomeScreen extends ConsumerWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF0F3B2E), Color(0xFF1B5E20)],
+                      colors: [AppColors.primaryDark, AppColors.primary],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF1B5E20).withValues(alpha: 0.25),
+                        color: AppColors.primaryDark.withValues(alpha: 0.25),
                         blurRadius: 14,
                         offset: const Offset(0, 4),
                       ),
@@ -628,15 +622,15 @@ class StudentHomeScreen extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF25D366).withValues(alpha: 0.2),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: const Color(0xFF25D366).withValues(alpha: 0.4),
+                            color: Colors.white.withValues(alpha: 0.25),
                           ),
                         ),
                         child: const Icon(
                           Icons.question_answer_rounded,
-                          color: Color(0xFF25D366),
+                          color: Colors.white,
                           size: 26,
                         ),
                       ),
@@ -668,8 +662,8 @@ class StudentHomeScreen extends ConsumerWidget {
                       ElevatedButton(
                         onPressed: () => showAskDoubtBottomSheet(context),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF25D366),
-                          foregroundColor: Colors.white,
+                          backgroundColor: Colors.white,
+                          foregroundColor: AppColors.primaryDark,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -704,9 +698,9 @@ class StudentHomeScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showAskDoubtBottomSheet(context),
-        backgroundColor: const Color(0xFF25D366),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        elevation: 6,
+        elevation: 4,
         icon: const Icon(Icons.chat_rounded, size: 20),
         label: const Text(
           'Ask Doubt',

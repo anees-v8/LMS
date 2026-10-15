@@ -152,3 +152,18 @@ final studentTeachersProvider = FutureProvider<List<dynamic>>((ref) async {
   }
 });
 
+// ─── Student Shell Tab Index Controller ──────────────────────────────────────
+
+class StudentShellTabIndexNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void setTab(int index) => state = index;
+}
+
+final studentShellTabIndexProvider =
+    NotifierProvider<StudentShellTabIndexNotifier, int>(() {
+  return StudentShellTabIndexNotifier();
+});
+
+

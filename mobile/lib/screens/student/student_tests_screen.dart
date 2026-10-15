@@ -10,7 +10,6 @@ import 'student_active_quiz_screen.dart';
 import 'student_test_result_screen.dart';
 import 'student_notifications_screen.dart';
 import 'student_scan_attendance_screen.dart';
-import 'student_profile_screen.dart';
 
 class StudentTestsScreen extends ConsumerStatefulWidget {
   const StudentTestsScreen({super.key});
@@ -51,19 +50,14 @@ class _StudentTestsScreenState extends ConsumerState<StudentTestsScreen>
     final testsAsync = ref.watch(studentTestsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.background,
       appBar: UnifiedAppHeader(
         title: studentName,
         subtitle: instituteName,
         initials: initials,
         unreadNotificationsCount: unreadCount,
         onProfileTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const StudentProfileScreen(),
-            ),
-          );
+          ref.read(studentShellTabIndexProvider.notifier).setTab(4);
         },
         onQrTap: () {
           Navigator.push(
@@ -97,7 +91,7 @@ class _StudentTestsScreenState extends ConsumerState<StudentTestsScreen>
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
+                    color: AppColors.primaryDark,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -106,7 +100,7 @@ class _StudentTestsScreenState extends ConsumerState<StudentTestsScreen>
                   'Track tests, quizzes & results',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF64748B),
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -114,27 +108,20 @@ class _StudentTestsScreenState extends ConsumerState<StudentTestsScreen>
                   height: 44,
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(color: AppColors.borderLight),
                   ),
                   child: TabBar(
                     controller: _tabController,
                     indicator: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.primaryDark,
                       borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
                     ),
                     indicatorSize: TabBarIndicatorSize.tab,
                     dividerColor: Colors.transparent,
-                    labelColor: AppColors.primaryDark,
-                    unselectedLabelColor: const Color(0xFF64748B),
+                    labelColor: Colors.white,
+                    unselectedLabelColor: AppColors.textSecondary,
                     labelStyle: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,

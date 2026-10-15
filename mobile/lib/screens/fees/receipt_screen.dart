@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/receipt_service.dart';
+import '../../theme/app_colors.dart';
 
 class ReceiptScreen extends StatelessWidget {
   final String tenantName;
@@ -46,27 +47,17 @@ class ReceiptScreen extends StatelessWidget {
         : 'Class $grade';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Color(0xFF1F2E27)),
+        backgroundColor: AppColors.primaryDark,
+        iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           'Fee Receipt',
-          style: TextStyle(
-            color: Color(0xFF1F2E27),
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.download_rounded, color: Color(0xFF2E6656)),
+            icon: const Icon(Icons.download_rounded, color: Colors.white),
             onPressed: () => _printReceipt(context),
             tooltip: 'Download PDF',
           ),

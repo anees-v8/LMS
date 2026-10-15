@@ -9,7 +9,6 @@ import '../../providers/student_providers.dart';
 import '../../widgets/unified_app_header.dart';
 import 'student_notifications_screen.dart';
 import 'student_scan_attendance_screen.dart';
-import 'student_profile_screen.dart';
 
 class StudentLiveScreen extends ConsumerStatefulWidget {
   const StudentLiveScreen({super.key});
@@ -52,19 +51,14 @@ class _StudentLiveScreenState extends ConsumerState<StudentLiveScreen> {
     final upcomingAsync = ref.watch(studentUpcomingLiveProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.background,
       appBar: UnifiedAppHeader(
         title: studentName,
         subtitle: instituteName,
         initials: initials,
         unreadNotificationsCount: unreadCount,
         onProfileTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const StudentProfileScreen(),
-            ),
-          );
+          ref.read(studentShellTabIndexProvider.notifier).setTab(4);
         },
         onQrTap: () {
           Navigator.push(
@@ -96,7 +90,7 @@ class _StudentLiveScreenState extends ConsumerState<StudentLiveScreen> {
                 Text(
                   'Live Classes',
                   style: TextStyle(
-                    color: Color(0xFF0F172A),
+                    color: AppColors.primaryDark,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -105,7 +99,7 @@ class _StudentLiveScreenState extends ConsumerState<StudentLiveScreen> {
                 Text(
                   'Join your interactive live sessions',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: AppColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),

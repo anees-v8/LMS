@@ -151,10 +151,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         unreadNotificationsCount: unreadCount,
         showQrScanner: false,
         onProfileTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AdminProfileScreen()),
-          );
+          final appShell = context.findAncestorStateOfType<AppShellState>();
+          if (appShell != null) {
+            appShell.switchTab(4);
+          }
         },
         onNotificationsTap: () {
           Navigator.push(

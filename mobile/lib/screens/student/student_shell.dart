@@ -1,21 +1,15 @@
-// ignore_for_file: unused_import
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_colors.dart';
+import '../../providers/student_providers.dart';
 import 'student_home_screen.dart';
 import 'student_learn_screen.dart';
 import 'student_live_screen.dart';
 import 'student_tests_screen.dart';
 import 'student_profile_screen.dart';
 
-class StudentShell extends StatefulWidget {
+class StudentShell extends ConsumerWidget {
   const StudentShell({super.key});
-
-  @override
-  State<StudentShell> createState() => _StudentShellState();
-}
-
-class _StudentShellState extends State<StudentShell> {
-  int _currentIndex = 0;
 
   final List<Widget> _screens = const [
     StudentHomeScreen(),
@@ -26,10 +20,12 @@ class _StudentShellState extends State<StudentShell> {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentIndex = ref.watch(studentShellTabIndexProvider);
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      body: IndexedStack(index: currentIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -43,8 +39,9 @@ class _StudentShellState extends State<StudentShell> {
         ),
         child: SafeArea(
           child: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: (i) => setState(() => _currentIndex = i),
+            currentIndex: currentIndex,
+            onTap: (i) =>
+                ref.read(studentShellTabIndexProvider.notifier).setTab(i),
             type: BottomNavigationBarType.fixed,
             backgroundColor: Colors.white,
             selectedItemColor: AppColors.primaryDark,
@@ -84,3 +81,4 @@ class _StudentShellState extends State<StudentShell> {
     );
   }
 }
+

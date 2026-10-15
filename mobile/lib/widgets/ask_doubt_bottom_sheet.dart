@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../theme/app_colors.dart';
 import '../providers/student_providers.dart';
 import '../services/api_service.dart';
 import '../utils/app_toast.dart';
@@ -157,14 +158,14 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+                      colors: [AppColors.primaryDark, AppColors.primary],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF25D366).withValues(alpha: 0.3),
+                        color: AppColors.primaryDark.withValues(alpha: 0.25),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -186,7 +187,7 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
+                          color: AppColors.primaryDark,
                         ),
                       ),
                       SizedBox(height: 2),
@@ -194,7 +195,7 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                         'Instant resolution on WhatsApp',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF64748B),
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -209,7 +210,7 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          Divider(height: 1, color: AppColors.borderLight),
 
           // ── Scrollable Body ──────────────────────────────────────────
           Flexible(
@@ -224,21 +225,21 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF334155),
+                      color: AppColors.primaryDark,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: AppColors.background,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(color: AppColors.borderLight),
                     ),
                     child: TextField(
                       controller: _chapterController,
                       style: const TextStyle(
                         fontSize: 14,
-                        color: Color(0xFF0F172A),
+                        color: AppColors.primaryDark,
                         fontWeight: FontWeight.w500,
                       ),
                       decoration: InputDecoration(
@@ -249,7 +250,7 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                         ),
                         prefixIcon: const Icon(
                           Icons.menu_book_rounded,
-                          color: Color(0xFF25D366),
+                          color: AppColors.primary,
                           size: 20,
                         ),
                         suffixIcon: _chapterController.text.isNotEmpty
@@ -281,7 +282,7 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF334155),
+                      color: AppColors.primaryDark,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -291,19 +292,19 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                       child: Center(
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Color(0xFF25D366),
+                          color: AppColors.primary,
                         ),
                       ),
                     ),
-                    error: (_, __) => Container(
+                    error: (error, stack) => Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade50,
+                        color: AppColors.errorLight,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text(
                         'Assigned doubt mentor will resolve your doubt.',
-                        style: TextStyle(fontSize: 12, color: Colors.red),
+                        style: TextStyle(fontSize: 12, color: AppColors.error),
                       ),
                     ),
                     data: (teachers) {
@@ -311,14 +312,15 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                         return Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
+                            color: AppColors.background,
                             borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.borderLight),
                           ),
                           child: const Row(
                             children: [
                               Icon(
                                 Icons.info_outline_rounded,
-                                color: Color(0xFF64748B),
+                                color: AppColors.textSecondary,
                                 size: 20,
                               ),
                               SizedBox(width: 10),
@@ -327,7 +329,7 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                                   'Your doubt will be routed directly to the institute head mentor.',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Color(0xFF475569),
+                                    color: AppColors.textSecondary,
                                   ),
                                 ),
                               ),
@@ -336,27 +338,18 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                         );
                       }
 
-                      // Auto-select 8080161421 or first mentor if none selected
-                      if (_selectedTeacherId == null) {
-                        final preferred = teachers.firstWhere(
-                          (t) =>
-                              (t['phone']?.toString().contains('8080161421') ??
-                                  false),
-                          orElse: () => teachers.first,
-                        );
-                        _selectedTeacherId = preferred['id'] as int?;
+                      // Auto-select first mentor if none selected
+                      if (_selectedTeacherId == null && teachers.isNotEmpty) {
+                        _selectedTeacherId = teachers.first['id'] as int?;
                       }
 
                       return Column(
                         children: teachers.map<Widget>((t) {
                           final id = t['id'] as int?;
                           final name = t['name'] as String? ?? 'Teacher';
-                          final phone = t['phone'] as String? ?? '';
                           final subject = t['subject'] as String? ?? 'Mentor';
                           final role = t['role'] as String? ?? '';
                           final isSelected = _selectedTeacherId == id;
-
-                          final isTargetMentor = phone.contains('8080161421');
 
                           return GestureDetector(
                             onTap: () {
@@ -371,19 +364,19 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                               ),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? const Color(0xFFF0FDF4)
+                                    ? AppColors.primary.withValues(alpha: 0.08)
                                     : Colors.white,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: isSelected
-                                      ? const Color(0xFF22C55E)
-                                      : const Color(0xFFE2E8F0),
+                                      ? AppColors.primary
+                                      : AppColors.borderLight,
                                   width: isSelected ? 1.8 : 1,
                                 ),
                                 boxShadow: isSelected
                                     ? [
                                         BoxShadow(
-                                          color: const Color(0xFF22C55E)
+                                          color: AppColors.primary
                                               .withValues(alpha: 0.12),
                                           blurRadius: 8,
                                           offset: const Offset(0, 2),
@@ -396,8 +389,8 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                                   CircleAvatar(
                                     radius: 20,
                                     backgroundColor: isSelected
-                                        ? const Color(0xFF22C55E)
-                                        : const Color(0xFFE2E8F0),
+                                        ? AppColors.primary
+                                        : AppColors.background,
                                     child: Text(
                                       name.isNotEmpty
                                           ? name[0].toUpperCase()
@@ -405,7 +398,7 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                                       style: TextStyle(
                                         color: isSelected
                                             ? Colors.white
-                                            : const Color(0xFF475569),
+                                            : AppColors.textSecondary,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 15,
                                       ),
@@ -425,12 +418,12 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                                                 style: const TextStyle(
                                                   fontWeight: FontWeight.bold,
                                                   fontSize: 14,
-                                                  color: Color(0xFF0F172A),
+                                                  color: AppColors.primaryDark,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
-                                            if (isTargetMentor) ...[
+                                            if (role == 'coaching_admin') ...[
                                               const SizedBox(width: 6),
                                               Container(
                                                 padding:
@@ -439,8 +432,8 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                                                   vertical: 2,
                                                 ),
                                                 decoration: BoxDecoration(
-                                                  color:
-                                                      const Color(0xFFDCFCE7),
+                                                  color: AppColors.primary
+                                                      .withValues(alpha: 0.12),
                                                   borderRadius:
                                                       BorderRadius.circular(6),
                                                 ),
@@ -449,7 +442,7 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                                                   style: TextStyle(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.bold,
-                                                    color: Color(0xFF16A34A),
+                                                    color: AppColors.primary,
                                                   ),
                                                 ),
                                               ),
@@ -461,7 +454,7 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                                           '$subject • ${role == "coaching_admin" ? "Head / Mentor" : "Teacher"}',
                                           style: const TextStyle(
                                             fontSize: 12,
-                                            color: Color(0xFF64748B),
+                                            color: AppColors.textSecondary,
                                           ),
                                         ),
                                       ],
@@ -472,8 +465,8 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                                         ? Icons.check_circle_rounded
                                         : Icons.radio_button_unchecked_rounded,
                                     color: isSelected
-                                        ? const Color(0xFF22C55E)
-                                        : Colors.grey.shade400,
+                                        ? AppColors.primary
+                                        : AppColors.borderMedium,
                                     size: 22,
                                   ),
                                 ],
@@ -490,16 +483,16 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDF4),
+                      color: AppColors.background,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                      border: Border.all(color: AppColors.borderLight),
                     ),
                     child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
                           Icons.chat_bubble_outline_rounded,
-                          color: Color(0xFF16A34A),
+                          color: AppColors.primary,
                           size: 18,
                         ),
                         SizedBox(width: 10),
@@ -508,7 +501,7 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                             'Clicking below will open WhatsApp with your student name and doubt details pre-filled. You can also attach photos of your question directly in WhatsApp.',
                             style: TextStyle(
                               fontSize: 11.5,
-                              color: Color(0xFF15803D),
+                              color: AppColors.primaryDark,
                               height: 1.4,
                             ),
                           ),
@@ -531,10 +524,10 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
               child: ElevatedButton(
                 onPressed: _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366),
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   elevation: 4,
-                  shadowColor: const Color(0xFF25D366).withValues(alpha: 0.4),
+                  shadowColor: AppColors.primary.withValues(alpha: 0.35),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),

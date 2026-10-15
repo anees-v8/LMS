@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 /// Clean, modern PhonePe-style unified top header.
 /// Features:
@@ -46,9 +47,9 @@ class UnifiedAppHeader extends StatelessWidget implements PreferredSizeWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: const Border(
+        border: Border(
           bottom: BorderSide(
-            color: Color(0xFFF1F5F9),
+            color: AppColors.borderLight,
             width: 1.2,
           ),
         ),
@@ -106,7 +107,7 @@ class UnifiedAppHeader extends StatelessWidget implements PreferredSizeWidget {
                                         style: const TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
-                                          color: Color(0xFF0F172A),
+                                          color: AppColors.primaryDark,
                                           letterSpacing: -0.2,
                                         ),
                                         maxLines: 1,
@@ -117,7 +118,7 @@ class UnifiedAppHeader extends StatelessWidget implements PreferredSizeWidget {
                                       const Icon(
                                         Icons.keyboard_arrow_down_rounded,
                                         size: 18,
-                                        color: Color(0xFF64748B),
+                                        color: AppColors.textSecondary,
                                       ),
                                   ],
                                 ),
@@ -131,7 +132,7 @@ class UnifiedAppHeader extends StatelessWidget implements PreferredSizeWidget {
                                           style: const TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w500,
-                                            color: Color(0xFF64748B),
+                                            color: AppColors.textSecondary,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -141,7 +142,7 @@ class UnifiedAppHeader extends StatelessWidget implements PreferredSizeWidget {
                                         const Icon(
                                           Icons.keyboard_arrow_right_rounded,
                                           size: 15,
-                                          color: Color(0xFF94A3B8),
+                                          color: AppColors.textSecondary,
                                         ),
                                     ],
                                   ),
@@ -190,10 +191,10 @@ class UnifiedAppHeader extends StatelessWidget implements PreferredSizeWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: AppColors.background,
         shape: BoxShape.circle,
         border: Border.all(
-          color: const Color(0xFFCBD5E1),
+          color: AppColors.borderMedium,
           width: 1.5,
         ),
       ),
@@ -214,7 +215,7 @@ class UnifiedAppHeader extends StatelessWidget implements PreferredSizeWidget {
       child: Text(
         text,
         style: const TextStyle(
-          color: Color(0xFF1E293B),
+          color: AppColors.primaryDark,
           fontWeight: FontWeight.w700,
           fontSize: 14,
         ),
@@ -236,16 +237,16 @@ class UnifiedAppHeader extends StatelessWidget implements PreferredSizeWidget {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
+            color: AppColors.background,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: const Color(0xFFE2E8F0),
+              color: AppColors.borderLight,
               width: 1.2,
             ),
           ),
           child: Icon(
             icon,
-            color: const Color(0xFF1E293B),
+            color: AppColors.primaryDark,
             size: 20,
           ),
         ),
@@ -263,10 +264,10 @@ class UnifiedAppHeader extends StatelessWidget implements PreferredSizeWidget {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
+            color: AppColors.background,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: const Color(0xFFE2E8F0),
+              color: AppColors.borderLight,
               width: 1.2,
             ),
           ),
@@ -276,7 +277,7 @@ class UnifiedAppHeader extends StatelessWidget implements PreferredSizeWidget {
               const Center(
                 child: Icon(
                   Icons.notifications_none_rounded,
-                  color: Color(0xFF1E293B),
+                  color: AppColors.primaryDark,
                   size: 20,
                 ),
               ),
@@ -291,7 +292,7 @@ class UnifiedAppHeader extends StatelessWidget implements PreferredSizeWidget {
                       minHeight: 16,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444),
+                      color: AppColors.error,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.white, width: 1.5),
                     ),

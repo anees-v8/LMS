@@ -8,7 +8,6 @@ import '../../widgets/unified_app_header.dart';
 import 'student_subject_details_screen.dart';
 import 'student_notifications_screen.dart';
 import 'student_scan_attendance_screen.dart';
-import 'student_profile_screen.dart';
 
 class StudentLearnScreen extends ConsumerWidget {
   const StudentLearnScreen({super.key});
@@ -29,19 +28,14 @@ class StudentLearnScreen extends ConsumerWidget {
     final subjectsAsync = ref.watch(studentSubjectsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.background,
       appBar: UnifiedAppHeader(
         title: studentName,
         subtitle: instituteName,
         initials: initials,
         unreadNotificationsCount: unreadCount,
         onProfileTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const StudentProfileScreen(),
-            ),
-          );
+          ref.read(studentShellTabIndexProvider.notifier).setTab(4);
         },
         onQrTap: () {
           Navigator.push(
@@ -83,7 +77,7 @@ class StudentLearnScreen extends ConsumerWidget {
                     const Text(
                       'My Subjects',
                       style: TextStyle(
-                        color: Color(0xFF0F172A),
+                        color: AppColors.primaryDark,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
@@ -93,7 +87,7 @@ class StudentLearnScreen extends ConsumerWidget {
                       data: (subs) => Text(
                         '${subs.length} subjects enrolled',
                         style: const TextStyle(
-                          color: Color(0xFF64748B),
+                          color: AppColors.textSecondary,
                           fontSize: 12,
                         ),
                       ),
