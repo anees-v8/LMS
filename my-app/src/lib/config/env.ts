@@ -121,6 +121,7 @@ export interface AppEnv {
   whatsapp: {
     token: string;
     phoneId: string;
+    verifyToken?: string;
   };
 }
 

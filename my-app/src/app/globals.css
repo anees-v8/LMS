@@ -119,3 +119,29 @@
     background-clip: text;
   }
 }
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+  header, nav, footer, .no-print, [role="banner"], [role="navigation"] {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .receipt-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+  .receipt-card {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
+
