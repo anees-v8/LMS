@@ -605,6 +605,9 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
     final subjects = academics?['subjects'] as List<dynamic>? ?? [];
     final overallPct = academics?['overallPercentage']?.toString() ?? '0.0';
     final grade = academics?['grade']?.toString() ?? '-';
+    final totalTests = academics?['totalTests'] ?? 0;
+    final attemptedCount = academics?['attemptedCount'] ?? 0;
+    final missedCount = academics?['missedCount'] ?? 0;
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -615,7 +618,7 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
           // Summary card
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 18),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [AppColors.primaryDark, AppColors.primary],
@@ -629,6 +632,83 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
               children: [
                 _buildSummaryItem('Overall', '$overallPct%', Icons.bar_chart),
                 _buildSummaryItem('Grade', grade, Icons.grade),
+                _buildSummaryItem('Attempted', '$attemptedCount', Icons.assignment_turned_in),
+                _buildSummaryItem('Missed', '$missedCount', Icons.assignment_late_outlined),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Test Participation Banner
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.quiz_outlined,
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Test Attendance & Tests Given',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$attemptedCount of $totalTests tests attempted • $missedCount missed',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: missedCount > 0
+                        ? Colors.orange.shade50
+                        : Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    totalTests > 0
+                        ? '${((attemptedCount / totalTests) * 100).toStringAsFixed(0)}% Rate'
+                        : '0% Rate',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                      color: missedCount > 0
+                          ? Colors.orange.shade800
+                          : Colors.green.shade800,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

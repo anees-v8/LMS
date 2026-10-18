@@ -473,6 +473,31 @@ export async function getStudentDetails(tenantId: number, id: number) {
     ? (overallPct >= 0.85 ? 'A' : overallPct >= 0.70 ? 'B' : overallPct >= 0.50 ? 'C' : 'D')
     : 'N/A';
 
+  // Test statistics: total assigned/scheduled tests vs attempted vs missed
+  const { rows: testCountRows } = await query<{ total: number }>(
+    `SELECT COUNT(DISTINCT t.id)::int AS total
+     FROM tests t
+     WHERE t.tenant_id = $2
+       AND (
+         t.batch_id IS NULL
+         OR t.batch_id IN (
+           SELECT batch_id FROM batch_enrollments WHERE student_id = $1 AND tenant_id = $2
+         )
+       )`,
+    [id, tenantId]
+  );
+
+  const { rows: testAttemptedRows } = await query<{ attempted: number }>(
+    `SELECT COUNT(DISTINCT tr.test_id)::int AS attempted
+     FROM test_results tr
+     WHERE tr.student_id = $1 AND tr.tenant_id = $2`,
+    [id, tenantId]
+  );
+
+  const attemptedCount = Number(testAttemptedRows[0]?.attempted || 0);
+  const totalTests = Math.max(Number(testCountRows[0]?.total || 0), attemptedCount);
+  const missedCount = Math.max(0, totalTests - attemptedCount);
+
   // Attendance: overall + monthly
   const { rows: attStats } = await query(
     `SELECT
@@ -568,6 +593,9 @@ export async function getStudentDetails(tenantId: number, id: number) {
     academics: {
       overallPercentage: (overallPct * 100).toFixed(1),
       grade: overallGrade,
+      totalTests,
+      attemptedCount,
+      missedCount,
       subjects
     },
     attendance: {

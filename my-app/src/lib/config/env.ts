@@ -182,6 +182,7 @@ export const env: AppEnv = {
   whatsapp: {
     token: optional('WHATSAPP_TOKEN', ''),
     phoneId: optional('WHATSAPP_PHONE_ID', ''),
+    verifyToken: optional('WHATSAPP_VERIFY_TOKEN', 'campusweb_wa_verify_2026'),
   },
 
   googleOAuth: {

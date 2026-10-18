@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../theme/app_colors.dart';
 
 class StudentTestResultScreen extends StatelessWidget {
@@ -7,28 +8,65 @@ class StudentTestResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final marks = test['marksObtained'] as int;
-    final max = test['maxMarks'] as int;
-    final pct = (marks / max * 100).toInt();
-    final correct = test['correct'] as int;
-    final incorrect = test['incorrect'] as int;
-    final skipped = test['skipped'] as int;
+    // ── Safe type parsing ────────────────────────────────────────────────────
+    final marks = (test['marksObtained'] as num?)?.toInt() ?? 0;
+    final rawMax = (test['maxMarks'] ?? test['max_marks'] as num?)?.toInt();
+    final max = (rawMax != null && rawMax > 0) ? rawMax : (marks > 0 ? marks : 1);
+    final effectiveMax = max > 0 ? max : 1;
+    final pct = ((marks / effectiveMax) * 100).toInt().clamp(0, 100);
+
+    final correct = (test['correct'] as num?)?.toInt() ?? 0;
+    final incorrect = (test['incorrect'] as num?)?.toInt() ?? 0;
+    final skipped = (test['skipped'] as num?)?.toInt() ?? 0;
+
+    final title = test['title']?.toString() ?? 'Test Result';
+    final subject = test['subject']?.toString() ?? 'General';
+
+    String dateStr = '';
+    final rawDate = test['testDate'] ?? test['date'];
+    if (rawDate != null) {
+      try {
+        final parsed = DateTime.parse(rawDate.toString()).toLocal();
+        dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(parsed);
+      } catch (_) {
+        dateStr = rawDate.toString();
+      }
+    }
+
+    final totalAnswered = correct + incorrect;
+    final totalQuestions = correct + incorrect + skipped;
+    final accuracy = totalAnswered > 0
+        ? ((correct / totalAnswered) * 100).toInt()
+        : (marks > 0 ? pct : 0);
+    final attemptRate = totalQuestions > 0
+        ? ((totalAnswered / totalQuestions) * 100).toInt()
+        : 100;
+
     final color = pct >= 75
         ? AppColors.success
         : pct >= 50
-        ? Colors.orange
-        : AppColors.error;
-    final message = pct >= 75
-        ? '🎉 Excellent!'
+            ? Colors.orange
+            : AppColors.error;
+
+    final badgeMessage = pct >= 90
+        ? '🏆 Outstanding Performance!'
+        : pct >= 75
+            ? '🎉 Excellent Job!'
+            : pct >= 50
+                ? '👍 Good Effort!'
+                : '📚 Keep Practicing!';
+
+    final statusSubtitle = pct >= 75
+        ? 'Great mastery! Keep up the brilliant momentum.'
         : pct >= 50
-        ? '👍 Good Job!'
-        : '📚 Keep Practicing!';
+            ? 'Solid attempt. Revise your mistakes to score higher.'
+            : 'Don\'t worry! Consistent practice is the key to mastery.';
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF8FAF9),
       body: CustomScrollView(
         slivers: [
-          // ── Header ────────────────────────────────────────────────────
+          // ── Header ──────────────────────────────────────────────────────────
           SliverAppBar(
             pinned: true,
             backgroundColor: AppColors.primaryDark,
@@ -47,30 +85,49 @@ class StudentTestResultScreen extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 40),
-                      Text(
-                        message,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                      const SizedBox(height: 32),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          badgeMessage,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        test['title'] as String,
+                        dateStr.isNotEmpty
+                            ? '$subject • $dateStr'
+                            : subject,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.75),
-                          fontSize: 13,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${test['subject']} • ${test['date']}',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.55),
-                          fontSize: 11,
+                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -82,67 +139,108 @@ class StudentTestResultScreen extends StatelessWidget {
 
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
               child: Column(
                 children: [
-                  // ── Score Card ────────────────────────────────────────
+                  // ── Score Card ──────────────────────────────────────────────
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: color.withValues(alpha: 0.1),
-                          blurRadius: 20,
+                          color: color.withValues(alpha: 0.08),
+                          blurRadius: 24,
                           offset: const Offset(0, 8),
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                       border: Border.all(color: color.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       children: [
-                        // Circular score
+                        // Circular Gauge
                         Stack(
                           alignment: Alignment.center,
                           children: [
                             SizedBox(
-                              width: 120,
-                              height: 120,
+                              width: 130,
+                              height: 130,
                               child: CircularProgressIndicator(
-                                value: marks / max,
+                                value: (marks / effectiveMax).clamp(0.0, 1.0),
                                 strokeWidth: 10,
                                 backgroundColor: Colors.grey.shade100,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  color,
-                                ),
+                                valueColor: AlwaysStoppedAnimation<Color>(color),
                                 strokeCap: StrokeCap.round,
                               ),
                             ),
                             Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
                                   '$pct%',
                                   style: TextStyle(
-                                    fontSize: 28,
+                                    fontSize: 32,
                                     fontWeight: FontWeight.bold,
                                     color: color,
+                                    letterSpacing: -0.5,
                                   ),
                                 ),
+                                const SizedBox(height: 2),
                                 Text(
-                                  '$marks/$max Marks',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey,
+                                  '$marks / $max Marks',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],
                             ),
                           ],
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            pct >= 75
+                                ? 'PASSED • DISTINCTION'
+                                : pct >= 50
+                                    ? 'PASSED'
+                                    : 'NEEDS REVISION',
+                            style: TextStyle(
+                              color: color,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          statusSubtitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 22),
 
-                        // Stat row
+                        // Stats Row
                         Row(
                           children: [
                             _StatBox(
@@ -164,8 +262,8 @@ class StudentTestResultScreen extends StatelessWidget {
                             _StatBox(
                               label: 'Skipped',
                               value: '$skipped',
-                              color: Colors.grey,
-                              bg: const Color(0xFFF5F5F5),
+                              color: Colors.grey.shade700,
+                              bg: Colors.grey.shade100,
                               icon: Icons.remove_circle_rounded,
                             ),
                           ],
@@ -176,45 +274,58 @@ class StudentTestResultScreen extends StatelessWidget {
 
                   const SizedBox(height: 20),
 
-                  // ── Performance Summary ───────────────────────────────
+                  // ── Performance Summary Card ────────────────────────────────
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Performance Summary',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: AppColors.primaryDark,
-                          ),
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.insights_rounded,
+                              size: 20,
+                              color: AppColors.primary,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Performance Breakdown',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: AppColors.primaryDark,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 16),
                         _PerformanceRow(
-                          label: 'Accuracy',
-                          value: correct + incorrect == 0
-                              ? 0
-                              : (correct / (correct + incorrect) * 100).toInt(),
+                          label: 'Accuracy Rate',
+                          value: accuracy,
                           suffix: '%',
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         _PerformanceRow(
                           label: 'Attempt Rate',
-                          value:
-                              ((correct + incorrect) /
-                                      (correct + incorrect + skipped) *
-                                      100)
-                                  .toInt(),
+                          value: attemptRate,
                           suffix: '%',
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         _PerformanceRow(
-                          label: 'Score Percentage',
+                          label: 'Overall Score',
                           value: pct,
                           suffix: '%',
                         ),
@@ -222,54 +333,32 @@ class StudentTestResultScreen extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
-                  // ── Action buttons ────────────────────────────────────
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                              color: AppColors.primaryDark,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          child: const Text(
-                            '← Go Back',
-                            style: TextStyle(
-                              color: AppColors.primaryDark,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                  // ── Action Buttons ──────────────────────────────────────────
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                      label: const Text(
+                        'Back to Assessments',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {},
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryDark,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          child: const Text(
-                            'Review Answers',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryDark,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
+                        elevation: 2,
                       ),
-                    ],
+                    ),
                   ),
-
-                  const SizedBox(height: 32),
                 ],
               ),
             ),
@@ -284,6 +373,7 @@ class _StatBox extends StatelessWidget {
   final String label, value;
   final Color color, bg;
   final IconData icon;
+
   const _StatBox({
     required this.label,
     required this.value,
@@ -299,7 +389,7 @@ class _StatBox extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
           children: [
@@ -315,7 +405,11 @@ class _StatBox extends StatelessWidget {
             ),
             Text(
               label,
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade700,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -327,6 +421,7 @@ class _StatBox extends StatelessWidget {
 class _PerformanceRow extends StatelessWidget {
   final String label, suffix;
   final int value;
+
   const _PerformanceRow({
     required this.label,
     required this.value,
@@ -335,17 +430,23 @@ class _PerformanceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = value >= 75
+    final clampedValue = value.clamp(0, 100);
+    final color = clampedValue >= 75
         ? AppColors.success
-        : value >= 50
-        ? Colors.orange
-        : AppColors.error;
+        : clampedValue >= 50
+            ? Colors.orange
+            : AppColors.error;
+
     return Row(
       children: [
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(color: Colors.grey, fontSize: 13),
+            style: TextStyle(
+              color: Colors.grey.shade700,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         SizedBox(
@@ -356,20 +457,24 @@ class _PerformanceRow extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: LinearProgressIndicator(
-                    value: value / 100,
-                    backgroundColor: Colors.grey.shade100,
+                    value: clampedValue / 100,
+                    backgroundColor: Colors.grey.shade200,
                     valueColor: AlwaysStoppedAnimation<Color>(color),
                     minHeight: 7,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                '$value$suffix',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                  fontSize: 13,
+              SizedBox(
+                width: 44,
+                child: Text(
+                  '$clampedValue$suffix',
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ],

@@ -94,6 +94,11 @@ export const createTestSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD')
       .or(z.string().regex(/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/, 'datetime must be YYYY-MM-DDTHH:MM'))
       .optional(),
+    validUntil: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD')
+      .or(z.string().regex(/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/, 'datetime must be YYYY-MM-DDTHH:MM'))
+      .optional(),
     durationMinutes: z.coerce.number().int().positive().optional(),
     isOnline: z.boolean().default(false),
   })

@@ -32,7 +32,7 @@ class TeacherBatchList extends ConsumerWidget {
                 onPressed: () {
                   ref
                       .read(teacherShellTabIndexProvider.notifier)
-                      .setTab(2); // Batches Tab
+                      .setTab(3); // Batches Tab
                 },
                 child: const Text(
                   'View All',

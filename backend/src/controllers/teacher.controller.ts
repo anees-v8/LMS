@@ -126,3 +126,7 @@ export const deleteQuestion = asyncHandler(async (req: Request, res: Response) =
 export const getTestQuestions = asyncHandler(async (req: Request, res: Response) =>
   res.json(await testSvc.getTestQuestions(tenantId(req), Number(req.params.testId)))
 );
+
+export const getTestSubmissions = asyncHandler(async (req: Request, res: Response) =>
+  res.json(await testSvc.getTestSubmissions(tenantId(req), Number(req.params.testId)))
+);

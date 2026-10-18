@@ -113,6 +113,7 @@ router.post('/tests', validate(createTestSchema), ctrl.createTest);
 
 router.get('/tests/:testId/questions', validate(testIdParamSchema, 'params'), ctrl.getTestQuestions);
 router.post('/tests/:testId/questions', validate(testIdParamSchema, 'params'), validate(createQuestionSchema), ctrl.addQuestion);
+router.get('/tests/:testId/submissions', validate(testIdParamSchema, 'params'), ctrl.getTestSubmissions);
 
 router.put('/questions/:questionId', validate(questionIdParamSchema, 'params'), validate(createQuestionSchema), ctrl.updateQuestion);
 router.delete('/questions/:questionId', validate(questionIdParamSchema, 'params'), ctrl.deleteQuestion);

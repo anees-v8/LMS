@@ -6,6 +6,7 @@ import '../../providers/teacher_providers.dart';
 import '../../services/api_service.dart';
 import '../../widgets/custom_dropdown.dart';
 import 'quiz_editor_screen.dart';
+import 'teacher_test_submissions_screen.dart';
 
 class TeacherManageTestsScreen extends ConsumerWidget {
   const TeacherManageTestsScreen({super.key});
@@ -60,6 +61,12 @@ class TeacherManageTestsScreen extends ConsumerWidget {
                       'dd MMM yyyy, hh:mm a',
                     ).format(DateTime.parse(test['test_date']).toLocal())
                   : 'No Date';
+              final rawValidUntil = test['valid_until'] ?? test['validUntil'];
+              final validUntilStr = rawValidUntil != null
+                  ? DateFormat(
+                      'dd MMM yyyy, hh:mm a',
+                    ).format(DateTime.parse(rawValidUntil).toLocal())
+                  : null;
               final maxMarks = test['max_marks'];
 
               return InkWell(
@@ -183,6 +190,103 @@ class TeacherManageTestsScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
+                      if (validUntilStr != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.event_busy,
+                              size: 13,
+                              color: Colors.amber.shade800,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Deadline: $validUntilStr',
+                              style: TextStyle(
+                                color: Colors.amber.shade900,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      const Divider(height: 1, thickness: 0.6),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => QuizEditorScreen(
+                                      testId: test['id'],
+                                      testTitle: test['title'],
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.edit_note, size: 16),
+                              label: const Text(
+                                'Questions',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                side: BorderSide(
+                                  color: AppColors.primary.withValues(alpha: 0.3),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => TeacherTestSubmissionsScreen(
+                                      testId: test['id'],
+                                      testTitle: test['title'],
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.people_alt_outlined,
+                                size: 15,
+                              ),
+                              label: const Text(
+                                'Submissions',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -246,6 +350,8 @@ class _CreateTestModalState extends ConsumerState<_CreateTestModal> {
   int? _selectedSubjectId;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  DateTime? _deadlineDate;
+  TimeOfDay? _deadlineTime;
   bool _isSubmitting = false;
 
   @override
@@ -272,6 +378,24 @@ class _CreateTestModalState extends ConsumerState<_CreateTestModal> {
       initialTime: _selectedTime ?? TimeOfDay.now(),
     );
     if (picked != null) setState(() => _selectedTime = picked);
+  }
+
+  Future<void> _pickDeadlineDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _deadlineDate ?? _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null) setState(() => _deadlineDate = picked);
+  }
+
+  Future<void> _pickDeadlineTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _deadlineTime ?? const TimeOfDay(hour: 23, minute: 59),
+    );
+    if (picked != null) setState(() => _deadlineTime = picked);
   }
 
   Future<void> _submit() async {
@@ -302,6 +426,21 @@ class _CreateTestModalState extends ConsumerState<_CreateTestModal> {
         );
         testDateTime = combined.toUtc().toIso8601String();
       }
+
+      String? deadlineDateTime;
+      if (_deadlineDate != null) {
+        final dTime = _deadlineTime ?? const TimeOfDay(hour: 23, minute: 59);
+        final combinedDeadline = DateTime(
+          _deadlineDate!.year,
+          _deadlineDate!.month,
+          _deadlineDate!.day,
+          dTime.hour,
+          dTime.minute,
+          59,
+        );
+        deadlineDateTime = combinedDeadline.toUtc().toIso8601String();
+      }
+
       final created = await api.post('/teacher/tests', {
         'title': _titleCtrl.text.trim(),
         if (_durationCtrl.text.isNotEmpty)
@@ -311,6 +450,7 @@ class _CreateTestModalState extends ConsumerState<_CreateTestModal> {
         if (_selectedBatchId != null) 'batchId': _selectedBatchId,
         if (_selectedSubjectId != null) 'subjectId': _selectedSubjectId,
         if (testDateTime != null) 'testDate': testDateTime,
+        if (deadlineDateTime != null) 'validUntil': deadlineDateTime,
         'isOnline': _isOnline,
       });
       widget.onCreated();
@@ -482,6 +622,59 @@ class _CreateTestModalState extends ConsumerState<_CreateTestModal> {
                             : 'Select Time',
                         style: TextStyle(
                           color: _selectedTime != null
+                              ? Colors.black87
+                              : Colors.grey.shade500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Deadline / Valid Until pickers
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: _pickDeadlineDate,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Valid Until (Optional)',
+                        border: OutlineInputBorder(),
+                        suffixIcon: Icon(Icons.event_busy, size: 18),
+                      ),
+                      child: Text(
+                        _deadlineDate != null
+                            ? DateFormat('dd MMM yyyy').format(_deadlineDate!)
+                            : 'Select Deadline',
+                        style: TextStyle(
+                          color: _deadlineDate != null
+                              ? Colors.black87
+                              : Colors.grey.shade500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: _pickDeadlineTime,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Deadline Time',
+                        border: OutlineInputBorder(),
+                        suffixIcon: Icon(Icons.access_time_filled, size: 18),
+                      ),
+                      child: Text(
+                        _deadlineTime != null
+                            ? _deadlineTime!.format(context)
+                            : (_deadlineDate != null ? '11:59 PM' : 'Select Time'),
+                        style: TextStyle(
+                          color: (_deadlineTime != null || _deadlineDate != null)
                               ? Colors.black87
                               : Colors.grey.shade500,
                         ),

@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/teacher_providers.dart';
 
 import '../notifications/teacher_notifications_screen.dart';
+import '../../widgets/unified_app_header.dart';
 
 // Import our new sub-components
 import '../../widgets/teacher/teacher_welcome_header.dart';
@@ -32,46 +33,43 @@ class TeacherDashboardScreen extends ConsumerWidget {
       orElse: () => 0,
     );
 
+    final parts = fullName.trim().split(' ');
+    final initials = parts.length > 1
+        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+        : (fullName.isNotEmpty ? fullName[0].toUpperCase() : 'T');
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          instituteName,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        backgroundColor: AppColors.primaryDark,
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const TeacherNotificationsScreen(),
-                ),
-              ).then(
-                (_) => ref.invalidate(teacherUnreadNotificationCountProvider),
-              );
-            },
-            icon: Badge(
-              isLabelVisible: unreadCount > 0,
-              label: Text('$unreadCount'),
-              backgroundColor: Colors.redAccent,
-              child: const Icon(
-                Icons.notifications_none_outlined,
-                color: Colors.white,
-              ),
+      appBar: UnifiedAppHeader(
+        title: fullName,
+        subtitle: instituteName,
+        initials: initials,
+        showQrScanner: false,
+        unreadNotificationsCount: unreadCount,
+        onProfileTap: () {
+          ref.read(teacherShellTabIndexProvider.notifier).setTab(4);
+        },
+        onNotificationsTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const TeacherNotificationsScreen(),
             ),
-          ),
-        ],
+          ).then(
+            (_) => ref.invalidate(teacherUnreadNotificationCountProvider),
+          );
+        },
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(todayScheduleProvider);
+          ref.invalidate(myBatchesProvider);
+          ref.invalidate(teacherUnreadNotificationCountProvider);
+        },
+        child: SafeArea(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TeacherWelcomeHeader(
@@ -92,6 +90,7 @@ class TeacherDashboardScreen extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

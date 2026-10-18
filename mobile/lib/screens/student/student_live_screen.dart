@@ -111,38 +111,42 @@ class _StudentLiveScreenState extends ConsumerState<StudentLiveScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => _buildError(e.toString(), ref),
               data: (classes) {
-                if (classes.isEmpty) return _buildEmpty();
-
                 final now = DateTime.now();
                 final live = classes.where((c) {
-            final dt = DateTime.parse(c['scheduledAt'] as String).toLocal();
-            return dt.isBefore(now.add(const Duration(minutes: 10))) &&
-                dt.isAfter(now.subtract(const Duration(minutes: 60)));
-          }).toList();
-          final upcoming = classes.where((c) {
-            final dt = DateTime.parse(c['scheduledAt'] as String).toLocal();
-            return dt.isAfter(now.add(const Duration(minutes: 10)));
-          }).toList();
+                  if (c['endedAt'] != null || c['isPast'] == true) return false;
+                  final dt = DateTime.parse(c['scheduledAt'] as String).toLocal();
+                  return dt.isBefore(now.add(const Duration(minutes: 10))) &&
+                      dt.isAfter(now.subtract(const Duration(minutes: 60)));
+                }).toList();
+                final upcoming = classes.where((c) {
+                  if (c['endedAt'] != null || c['isPast'] == true) return false;
+                  final dt = DateTime.parse(c['scheduledAt'] as String).toLocal();
+                  return dt.isAfter(now.add(const Duration(minutes: 10)));
+                }).toList();
 
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(studentUpcomingLiveProvider),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              children: [
-                if (live.isNotEmpty) ...[
-                  _buildLiveBanner(live.first),
-                  const SizedBox(height: 16),
-                ],
-                if (upcoming.isNotEmpty) ...[
-                  _sectionHeader('Upcoming This Week', upcoming.length),
-                  const SizedBox(height: 8),
-                  ...upcoming.map((c) => _UpcomingCard(liveClass: c)),
-                ],
-                if (live.isEmpty && upcoming.isEmpty) _buildEmpty(),
-              ],
-            ),
-          );
-        },
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(studentUpcomingLiveProvider);
+                    ref.invalidate(studentTodayLiveProvider);
+                  },
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                    children: [
+                      if (live.isNotEmpty) ...[
+                        _buildLiveBanner(live.first),
+                        const SizedBox(height: 16),
+                      ],
+                      if (upcoming.isNotEmpty) ...[
+                        _sectionHeader('Upcoming This Week', upcoming.length),
+                        const SizedBox(height: 8),
+                        ...upcoming.map((c) => _UpcomingCard(liveClass: c)),
+                      ],
+                      if (live.isEmpty && upcoming.isEmpty) _buildEmpty(),
+                    ],
+                  ),
+                );
+              },
       ),
     ),
   ],
@@ -290,34 +294,37 @@ class _StudentLiveScreenState extends ConsumerState<StudentLiveScreen> {
     );
   }
 
-  Widget _buildEmpty() => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.08),
-            shape: BoxShape.circle,
+  Widget _buildEmpty() => Padding(
+    padding: const EdgeInsets.only(top: 60),
+    child: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.videocam_off_outlined,
+              size: 56,
+              color: AppColors.primary.withValues(alpha: 0.6),
+            ),
           ),
-          child: Icon(
-            Icons.videocam_off_outlined,
-            size: 56,
-            color: AppColors.primary.withValues(alpha: 0.6),
+          const SizedBox(height: 20),
+          const Text(
+            'No upcoming live classes',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          'No upcoming live classes',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Your teacher will schedule classes here.\nYou\'ll get notified 10 minutes before!',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey, height: 1.5),
-        ),
-      ],
+          const SizedBox(height: 8),
+          const Text(
+            'Your teacher will schedule classes here.\nYou\'ll get notified 10 minutes before!',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey, height: 1.5),
+          ),
+        ],
+      ),
     ),
   );
 

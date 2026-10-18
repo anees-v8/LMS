@@ -11,9 +11,19 @@ import '../main.dart' show rootProviderContainer;
 import '../providers/management_providers.dart'
     show notificationsProvider, unreadNotificationCountProvider;
 import '../providers/student_providers.dart'
-    show studentNotificationsProvider, studentUnreadNotificationCountProvider;
+    show
+        studentNotificationsProvider,
+        studentUnreadNotificationCountProvider,
+        studentDashboardProvider,
+        studentTodayLiveProvider,
+        studentUpcomingLiveProvider,
+        studentTestsProvider;
 import '../providers/teacher_providers.dart'
-    show teacherNotificationsProvider, teacherUnreadNotificationCountProvider;
+    show
+        teacherNotificationsProvider,
+        teacherUnreadNotificationCountProvider,
+        todayScheduleProvider,
+        myBatchesProvider;
 
 // Screens
 import '../screens/superadmin/notifications_screen.dart' as superadmin;
@@ -174,6 +184,13 @@ class PushNotificationService {
     rootProviderContainer.invalidate(studentUnreadNotificationCountProvider);
     rootProviderContainer.invalidate(teacherNotificationsProvider);
     rootProviderContainer.invalidate(teacherUnreadNotificationCountProvider);
+    // Real-time synchronization for live meetings and tests
+    rootProviderContainer.invalidate(studentUpcomingLiveProvider);
+    rootProviderContainer.invalidate(studentTodayLiveProvider);
+    rootProviderContainer.invalidate(studentDashboardProvider);
+    rootProviderContainer.invalidate(studentTestsProvider);
+    rootProviderContainer.invalidate(todayScheduleProvider);
+    rootProviderContainer.invalidate(myBatchesProvider);
   }
 
   Future<void> _navigateToNotifications() async {

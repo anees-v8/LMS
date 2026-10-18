@@ -63,6 +63,8 @@ class StudentHomeScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(studentDashboardProvider);
+          ref.invalidate(studentUpcomingLiveProvider);
+          ref.invalidate(studentTodayLiveProvider);
           ref.invalidate(studentUnreadNotificationCountProvider);
           try {
             await ref.read(studentDashboardProvider.future);
@@ -206,7 +208,7 @@ class StudentHomeScreen extends ConsumerWidget {
                   final liveAsync = ref.watch(studentUpcomingLiveProvider);
                   return liveAsync.when(
                     loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                     data: (classes) {
                       if (classes.isEmpty) return const SizedBox.shrink();
                       final now = DateTime.now();
@@ -214,6 +216,9 @@ class StudentHomeScreen extends ConsumerWidget {
                       final nearest = classes
                           .cast<Map<String, dynamic>>()
                           .where((c) {
+                            if (c['endedAt'] != null || c['isPast'] == true) {
+                              return false;
+                            }
                             final dt = DateTime.parse(
                               c['scheduledAt'] as String,
                             ).toLocal();
@@ -228,9 +233,8 @@ class StudentHomeScreen extends ConsumerWidget {
                       final dt = DateTime.parse(
                         nearest['scheduledAt'] as String,
                       ).toLocal();
-                      final isLive = dt.isBefore(
-                        now.add(const Duration(minutes: 10)),
-                      );
+                      final isLive = (nearest['endedAt'] == null && nearest['isPast'] != true) &&
+                          dt.isBefore(now.add(const Duration(minutes: 10)));
                       final diff = dt.difference(now);
                       final timeLabel = isLive
                           ? 'LIVE NOW'
@@ -246,11 +250,12 @@ class StudentHomeScreen extends ConsumerWidget {
                               final uri = Uri.parse(
                                 nearest['meetUrl'] as String,
                               );
-                              if (await canLaunchUrl(uri))
+                              if (await canLaunchUrl(uri)) {
                                 await launchUrl(
                                   uri,
                                   mode: LaunchMode.externalApplication,
                                 );
+                              }
                             }
                           },
                           child: Container(

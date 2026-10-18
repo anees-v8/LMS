@@ -72,7 +72,7 @@ class TeacherBatchesScreen extends ConsumerWidget {
                 return ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: batches.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  separatorBuilder: (_, _) => const SizedBox(height: 16),
                   itemBuilder: (context, index) {
                     final batch = batches[index];
                     return _buildBatchCard(context, batch);
@@ -138,12 +138,6 @@ class TeacherBatchesScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                ),
-                IconButton(
-                  onPressed: () {}, // e.g. open more options menu
-                  icon: const Icon(Icons.more_vert, color: Colors.grey),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
                 ),
               ],
             ),

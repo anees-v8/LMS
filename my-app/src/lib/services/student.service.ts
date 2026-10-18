@@ -37,6 +37,7 @@ export interface LiveClassItem {
   meetUrl: string;
   scheduledAt: Date;
   joinable?: boolean;
+  endedAt?: Date | null;
 }
 
 export interface TimetableItem {
@@ -86,9 +87,9 @@ export async function dashboard(tenantId: number, userId: number): Promise<Stude
   const nextLive =
     (
       await query<LiveClassItem>(
-        `SELECT id, title, meet_url AS "meetUrl", scheduled_at AS "scheduledAt"
+        `SELECT id, title, meet_url AS "meetUrl", scheduled_at AS "scheduledAt", ended_at AS "endedAt"
        FROM live_classes
-      WHERE tenant_id=$1 AND batch_id = ANY($2::int[]) 
+      WHERE tenant_id=$1 AND (batch_id = ANY($2::int[]) OR batch_id IS NULL)
         AND ended_at IS NULL
         AND scheduled_at >= now() - interval '1 hour'
       ORDER BY scheduled_at ASC LIMIT 1`,
@@ -275,11 +276,13 @@ export async function todayLive(tenantId: number, userId: number): Promise<LiveC
   const safeBatches = batchIds.length ? batchIds : [-1];
   const { rows } = await query<LiveClassItem>(
     `SELECT id, title, meet_url AS "meetUrl", scheduled_at AS "scheduledAt",
-            (now() BETWEEN scheduled_at - interval '10 minutes'
+            ended_at AS "endedAt",
+            (ended_at IS NULL AND now() BETWEEN scheduled_at - interval '10 minutes'
                        AND scheduled_at + interval '60 minutes') AS joinable
        FROM live_classes
-      WHERE tenant_id=$1 AND batch_id = ANY($2::int[])
+      WHERE tenant_id=$1 AND (batch_id = ANY($2::int[]) OR batch_id IS NULL)
         AND scheduled_at::date = now()::date
+        AND ended_at IS NULL
       ORDER BY scheduled_at`,
     [tenantId, safeBatches]
   );
@@ -294,6 +297,7 @@ export interface UpcomingLiveClassItem {
   batchName: string;
   isPast: boolean;
   joinable: boolean;
+  endedAt?: string | null;
 }
 
 export async function upcomingLive(tenantId: number, userId: number): Promise<UpcomingLiveClassItem[]> {
@@ -302,13 +306,15 @@ export async function upcomingLive(tenantId: number, userId: number): Promise<Up
   const safeBatches = batchIds.length ? batchIds : [-1];
   const { rows } = await query<UpcomingLiveClassItem>(
     `SELECT lc.id, lc.title, lc.meet_url AS "meetUrl",
-            lc.scheduled_at AS "scheduledAt", b.name AS "batchName",
-            (lc.scheduled_at + interval '60 minutes' < now()) AS "isPast",
-            (now() BETWEEN lc.scheduled_at - interval '10 minutes'
+            lc.scheduled_at AS "scheduledAt", lc.ended_at AS "endedAt",
+            COALESCE(b.name, 'All Batches') AS "batchName",
+            (lc.ended_at IS NOT NULL OR lc.scheduled_at + interval '60 minutes' < now()) AS "isPast",
+            (lc.ended_at IS NULL AND now() BETWEEN lc.scheduled_at - interval '10 minutes'
                        AND lc.scheduled_at + interval '60 minutes') AS "joinable"
        FROM live_classes lc
-       JOIN batches b ON b.id = lc.batch_id
-      WHERE lc.tenant_id=$1 AND lc.batch_id = ANY($2::int[])
+       LEFT JOIN batches b ON b.id = lc.batch_id
+      WHERE lc.tenant_id=$1 AND (lc.batch_id = ANY($2::int[]) OR lc.batch_id IS NULL)
+        AND lc.ended_at IS NULL
         AND lc.scheduled_at >= now() - interval '1 hour'
         AND lc.scheduled_at <= now() + interval '7 days'
       ORDER BY lc.scheduled_at ASC`,
@@ -675,29 +681,34 @@ export interface StudentTest {
   title: string;
   subject: string | null;
   testDate: string | null;
+  validUntil?: string | null;
   maxMarks: number;
   durationMinutes: number | null;
   isOnline: boolean;
   // for completed:
   marksObtained?: number;
+  correct?: number;
+  incorrect?: number;
+  skipped?: number;
 }
 
 export async function listTests(
   tenantId: number,
   userId: number
-): Promise<{ active: StudentTest[]; completed: StudentTest[] }> {
+): Promise<{ active: StudentTest[]; missed: StudentTest[]; completed: StudentTest[] }> {
   const studentId = await getStudentId(tenantId, userId);
   const batchIds = await enrolledBatchIds(tenantId, studentId);
   const safeBatches = batchIds.length ? batchIds : [-1];
 
-  const active = (
+  const unsubmitted = (
     await query<StudentTest>(
       `SELECT t.id, t.title, s.name AS subject, t.scheduled_at AS "testDate",
+              t.valid_until AS "validUntil",
               t.max_marks AS "maxMarks", t.duration_minutes AS "durationMinutes", t.is_online AS "isOnline"
          FROM tests t
          LEFT JOIN subjects s ON s.id = t.subject_id
-        WHERE t.tenant_id=$1 AND t.batch_id = ANY($2::int[])
-          AND (t.scheduled_at IS NULL OR t.scheduled_at >= now())
+        WHERE t.tenant_id=$1 AND (t.batch_id = ANY($2::int[]) OR t.batch_id IS NULL)
+          AND (t.valid_until IS NULL OR t.valid_until >= now() - interval '30 days')
           AND NOT EXISTS (
             SELECT 1 FROM test_results tr
             WHERE tr.test_id = t.id AND tr.student_id = $3
@@ -707,21 +718,73 @@ export async function listTests(
     )
   ).rows;
 
-  const completed = (
-    await query<StudentTest>(
+  const active: StudentTest[] = [];
+  const missed: StudentTest[] = [];
+  const now = new Date();
+
+  for (const t of unsubmitted) {
+    const deadline = t.validUntil
+      ? new Date(t.validUntil)
+      : (t.testDate ? new Date(new Date(t.testDate).getTime() + 24 * 3600_000) : null);
+
+    if (deadline && now > deadline) {
+      missed.push(t);
+    } else {
+      active.push(t);
+    }
+  }
+
+  const completedRows = (
+    await query<StudentTest & { answers: any }>(
       `SELECT t.id, t.title, s.name AS subject, t.scheduled_at AS "testDate",
+              t.valid_until AS "validUntil",
               t.max_marks AS "maxMarks", t.duration_minutes AS "durationMinutes", t.is_online AS "isOnline",
-              tr.marks_obtained AS "marksObtained"
+              tr.marks_obtained AS "marksObtained", tr.answers
          FROM tests t
          JOIN test_results tr ON tr.test_id = t.id AND tr.student_id = $3
          LEFT JOIN subjects s ON s.id = t.subject_id
-        WHERE t.tenant_id=$1 AND t.batch_id = ANY($2::int[])
+        WHERE t.tenant_id=$1 AND (t.batch_id = ANY($2::int[]) OR t.batch_id IS NULL)
         ORDER BY t.scheduled_at DESC NULLS FIRST`,
       [tenantId, safeBatches, studentId]
     )
   ).rows;
 
-  return { active, completed };
+  const completed: StudentTest[] = completedRows.map((row) => {
+    let correct = 0;
+    let incorrect = 0;
+    let skipped = 0;
+
+    if (row.answers && typeof row.answers === 'object') {
+      const answersObj = row.answers as Record<string, { selectedOptionId: number | null; isCorrect: boolean }>;
+      for (const key of Object.keys(answersObj)) {
+        const item = answersObj[key];
+        if (item.selectedOptionId === null || item.selectedOptionId === undefined) {
+          skipped++;
+        } else if (item.isCorrect) {
+          correct++;
+        } else {
+          incorrect++;
+        }
+      }
+    }
+
+    return {
+      id: row.id,
+      title: row.title,
+      subject: row.subject,
+      testDate: row.testDate,
+      validUntil: row.validUntil,
+      maxMarks: row.maxMarks,
+      durationMinutes: row.durationMinutes,
+      isOnline: row.isOnline,
+      marksObtained: row.marksObtained,
+      correct,
+      incorrect,
+      skipped,
+    };
+  });
+
+  return { active, missed, completed };
 }
 
 // ─── QUIZ QUESTIONS ──────────────────────────────────────────────────────────
@@ -760,7 +823,7 @@ export async function getTestQuestions(
 
   // Verify test belongs to student's batch
   const testCheck = await query<{ questions: StoredQuestion[] }>(
-    `SELECT questions FROM tests WHERE id=$1 AND tenant_id=$2 AND batch_id = ANY($3::int[])`,
+    `SELECT questions FROM tests WHERE id=$1 AND tenant_id=$2 AND (batch_id = ANY($3::int[]) OR batch_id IS NULL)`,
     [testId, tenantId, safeBatches]
   );
   if (!testCheck.rows[0]) throw ApiError.notFound('TEST_NOT_FOUND');
@@ -817,24 +880,25 @@ export async function submitTest(
       max_marks: number;
       questions: StoredQuestion[];
       scheduled_at: Date | null;
+      valid_until: Date | null;
       duration_minutes: number | null;
     }>(
-      `SELECT max_marks, questions, scheduled_at, duration_minutes
-         FROM tests WHERE id=$1 AND tenant_id=$2 AND batch_id = ANY($3::int[])`,
+      `SELECT max_marks, questions, scheduled_at, valid_until, duration_minutes
+         FROM tests WHERE id=$1 AND tenant_id=$2 AND (batch_id = ANY($3::int[]) OR batch_id IS NULL)`,
       [testId, tenantId, safeBatches]
     )
   ).rows[0];
   if (!test) throw ApiError.notFound('TEST_NOT_FOUND');
 
-  // A test with both a scheduled time and a duration has a real deadline —
-  // submitting after it closes previously succeeded regardless of the
-  // app's client-side timer. A test missing either field has no enforced
-  // window (nothing to compare against), same as today's behavior.
-  if (test.scheduled_at && test.duration_minutes) {
-    const closesAt = new Date(test.scheduled_at.getTime() + test.duration_minutes * 60_000);
-    if (new Date() > closesAt) {
-      throw ApiError.badRequest('TEST_WINDOW_CLOSED', 'This test is no longer accepting submissions.');
-    }
+  // Valid Until / Deadline Check (Option B: Institute Control)
+  // duration_minutes is the student's timer inside the quiz.
+  // valid_until is the deadline until which the test accepts submissions.
+  const deadline = test.valid_until
+    ? new Date(test.valid_until)
+    : (test.scheduled_at ? new Date(test.scheduled_at.getTime() + 24 * 3600_000) : null);
+
+  if (deadline && new Date() > deadline) {
+    throw ApiError.badRequest('TEST_WINDOW_CLOSED', 'This test deadline has passed and is no longer accepting submissions.');
   }
 
   const questions = test.questions || [];

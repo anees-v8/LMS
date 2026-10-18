@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_service.dart';
 
@@ -38,6 +39,11 @@ final studentChapterContentProvider = FutureProvider.family<List<dynamic>, int>(
 // ─── Today's Live Classes ────────────────────────────────────────────────────
 
 final studentTodayLiveProvider = FutureProvider<List<dynamic>>((ref) async {
+  final timer = Timer(const Duration(seconds: 30), () {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(() => timer.cancel());
+
   final api = ref.read(apiServiceProvider);
   return await api.get('/student/live/today') as List<dynamic>;
 });
@@ -45,6 +51,11 @@ final studentTodayLiveProvider = FutureProvider<List<dynamic>>((ref) async {
 // ─── Upcoming Live Classes (next 7 days) ─────────────────────────────────────
 
 final studentUpcomingLiveProvider = FutureProvider<List<dynamic>>((ref) async {
+  final timer = Timer(const Duration(seconds: 30), () {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(() => timer.cancel());
+
   final api = ref.read(apiServiceProvider);
   return await api.get('/student/live/upcoming') as List<dynamic>;
 });
