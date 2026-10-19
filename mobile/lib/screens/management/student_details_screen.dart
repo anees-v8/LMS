@@ -109,6 +109,13 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: () {
+              ref.invalidate(mgmt.studentDetailsProvider(studentId));
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () =>
                 showAddStudentDialog(context, ref, student: widget.student),
@@ -369,12 +376,23 @@ class _StudentDetailsScreenState extends ConsumerState<StudentDetailsScreen>
                     context,
                     MaterialPageRoute(
                       builder: (_) => Consumer(
-                        builder: (context, ref, _) => StudentReportScreen(
-                          student: widget.student,
-                          detailsAsync: ref.watch(
-                            mgmt.studentDetailsProvider(studentId),
-                          ),
-                        ),
+                        builder: (context, ref, _) {
+                          final details = ref
+                              .watch(mgmt.studentDetailsProvider(studentId))
+                              .value;
+                          return StudentReportScreen(
+                            student: {
+                              ...widget.student,
+                              if (details?['student']?['grade'] != null)
+                                'grade': details!['student']['grade'],
+                              if (details?['academics']?['grade'] != null)
+                                'academicGrade': details!['academics']['grade'],
+                            },
+                            detailsAsync: ref.watch(
+                              mgmt.studentDetailsProvider(studentId),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   );

@@ -109,6 +109,7 @@ class _TeacherStudentReportsScreenState
                           'id': studentId,
                           'fullName': s['name'],
                           'rollNo': s['rollNo'],
+                          'grade': s['grade'],
                         },
                         detailsAsync: ref.watch(
                           teacherStudentDetailsProvider(studentId),

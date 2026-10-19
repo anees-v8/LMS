@@ -1,6 +1,6 @@
 import { query, withTransaction } from '../config/db.js';
 import ApiError from '../utils/ApiError.js';
-import { buildWaUrl, absentMessage } from './whatsapp.service.js';
+import { buildWaUrl, absentMessage, sendAbsentAlert } from './whatsapp.service.js';
 import * as adminService from './admin.service.js';
 import * as notificationCenter from './notificationCenter.service.js';
 import { createMeetEvent, deleteMeetEvent } from './googleMeet.service.js';
@@ -212,6 +212,20 @@ export async function markAttendance(
             name: s.rows[0].name,
             waUrl: buildWaUrl(s.rows[0].phone, msg),
           });
+
+          // Automatically send WhatsApp template alert
+          if (s.rows[0].phone) {
+            sendAbsentAlert({
+              parentPhone: s.rows[0].phone,
+              studentName: s.rows[0].name,
+              instituteName,
+              date,
+            }).catch((err) =>
+              logger.error('Failed to send automated absent WhatsApp alert', {
+                error: err instanceof Error ? err.message : String(err),
+              })
+            );
+          }
         }
       }
     }

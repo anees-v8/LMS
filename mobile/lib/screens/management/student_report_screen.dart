@@ -76,6 +76,11 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
 
     final academics = details['academics'] as Map<String, dynamic>?;
     final overallPctStr = academics?['overallPercentage']?.toString() ?? '0.0';
+    final academicGrade = academics?['grade']?.toString() ??
+        widget.student['academicGrade']?.toString() ??
+        'N/A';
+    final attemptedCount = academics?['attemptedCount'] ?? 0;
+    final totalTests = academics?['totalTests'] ?? 0;
     final subjects = (academics?['subjects'] as List<dynamic>?) ?? [];
 
     final att = details['attendance'] as Map<String, dynamic>?;
@@ -172,6 +177,83 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
                 8.5,
                 bold: isHeader,
                 color: valueColor ?? (isHeader ? cTextMuted : cTextMain),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    PdfColor pdfGradeColor(String? g) {
+      if (g == null) return cTextMuted;
+      final u = g.toUpperCase();
+      if (u.startsWith('A')) return cSuccess;
+      if (u.startsWith('B')) return cGreen;
+      if (u.startsWith('C')) return cWarn;
+      if (u.startsWith('D') || u.startsWith('F')) return cError;
+      return cTextMuted;
+    }
+
+    pw.Widget academicRow({
+      required String subject,
+      required String marks,
+      required String score,
+      required String grade,
+      bool isHeader = false,
+      PdfColor? gradeColor,
+    }) {
+      return pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: pw.BoxDecoration(
+          border: pw.Border(bottom: pw.BorderSide(color: cBorder, width: 0.5)),
+        ),
+        child: pw.Row(
+          children: [
+            pw.Expanded(
+              flex: 4,
+              child: pw.Text(
+                subject,
+                style: ts(
+                  8.5,
+                  bold: isHeader,
+                  color: isHeader ? cTextMuted : cTextMain,
+                ),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Text(
+                marks,
+                textAlign: pw.TextAlign.center,
+                style: ts(
+                  8.5,
+                  bold: isHeader,
+                  color: isHeader ? cTextMuted : cTextMain,
+                ),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Text(
+                score,
+                textAlign: pw.TextAlign.center,
+                style: ts(
+                  8.5,
+                  bold: isHeader,
+                  color: isHeader ? cTextMuted : cTextMain,
+                ),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Text(
+                grade,
+                textAlign: pw.TextAlign.right,
+                style: ts(
+                  8.5,
+                  bold: true,
+                  color: isHeader ? cTextMuted : (gradeColor ?? cGreen),
+                ),
               ),
             ),
           ],
@@ -395,10 +477,10 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
           // ── METRICS GRID ──
           pw.Row(
             children: [
-              statCard('Overall Score', '$overallPctStr%', 'vs Last Report'),
-              statCard('Rank', 'N/A', 'in Batch'),
-              statCard('Average Score', '$overallPctStr%', 'Batch Average'),
-              statCard('Total Tests', '${subjects.length}', 'Tests Given'),
+              statCard('Overall Score', '$overallPctStr%', 'Academic Score'),
+              statCard('Grade', academicGrade, 'Performance Grade'),
+              statCard('Tests Given', '$attemptedCount of $totalTests', 'Tests Attempted'),
+              statCard('Attendance', '${attPct.toStringAsFixed(0)}%', '$presentDays of $totalDays Days'),
             ],
           ),
           pw.SizedBox(height: 16),
@@ -422,7 +504,13 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
                       child: pw.Column(
                         children: [
                           sectionHeader('ACADEMIC PERFORMANCE'),
-                          dataRow('SUBJECT', 'SCORE (%)', isHeader: true),
+                          academicRow(
+                            subject: 'SUBJECT',
+                            marks: 'MARKS',
+                            score: 'SCORE (%)',
+                            grade: 'GRADE',
+                            isHeader: true,
+                          ),
                           if (subjects.isEmpty)
                             pw.Container(
                               padding: const pw.EdgeInsets.all(32),
@@ -441,9 +529,13 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
                               final pct = t > 0
                                   ? (m / t * 100).toStringAsFixed(1)
                                   : '0';
-                              return dataRow(
-                                sub['name']?.toString() ?? '',
-                                '$pct%',
+                              final subGrade = sub['grade']?.toString() ?? '—';
+                              return academicRow(
+                                subject: sub['name']?.toString() ?? '',
+                                marks: '$m / $t',
+                                score: '$pct%',
+                                grade: subGrade,
+                                gradeColor: pdfGradeColor(subGrade),
                               );
                             }),
                         ],
@@ -735,18 +827,13 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
   double _parseDouble(String? s) => double.tryParse(s ?? '0') ?? 0.0;
 
   Color _gradeColor(String? grade) {
-    switch (grade?.toUpperCase()) {
-      case 'A':
-        return AppColors.success;
-      case 'B':
-        return AppColors.primary;
-      case 'C':
-        return Colors.orange;
-      case 'D':
-        return AppColors.error;
-      default:
-        return Colors.grey;
-    }
+    if (grade == null) return Colors.grey;
+    final upper = grade.toUpperCase();
+    if (upper.startsWith('A')) return AppColors.success;
+    if (upper.startsWith('B')) return AppColors.primary;
+    if (upper.startsWith('C')) return Colors.orange;
+    if (upper.startsWith('D') || upper.startsWith('F')) return AppColors.error;
+    return Colors.grey;
   }
 
   Color _attColor(double pct) {
@@ -794,7 +881,9 @@ class _StudentReportScreenState extends ConsumerState<StudentReportScreen> {
           final overallPct = _parseDouble(
             academics?['overallPercentage']?.toString(),
           );
-          final academicGrade = academics?['grade']?.toString() ?? 'N/A';
+          final academicGrade = academics?['grade']?.toString() ??
+              widget.student['academicGrade']?.toString() ??
+              'N/A';
           final subjects = (academics?['subjects'] as List<dynamic>?) ?? [];
 
           // ── Parse attendance ──

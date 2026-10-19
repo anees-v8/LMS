@@ -3,7 +3,7 @@ import { query, withTransaction } from '../config/db.js';
 import ApiError from '../utils/ApiError.js';
 import { generateReceiptNo } from '../utils/receipt.js';
 import { writeAudit } from '../utils/audit.js';
-import { buildWaUrl, feeReminderMessage } from './whatsapp.service.js';
+import { buildWaUrl, feeReminderMessage, sendPaymentReceipt, sendFeeReminder } from './whatsapp.service.js';
 import { getTenantDashboard } from './superadmin.service.js';
 import * as notificationCenter from './notificationCenter.service.js';
 import { sendPaymentReceiptEmail } from './notification.service.js';
@@ -444,17 +444,17 @@ export async function getStudentDetails(tenantId: number, id: number) {
   if (!studentRows.length) throw ApiError.notFound('STUDENT_NOT_FOUND');
   const studentBasic = studentRows[0];
 
-  // Academics: Subjects, test marks
+  // Academics: Subjects, test marks (use LEFT JOIN so tests without subject_id are not dropped)
   const { rows: testRows } = await query(
     `SELECT
-       s.name AS "name",
+       COALESCE(s.name, 'General') AS "name",
        SUM(tr.marks_obtained)::int AS "marks",
        SUM(t.max_marks)::int AS "total"
      FROM test_results tr
      JOIN tests t ON t.id = tr.test_id
-     JOIN subjects s ON s.id = t.subject_id
+     LEFT JOIN subjects s ON s.id = t.subject_id
      WHERE tr.student_id = $1 AND tr.tenant_id = $2
-     GROUP BY s.name`,
+     GROUP BY COALESCE(s.name, 'General')`,
     [id, tenantId]
   );
   
@@ -473,30 +473,44 @@ export async function getStudentDetails(tenantId: number, id: number) {
     ? (overallPct >= 0.85 ? 'A' : overallPct >= 0.70 ? 'B' : overallPct >= 0.50 ? 'C' : 'D')
     : 'N/A';
 
-  // Test statistics: total assigned/scheduled tests vs attempted vs missed
-  const { rows: testCountRows } = await query<{ total: number }>(
-    `SELECT COUNT(DISTINCT t.id)::int AS total
-     FROM tests t
-     WHERE t.tenant_id = $2
-       AND (
-         t.batch_id IS NULL
-         OR t.batch_id IN (
-           SELECT batch_id FROM batch_enrollments WHERE student_id = $1 AND tenant_id = $2
-         )
-       )`,
-    [id, tenantId]
-  );
-
+  // Test statistics:
+  // 1) Tests attempted by this student
   const { rows: testAttemptedRows } = await query<{ attempted: number }>(
     `SELECT COUNT(DISTINCT tr.test_id)::int AS attempted
      FROM test_results tr
      WHERE tr.student_id = $1 AND tr.tenant_id = $2`,
     [id, tenantId]
   );
-
   const attemptedCount = Number(testAttemptedRows[0]?.attempted || 0);
-  const totalTests = Math.max(Number(testCountRows[0]?.total || 0), attemptedCount);
-  const missedCount = Math.max(0, totalTests - attemptedCount);
+
+  // 2) Tests assigned to student's enrolled batches that are scheduled/due (excluding upcoming future tests)
+  const { rows: testCountRows } = await query<{ total: number }>(
+    `SELECT COUNT(DISTINCT t.id)::int AS total
+     FROM tests t
+     JOIN batch_enrollments be ON be.batch_id = t.batch_id AND be.student_id = $1 AND be.tenant_id = $2
+     WHERE t.tenant_id = $2
+       AND (t.scheduled_at IS NULL OR t.scheduled_at <= NOW())`,
+    [id, tenantId]
+  );
+  const totalEligibleTests = Number(testCountRows[0]?.total || 0);
+  const totalTests = Math.max(totalEligibleTests, attemptedCount);
+
+  // 3) Missed tests: Only expired tests assigned to student's batch where deadline passed and student did not attempt
+  const { rows: testMissedRows } = await query<{ missed: number }>(
+    `SELECT COUNT(DISTINCT t.id)::int AS missed
+     FROM tests t
+     JOIN batch_enrollments be ON be.batch_id = t.batch_id AND be.student_id = $1 AND be.tenant_id = $2
+     WHERE t.tenant_id = $2
+       AND (
+         (t.valid_until IS NOT NULL AND t.valid_until < NOW())
+         OR (t.valid_until IS NULL AND t.scheduled_at IS NOT NULL AND t.scheduled_at + (COALESCE(t.duration_minutes, 60) || ' minutes')::interval < NOW())
+       )
+       AND t.id NOT IN (
+         SELECT tr.test_id FROM test_results tr WHERE tr.student_id = $1 AND tr.tenant_id = $2
+       )`,
+    [id, tenantId]
+  );
+  const missedCount = Number(testMissedRows[0]?.missed || 0);
 
   // Attendance: overall + monthly
   const { rows: attStats } = await query(
@@ -1009,9 +1023,9 @@ export async function recordPayment(
         })
         .catch((err) => logger.error('Fee-paid notify failed', { error: err instanceof Error ? err.message : String(err) }));
 
-      // Send official email receipt to student (if email is registered)
-      query<{ email: string | null; fullName: string; instituteName: string }>(
-        `SELECT u.email, u.full_name AS "fullName", t.name AS "instituteName"
+      // Send official email receipt to student & WhatsApp to parent
+      query<{ email: string | null; fullName: string; instituteName: string; parentPhone: string | null }>(
+        `SELECT u.email, u.full_name AS "fullName", t.name AS "instituteName", s.parent_phone AS "parentPhone"
            FROM students s
            JOIN users u ON u.id = s.user_id
            JOIN tenants t ON t.id = s.tenant_id
@@ -1035,9 +1049,23 @@ export async function recordPayment(
               })
             );
           }
+          if (studentInfo?.parentPhone) {
+            sendPaymentReceipt({
+              parentPhone: studentInfo.parentPhone,
+              amount: amountPaid,
+              feeType: 'Tuition Fee',
+              studentName: studentInfo.fullName,
+              instituteName: studentInfo.instituteName,
+              receiptPath: 'student/fees',
+            }).catch((err) =>
+              logger.error('Fee receipt WhatsApp failed', {
+                error: err instanceof Error ? err.message : String(err),
+              })
+            );
+          }
         })
         .catch((err) =>
-          logger.error('Failed to lookup student email for receipt', {
+          logger.error('Failed to lookup student email/phone for receipt', {
             error: err instanceof Error ? err.message : String(err),
           })
         );
@@ -1091,6 +1119,22 @@ export async function feeReminderLink(
     pending: r.pending,
     instituteName: r.instituteName,
   });
+
+  // Automatically trigger WhatsApp Cloud API template alert
+  if (r.parentPhone) {
+    sendFeeReminder({
+      parentPhone: r.parentPhone,
+      studentName: r.studentName,
+      feeTitle: 'Tuition Fee',
+      pending: r.pending,
+      instituteName: r.instituteName,
+    }).catch((err) =>
+      logger.error('Fee reminder WhatsApp failed', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+  }
+
   return { waUrl: buildWaUrl(r.parentPhone, msg), pending: r.pending };
 }
 

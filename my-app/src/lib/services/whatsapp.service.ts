@@ -28,7 +28,7 @@ async function sendWhatsappTemplate(
       type: 'template',
       template: {
         name: templateName,
-        language: { code: 'en_US' },
+        language: { code: 'en' },
         components,
       },
     };
@@ -79,10 +79,10 @@ export async function sendFeeReminder({
     {
       type: 'body',
       parameters: [
-        { type: 'text', text: instituteName },
-        { type: 'text', text: studentName },
-        { type: 'text', text: feeTitle },
-        { type: 'text', text: String(pending) }
+        { type: 'text', text: String(pending) }, // {{1}} Pending Amount (₹)
+        { type: 'text', text: feeTitle },        // {{2}} Fee Title
+        { type: 'text', text: studentName },     // {{3}} Student name
+        { type: 'text', text: instituteName }    // {{4}} Institute name
       ]
     }
   ]);
@@ -103,9 +103,68 @@ export async function sendAbsentAlert({
     {
       type: 'body',
       parameters: [
-        { type: 'text', text: instituteName },
-        { type: 'text', text: studentName },
-        { type: 'text', text: date }
+        { type: 'text', text: studentName },   // {{1}} Student name
+        { type: 'text', text: date },          // {{2}} Date
+        { type: 'text', text: instituteName }  // {{3}} Institute name
+      ]
+    }
+  ]);
+}
+
+export async function sendPaymentReceipt({
+  parentPhone,
+  amount,
+  feeType,
+  studentName,
+  instituteName,
+  receiptPath = 'student/fees',
+}: {
+  parentPhone: string;
+  amount: number | string;
+  feeType: string;
+  studentName: string;
+  instituteName: string;
+  receiptPath?: string;
+}) {
+  return sendWhatsappTemplate(parentPhone, 'payment_receipt_alert', [
+    {
+      type: 'body',
+      parameters: [
+        { type: 'text', text: String(amount) },  // {{1}} Amount
+        { type: 'text', text: feeType },         // {{2}} Fee type
+        { type: 'text', text: studentName },     // {{3}} Student name
+        { type: 'text', text: instituteName }    // {{4}} Institute name
+      ]
+    },
+    {
+      type: 'button',
+      sub_type: 'url',
+      index: '0',
+      parameters: [
+        { type: 'text', text: receiptPath }
+      ]
+    }
+  ]);
+}
+
+export async function sendTestMissedAlert({
+  parentPhone,
+  studentName,
+  testTitle,
+  instituteName,
+}: {
+  parentPhone: string;
+  studentName: string;
+  testTitle: string;
+  instituteName: string;
+}) {
+  return sendWhatsappTemplate(parentPhone, 'test_missed_alert', [
+    {
+      type: 'body',
+      parameters: [
+        { type: 'text', text: studentName },   // {{1}} Student name
+        { type: 'text', text: testTitle },     // {{2}} Test title
+        { type: 'text', text: instituteName }  // {{3}} Institute name
       ]
     }
   ]);
