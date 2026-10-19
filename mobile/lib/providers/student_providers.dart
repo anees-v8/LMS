@@ -152,7 +152,7 @@ Future<Map<String, dynamic>> verifyStudentFeePayment(
 
 // ─── Student Mentors / Teachers for Doubt Solving ────────────────────────────
 
-final studentTeachersProvider = FutureProvider<List<dynamic>>((ref) async {
+final studentTeachersProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
   final api = ref.read(apiServiceProvider);
   try {
     final res = await api.get('/student/teachers');

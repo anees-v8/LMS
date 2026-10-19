@@ -1071,9 +1071,9 @@ export async function subjectPerformance(
 ): Promise<SubjectPerformance[]> {
   const studentId = await getStudentId(tenantId, userId);
   const { rows } = await query<SubjectPerformance>(
-    `SELECT s.name AS subject,
-            SUM(t.max_marks)::int AS "totalMarks",
-            SUM(tr.marks_obtained)::int AS "obtainedMarks",
+    `SELECT COALESCE(s.name, 'General') AS subject,
+            COALESCE(SUM(t.max_marks), 0)::int AS "totalMarks",
+            COALESCE(SUM(tr.marks_obtained), 0)::int AS "obtainedMarks",
             COUNT(*)::int AS "testCount"
        FROM test_results tr
        JOIN tests t ON t.id = tr.test_id

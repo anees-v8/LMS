@@ -89,12 +89,17 @@ final teacherSubjectsProvider = FutureProvider<List<dynamic>>((ref) async {
 
 /// Subjects this teacher is assigned to teach within ONE batch — used for
 /// chapter management, since chapters live per (batch, subject).
-final teacherBatchSubjectsProvider = FutureProvider.family<List<dynamic>, int>(
-  (ref, batchId) async {
-    final api = ref.read(apiServiceProvider);
-    return await api.get('/teacher/batches/$batchId/subjects');
-  },
-);
+final teacherBatchSubjectsProvider =
+    FutureProvider.autoDispose.family<List<dynamic>, int>((ref, batchId) async {
+  final api = ref.read(apiServiceProvider);
+  try {
+    final res = await api.get('/teacher/batches/$batchId/subjects');
+    if (res is List) return res;
+    return [];
+  } catch (_) {
+    return [];
+  }
+});
 
 final teacherChaptersProvider =
     FutureProvider.family<List<dynamic>, ({int batchId, int subjectId})>((

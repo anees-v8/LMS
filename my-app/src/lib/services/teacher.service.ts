@@ -542,7 +542,8 @@ export async function listSubjects(tenantId: number): Promise<{ id: number; name
 export async function listMySubjectsForBatch(
   tenantId: number,
   teacherId: number,
-  batchId: number
+  batchId: number,
+  role?: string
 ): Promise<{ id: number; name: string }[]> {
   const { rows } = await query<{ id: number; name: string }>(
     `SELECT s.id, s.name
@@ -552,6 +553,17 @@ export async function listMySubjectsForBatch(
       ORDER BY s.name`,
     [tenantId, teacherId, batchId]
   );
+  if (rows.length === 0 && role === 'coaching_admin') {
+    const { rows: batchSubs } = await query<{ id: number; name: string }>(
+      `SELECT DISTINCT s.id, s.name
+         FROM teacher_assignments ta
+         JOIN subjects s ON s.id = ta.subject_id
+        WHERE ta.tenant_id=$1 AND ta.batch_id=$2
+        ORDER BY s.name`,
+      [tenantId, batchId]
+    );
+    return batchSubs;
+  }
   return rows;
 }
 

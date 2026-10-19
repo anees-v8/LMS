@@ -9,9 +9,9 @@ import { handleApiError } from '@/lib/utils/apiResponse';
 // used to pick which (batch, subject) chapter list to manage.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ batchId: string }> }) {
   try {
-    const user = requireAuth(req, 'teacher');
+    const user = requireAuth(req, 'teacher', 'coaching_admin');
     const { batchId } = validateBody(batchIdParamSchema, await params);
-    const result = await svc.listMySubjectsForBatch(requireTenantId(user), user.userId, batchId);
+    const result = await svc.listMySubjectsForBatch(requireTenantId(user), user.userId, batchId, user.role);
     return NextResponse.json(result);
   } catch (err) {
     return handleApiError(err);

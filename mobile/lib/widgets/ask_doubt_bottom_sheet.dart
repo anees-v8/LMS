@@ -13,6 +13,7 @@ void showAskDoubtBottomSheet(
 }) {
   showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => AskDoubtBottomSheet(
@@ -48,6 +49,8 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
     _chapterController =
         TextEditingController(text: widget.initialChapter ?? '');
     _selectedTeacherId = widget.initialTeacherId;
+    // Always refresh teacher assignments so newly assigned teachers appear immediately
+    Future.microtask(() => ref.invalidate(studentTeachersProvider));
   }
 
   @override
@@ -57,14 +60,8 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
   }
 
   Future<void> _submit() async {
-    final topic = _chapterController.text.trim();
-    if (topic.isEmpty) {
-      AppToast.showError(
-        context,
-        'Please enter a chapter name or doubt topic',
-      );
-      return;
-    }
+    final rawTopic = _chapterController.text.trim();
+    final topic = rawTopic.isNotEmpty ? rawTopic : 'Doubt Question';
 
     setState(() => _isSubmitting = true);
 
@@ -157,23 +154,12 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primaryDark, AppColors.primary],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: const Color(0xFF25D366).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primaryDark.withValues(alpha: 0.25),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
                   ),
                   child: const Icon(
-                    Icons.question_answer_rounded,
-                    color: Colors.white,
+                    Icons.chat_rounded,
+                    color: Color(0xFF25D366),
                     size: 24,
                   ),
                 ),
@@ -192,7 +178,7 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Instant resolution on WhatsApp',
+                        'Select teacher to chat directly on WhatsApp',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
@@ -209,19 +195,19 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          Divider(height: 1, color: AppColors.borderLight),
+          const SizedBox(height: 14),
+          const Divider(height: 1),
 
-          // ── Scrollable Body ──────────────────────────────────────────
+          // ── Form Body ───────────────────────────────────────────────
           Flexible(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Topic / Chapter Input ─────────────────────────────
+                  // ── Select Teacher Dropdown ──────────────────────────
                   const Text(
-                    'Topic or Chapter Name',
+                    'Select Teacher / Subject',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -229,71 +215,31 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.borderLight),
-                    ),
-                    child: TextField(
-                      controller: _chapterController,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppColors.primaryDark,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'e.g. Physics Chapter 3: Kinematics or question...',
-                        hintStyle: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade400,
-                        ),
-                        prefixIcon: const Icon(
-                          Icons.menu_book_rounded,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                        suffixIcon: _chapterController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(
-                                  Icons.clear_rounded,
-                                  size: 18,
-                                  color: Colors.grey,
-                                ),
-                                onPressed: () {
-                                  setState(() => _chapterController.clear());
-                                },
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 14,
-                        ),
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
 
-                  // ── Select Mentor Section ─────────────────────────────
-                  const Text(
-                    'Select Doubt Mentor / Teacher',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryDark,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   teachersAsync.when(
-                    loading: () => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.primary,
-                        ),
+                    loading: () => Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.borderLight),
+                      ),
+                      child: const Row(
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            'Loading assigned teachers...',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     error: (error, stack) => Container(
@@ -303,7 +249,7 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text(
-                        'Assigned doubt mentor will resolve your doubt.',
+                        'Unable to load teachers. Message will go to institute head.',
                         style: TextStyle(fontSize: 12, color: AppColors.error),
                       ),
                     ),
@@ -338,171 +284,215 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                         );
                       }
 
-                      // Auto-select first mentor if none selected
-                      if (_selectedTeacherId == null && teachers.isNotEmpty) {
-                        _selectedTeacherId = teachers.first['id'] as int?;
+                      // Ensure selected teacher exists in list, else default to first
+                      final teacherIds = teachers
+                          .map((t) => t['id'] as int?)
+                          .whereType<int>()
+                          .toList();
+                      if (_selectedTeacherId == null ||
+                          !teacherIds.contains(_selectedTeacherId)) {
+                        _selectedTeacherId = teacherIds.firstOrNull;
                       }
 
-                      return Column(
-                        children: teachers.map<Widget>((t) {
-                          final id = t['id'] as int?;
-                          final name = t['name'] as String? ?? 'Teacher';
-                          final subject = t['subject'] as String? ?? 'Mentor';
-                          final role = t['role'] as String? ?? '';
-                          final isSelected = _selectedTeacherId == id;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.3),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            value: _selectedTeacherId,
+                            isExpanded: true,
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: AppColors.primary,
+                              size: 24,
+                            ),
+                            dropdownColor: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            items: teachers.map<DropdownMenuItem<int>>((t) {
+                              final id = t['id'] as int?;
+                              final name = t['name'] as String? ?? 'Teacher';
+                              final subject =
+                                  t['subject'] as String? ?? 'General';
+                              final role = t['role'] as String? ?? '';
 
-                          return GestureDetector(
-                            onTap: () {
-                              setState(() => _selectedTeacherId = id);
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              margin: const EdgeInsets.only(bottom: 10),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppColors.primary.withValues(alpha: 0.08)
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? AppColors.primary
-                                      : AppColors.borderLight,
-                                  width: isSelected ? 1.8 : 1,
-                                ),
-                                boxShadow: isSelected
-                                    ? [
-                                        BoxShadow(
-                                          color: AppColors.primary
-                                              .withValues(alpha: 0.12),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
+                              return DropdownMenuItem<int>(
+                                value: id,
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 15,
+                                      backgroundColor: AppColors.primary
+                                          .withValues(alpha: 0.12),
+                                      child: Text(
+                                        name.isNotEmpty
+                                            ? name[0].toUpperCase()
+                                            : 'T',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primaryDark,
                                         ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 20,
-                                    backgroundColor: isSelected
-                                        ? AppColors.primary
-                                        : AppColors.background,
-                                    child: Text(
-                                      name.isNotEmpty
-                                          ? name[0].toUpperCase()
-                                          : 'M',
-                                      style: TextStyle(
-                                        color: isSelected
-                                            ? Colors.white
-                                            : AppColors.textSecondary,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: RichText(
+                                        overflow: TextOverflow.ellipsis,
+                                        text: TextSpan(
+                                          text: name,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.primaryDark,
+                                          ),
                                           children: [
-                                            Flexible(
-                                              child: Text(
-                                                name,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
-                                                  color: AppColors.primaryDark,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
+                                            TextSpan(
+                                              text: '  ($subject)',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.grey.shade600,
                                               ),
                                             ),
-                                            if (role == 'coaching_admin') ...[
-                                              const SizedBox(width: 6),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 2,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.primary
-                                                      .withValues(alpha: 0.12),
-                                                  borderRadius:
-                                                      BorderRadius.circular(6),
-                                                ),
-                                                child: const Text(
-                                                  'Assigned',
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: AppColors.primary,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
                                           ],
                                         ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '$subject • ${role == "coaching_admin" ? "Head / Mentor" : "Teacher"}',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    if (role == 'coaching_admin')
+                                      Container(
+                                        margin: const EdgeInsets.only(left: 6),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary
+                                              .withValues(alpha: 0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Admin',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  Icon(
-                                    isSelected
-                                        ? Icons.check_circle_rounded
-                                        : Icons.radio_button_unchecked_rounded,
-                                    color: isSelected
-                                        ? AppColors.primary
-                                        : AppColors.borderMedium,
-                                    size: 22,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _selectedTeacherId = val);
+                              }
+                            },
+                          ),
+                        ),
                       );
                     },
                   ),
-                  const SizedBox(height: 12),
+
+                  const SizedBox(height: 20),
+
+                  // ── Topic / Chapter Input ─────────────────────────────
+                  const Text(
+                    'Topic or Question (Optional)',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.borderLight),
+                    ),
+                    child: TextField(
+                      controller: _chapterController,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.primaryDark,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      decoration: InputDecoration(
+                        hintText:
+                            'e.g. Question 4 from Chapter 2 / Organic reactions',
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade400,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.menu_book_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                        suffixIcon: _chapterController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(
+                                  Icons.clear_rounded,
+                                  size: 18,
+                                  color: Colors.grey,
+                                ),
+                                onPressed: () {
+                                  setState(() => _chapterController.clear());
+                                },
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 14,
+                        ),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
 
                   // ── Info Tip Box ──────────────────────────────────────
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.background,
+                      color: const Color(0xFF25D366).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.borderLight),
+                      border: Border.all(
+                        color: const Color(0xFF25D366).withValues(alpha: 0.3),
+                      ),
                     ),
                     child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
-                          Icons.chat_bubble_outline_rounded,
-                          color: AppColors.primary,
+                          Icons.check_circle_outline_rounded,
+                          color: Color(0xFF1EBE5D),
                           size: 18,
                         ),
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Clicking below will open WhatsApp with your student name and doubt details pre-filled. You can also attach photos of your question directly in WhatsApp.',
+                            'Clicking below will directly open WhatsApp with this teacher. You can type your doubt or send photos of your question directly in WhatsApp.',
                             style: TextStyle(
                               fontSize: 11.5,
-                              color: AppColors.primaryDark,
+                              color: Color(0xFF1B5E20),
                               height: 1.4,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
@@ -524,10 +514,10 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
               child: ElevatedButton(
                 onPressed: _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: const Color(0xFF25D366),
                   foregroundColor: Colors.white,
-                  elevation: 4,
-                  shadowColor: AppColors.primary.withValues(alpha: 0.35),
+                  elevation: 3,
+                  shadowColor: const Color(0xFF25D366).withValues(alpha: 0.4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -545,13 +535,13 @@ class _AskDoubtBottomSheetState extends ConsumerState<AskDoubtBottomSheet> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.send_rounded,
+                            Icons.chat_rounded,
                             size: 20,
                             color: Colors.white,
                           ),
                           SizedBox(width: 10),
                           Text(
-                            'Send Doubt on WhatsApp',
+                            'Chat on WhatsApp',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,

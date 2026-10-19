@@ -125,7 +125,7 @@ class StudentProfileScreen extends ConsumerWidget {
                         iconColor: AppColors.info,
                         label: 'Performance Analytics',
                         subtitle: 'Subject-wise score breakdown',
-                        onTap: () => _showPerformanceSheet(context),
+                        onTap: () => _showPerformanceSheet(context, ref),
                       ),
                       ProfileMenuItemData(
                         icon: Icons.account_balance_wallet_rounded,
@@ -171,7 +171,8 @@ class StudentProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _showPerformanceSheet(BuildContext context) {
+  void _showPerformanceSheet(BuildContext context, WidgetRef ref) {
+    ref.invalidate(studentPerformanceProvider);
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
@@ -408,10 +409,12 @@ class _PerformanceSheet extends ConsumerWidget {
                     controller: controller,
                     padding: const EdgeInsets.all(16),
                     children: subjects.map((s) {
-                      final subjectName = s['subject'] as String;
-                      final score = s['obtainedMarks'] as int;
-                      final max = s['totalMarks'] as int;
-                      final pct = max > 0 ? score / max : 0.0;
+                      final subjectName = (s['subject'] as String?)?.trim().isNotEmpty == true
+                          ? (s['subject'] as String)
+                          : 'General';
+                      final score = (s['obtainedMarks'] as num?)?.toInt() ?? 0;
+                      final max = (s['totalMarks'] as num?)?.toInt() ?? 0;
+                      final pct = max > 0 ? (score / max).clamp(0.0, 1.0) : 0.0;
                       final color = pct >= 0.75
                           ? AppColors.success
                           : pct >= 0.5
