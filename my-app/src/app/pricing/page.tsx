@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   title: "Pricing Plans — CampusWeb | Transparent & Affordable",
   description:
     "Explore transparent per-student pricing for coaching institutes. Start your 7-day free trial with zero setup charges and zero commission.",
+  alternates: {
+    canonical: "/pricing",
+  },
 };
 
 export default function PricingPage() {

@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms & Conditions - Campus",
+  title: "Terms & Conditions — CampusWeb",
   description:
-    "The terms and conditions governing use of the Campus mobile app and website.",
+    "The terms and conditions governing the use of the CampusWeb platform, services, and mobile applications.",
+  alternates: {
+    canonical: "/legals/terms-conditions",
+  },
 };
 
 export default function TermsConditionsPage() {

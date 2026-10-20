@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - Campus",
+  title: "Privacy Policy — CampusWeb",
   description:
-    "How Campus collects, uses, stores, and shares information through the Campus mobile app and website.",
+    "How CampusWeb collects, uses, stores, and protects information across the CampusWeb platform, mobile applications, and services.",
+  alternates: {
+    canonical: "/legals/privacy-policy",
+  },
 };
 
 export default function PrivacyPolicyPage() {

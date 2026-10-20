@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: "Contact Us — CampusWeb | Get in Touch with Our Team",
   description:
     "Have questions about CampusWeb? Reach out to our team via phone, email, or our contact form for personalized institute support.",
+  alternates: {
+    canonical: "/contact",
+  },
 };
 
 export default function ContactPage() {

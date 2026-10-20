@@ -24,6 +24,9 @@ export const metadata: Metadata = {
   title: "Book a Free 1-on-1 Demo — CampusWeb",
   description:
     "See CampusWeb in action with a personalized 1-on-1 walkthrough tailored to your institute's batches, fees, and attendance.",
+  alternates: {
+    canonical: "/demo",
+  },
 };
 
 const DEMO_FEATURES = [

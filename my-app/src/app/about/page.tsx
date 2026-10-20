@@ -20,9 +20,12 @@ import {
 import Button from "@/components/ui/Button";
 
 export const metadata: Metadata = {
-  title: "About Us — CampusWeb",
+  title: "About Us — CampusWeb | Mission & Story",
   description:
     "Learn about CampusWeb's mission: building the next-generation, mobile-first operating system for Indian coaching institutes.",
+  alternates: {
+    canonical: "/about",
+  },
 };
 
 const PILLARS = [
