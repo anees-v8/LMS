@@ -15,21 +15,39 @@ interface BackendPlan {
 // matches backend/plan.validators.ts's featureKeySchema exactly, so a plan's
 // `features` array (from /api/public/plans) can be checked against this list.
 const FEATURE_ROWS: { key: string; label: string }[] = [
-  { key: "student_management", label: "Student Management" },
-  { key: "batch_management", label: "Batch Management" },
-  { key: "digital_attendance", label: "Digital Attendance" },
-  { key: "fee_management", label: "Fee Management" },
-  { key: "video_library", label: "Video Library" },
-  { key: "whatsapp_reminders", label: "WhatsApp Reminders" },
-  { key: "email_notifications", label: "Email Notifications" },
+  { key: "student_management", label: "Student Management & Profiles" },
+  { key: "batch_management", label: "Batch & Timetable Scheduling" },
+  { key: "digital_attendance", label: "Dynamic QR & 1-Tap Attendance" },
+  { key: "fee_management", label: "Automated Fee Tracking & Dues" },
+  { key: "online_payments", label: "0% Commission Direct Bank Payments" },
+  { key: "whatsapp_reminders", label: "Automated WhatsApp Alerts & Receipts" },
   { key: "live_classes", label: "Live Classes (Google Meet)" },
-  { key: "performance_reports", label: "Performance Reports" },
-  { key: "online_tests", label: "Online Tests" },
-  { key: "doubt_solving", label: "Doubt Solving" },
+  { key: "video_library", label: "Lecture Recordings & Notes" },
+  { key: "online_tests", label: "Online Tests & Auto-Grading" },
+  { key: "doubt_solving", label: "In-App Doubt Solving Forum" },
+  { key: "performance_reports", label: "Performance & Attendance Analytics" },
+  { key: "teacher_accounts", label: "Dedicated Teacher Mobile Logins" },
+  { key: "website_request", label: "Institute Public Web Page Setup" },
 ];
 
-function CellValue({ included }: { included: boolean }) {
+function CellValue({
+  included,
+  isWebsite,
+}: {
+  included: boolean;
+  isWebsite?: boolean;
+}) {
   if (included) {
+    if (isWebsite) {
+      return (
+        <div className="flex justify-center">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brass-gold/15 border border-brass-gold/30 text-brass-gold text-xs font-bold font-body">
+            <Check className="w-3.5 h-3.5 text-brass-gold" />
+            Yearly Only
+          </span>
+        </div>
+      );
+    }
     return (
       <div className="w-6 h-6 rounded-full bg-chalk-teal/10 flex items-center justify-center mx-auto">
         <Check className="w-3.5 h-3.5 text-chalk-teal" />
@@ -68,7 +86,7 @@ export default function ComparisonTable() {
 
   if (loading) {
     return (
-      <section className="section-padding bg-paper">
+      <section className="section-padding bg-[#F8F9F7]">
         <div className="container-main flex justify-center py-10">
           <Loader2 className="w-8 h-8 animate-spin text-ink-green opacity-50" />
         </div>
@@ -93,7 +111,7 @@ export default function ComparisonTable() {
     GRID_COLS_BY_COUNT[plans.length + 1] ?? "grid-cols-4";
 
   return (
-    <section className="section-padding bg-paper">
+    <section className="section-padding bg-[#F8F9F7] border-t border-black/[0.05]">
       <div className="container-main">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -141,7 +159,7 @@ export default function ComparisonTable() {
                     className={cn(
                       "grid gap-4 px-6 py-4 items-center",
                       gridCols,
-                      i !== filteredRows.length - 1 && "border-b border-paper"
+                      i !== filteredRows.length - 1 && "border-b border-black/[0.05]"
                     )}
                   >
                     <div className="flex items-center gap-2">
@@ -151,7 +169,10 @@ export default function ComparisonTable() {
                     </div>
                     {plans.map((plan) => (
                       <div key={plan.id} className="text-center">
-                        <CellValue included={plan.features.includes(row.key)} />
+                        <CellValue
+                          included={plan.features.includes(row.key)}
+                          isWebsite={row.key === "website_request"}
+                        />
                       </div>
                     ))}
                   </div>

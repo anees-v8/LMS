@@ -11,30 +11,22 @@ export default function Footer() {
         <div className="flex flex-col lg:flex-row flex-wrap gap-10 lg:gap-6 justify-between">
           {/* Brand Column */}
           <div className="lg:max-w-[280px]">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="w-12 h-12 flex items-center justify-center shrink-0">
-                <Image src="/footer-logo.png" alt="Campus Logo" width={48} height={48} className="object-contain" />
+            <Link href="/" className="flex items-center gap-3 mb-4">
+              <div className="w-14 h-14 flex items-center justify-center shrink-0">
+                <Image src="/logo-white.png" alt="Campus Logo" width={56} height={56} className="object-contain" priority />
               </div>
               <div className="flex flex-col">
-                <span className="text-lg font-display font-bold leading-tight">
+                <span className="text-xl font-display font-bold leading-tight text-white">
                   Campus
                 </span>
-                <span className="text-[10px] text-white/50 font-body leading-none">
+                <span className="text-xs text-white/60 font-body leading-none mt-0.5">
                   Run Your Institute. Delight Every Student.
                 </span>
               </div>
             </Link>
-            <div className="flex items-center gap-3 mt-6">
-              {[Tv, Camera, Share2].map((Icon, i) => (
-                <a
-                  key={i}
-                  href="#"
-                  className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center hover:bg-brass-gold hover:border-brass-gold transition-colors text-white"
-                >
-                  <Icon className="w-4 h-4" />
-                </a>
-              ))}
-            </div>
+            <p className="text-xs text-white/60 font-body leading-relaxed mt-4">
+              Modern mobile-first coaching management software engineered for Indian coaching centers, academies, and institutes.
+            </p>
           </div>
 
           {/* Product */}
@@ -76,6 +68,25 @@ export default function Footer() {
           </div>
 
 
+          {/* Resources & Legal */}
+          <div>
+            <h4 className="text-sm font-body font-semibold mb-4 text-white/80 uppercase tracking-wider">
+              Legal & Help
+            </h4>
+            <ul className="space-y-2.5">
+              {FOOTER_LINKS.resources.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="text-sm font-body text-white/60 hover:text-brass-gold transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
           {/* Company */}
           <div>
             <h4 className="text-sm font-body font-semibold mb-4 text-white/80 uppercase tracking-wider">
@@ -95,32 +106,32 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Talk to Expert */}
+          {/* Get in Touch */}
           <div>
             <h4 className="text-sm font-body font-semibold mb-4 text-white/80 uppercase tracking-wider">
-              Talk to Expert
+              Get in Touch
             </h4>
-            <ul className="space-y-4">
+            <ul className="space-y-3.5">
               <li>
                 <a
-                  href="tel:+919876543210"
-                  className="inline-flex items-center gap-3 px-4 py-2.5 border border-white/20 rounded-xl text-sm font-body text-white hover:bg-white/10 transition-colors"
+                  href="tel:+918080161421"
+                  className="inline-flex items-center gap-2.5 px-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-sm font-body text-white hover:bg-white/15 transition-colors"
                 >
-                  <MessageCircle className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-semibold">+91 98765 43210</span>
+                  <Phone className="w-4 h-4 text-brass-gold flex-shrink-0" />
+                  <span className="font-semibold">+91 80801 61421</span>
                 </a>
               </li>
-              <li className="flex items-center gap-3 text-sm font-body text-white/60">
-                <Clock className="w-4 h-4 flex-shrink-0" />
-                Mon – Sat: 10:00 AM - 7:00 PM
+              <li className="flex items-center gap-2.5 text-sm font-body text-white/70">
+                <Clock className="w-4 h-4 text-brass-gold flex-shrink-0" />
+                <span>Mon – Sat: 10:00 AM - 7:00 PM</span>
               </li>
               <li>
                 <a
                   href="mailto:support@campusweb.co.in"
-                  className="flex items-center gap-3 text-sm font-body text-white/60 hover:text-brass-gold transition-colors"
+                  className="flex items-center gap-2.5 text-sm font-body text-white/70 hover:text-brass-gold transition-colors"
                 >
-                  <Mail className="w-4 h-4 flex-shrink-0" />
-                  support@campusweb.co.in
+                  <Mail className="w-4 h-4 text-brass-gold flex-shrink-0" />
+                  <span>support@campusweb.co.in</span>
                 </a>
               </li>
             </ul>

@@ -1,28 +1,31 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Star, Building2, Loader2 } from "lucide-react";
+import { Check, Star, Building2, Loader2, ArrowRight, Sparkles } from "lucide-react";
 import { PRICING_BADGES } from "@/utils/constants";
 import { cn } from "@/utils/cn";
-import Button from "@/components/ui/Button";
 
 const planIcons = [Building2, Star, Building2];
 
 // Utility to format raw backend feature keys into readable text
 const formatFeatureName = (key: string) => {
   const customMappings: Record<string, string> = {
-    student_management: "Student Management",
-    batch_management: "Batch Management",
-    digital_attendance: "Digital Attendance",
-    fee_management: "Fee Management",
-    video_library: "Video Library",
-    whatsapp_reminders: "WhatsApp Reminders",
-    live_classes: "Live Classes (Google Meet)",
-    performance_reports: "Performance Reports",
-    online_tests: "Online Tests",
-    doubt_solving: "Doubt Solving",
-    custom_branding: "Custom Branding",
+    student_management: "Student Roster & Profiles",
+    batch_management: "Batch & Timetable Scheduling",
+    digital_attendance: "Dynamic QR & 1-Tap Attendance",
+    fee_management: "Automated Fee Tracking & Dues",
+    video_library: "Recorded Lectures & Study Material",
+    whatsapp_reminders: "Automated WhatsApp Alerts & Receipts",
+    live_classes: "Google Meet Live Classes",
+    performance_reports: "Performance & Attendance Analytics",
+    online_tests: "Auto-Graded Online Tests",
+    doubt_solving: "In-App Doubt Solving Forum",
+    online_payments: "0% Commission Direct Payments",
+    teacher_accounts: "Dedicated Teacher Mobile Logins",
+    website_request: "Institute Public Web Page",
+    custom_branding: "Institute Profile & Logo",
   };
 
   if (customMappings[key]) return customMappings[key];
@@ -172,9 +175,9 @@ export default function PricingTable() {
               <motion.div
                 key={`plans-${cycle}`}
                 className="contents"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
               >
                 {backendPlans.map((plan, i) => {
                   const isPopular = plan.name.toLowerCase() === "pro";
@@ -185,10 +188,9 @@ export default function PricingTable() {
                   return (
                     <motion.div
                       key={`${cycle}-${plan.id}`}
-                      initial={{ opacity: 0, y: 20 }}
+                      initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.4, delay: i * 0.08 }}
+                      transition={{ duration: 0.22, ease: "easeOut" }}
                       className={cn(
                         "relative rounded-2xl p-6 border-2 flex flex-col h-full",
                         isPopular
@@ -265,42 +267,79 @@ export default function PricingTable() {
                         >
                           {`Billed ${cycle}`}
                         </p>
+
+                        {/* Exclusive Elite Yearly Perk Callout */}
+                        {plan.name === "Elite" && cycle === "yearly" && (
+                          <div className="mt-3 px-3 py-1.5 rounded-xl bg-brass-gold/10 border border-brass-gold/25 flex items-center gap-2 text-xs font-semibold text-brass-gold font-body">
+                            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                            <span>Includes Free Institute Website Setup</span>
+                          </div>
+                        )}
+                        {plan.name === "Elite" && cycle !== "yearly" && (
+                          <div className="mt-3 px-3 py-1.5 rounded-xl bg-black/[0.03] border border-black/[0.06] flex items-center gap-2 text-[11px] font-medium text-ink-green/60 font-body">
+                            <span>💡 Choose Yearly for Free Website Setup</span>
+                          </div>
+                        )}
                       </div>
 
-                      <ul className="space-y-2 mb-4 flex-grow">
-                        {plan.features.map((feature) => (
-                          <li key={feature} className="flex items-start gap-2.5">
-                            <Check
-                              className={cn(
-                                "w-4 h-4 mt-0.5 flex-shrink-0",
-                                isPopular
-                                  ? "text-brass-gold"
-                                  : "text-chalk-teal"
-                              )}
-                            />
-                            <span
-                              className={cn(
-                                "text-sm font-body leading-tight",
-                                isPopular
-                                  ? "text-white/80"
-                                  : "text-ink-green/70"
-                              )}
-                            >
-                              {formatFeatureName(feature)}
-                            </span>
-                          </li>
-                        ))}
+                      <ul className="space-y-2.5 mb-4 flex-grow">
+                        {plan.features.map((feature) => {
+                          const isWebsiteFeature = feature === "website_request";
+
+                          if (isWebsiteFeature) {
+                            return (
+                              <li key={feature} className="flex items-start gap-2.5">
+                                <Check
+                                  className={cn(
+                                    "w-4 h-4 mt-0.5 flex-shrink-0",
+                                    cycle === "yearly" ? "text-brass-gold" : "text-chalk-teal"
+                                  )}
+                                />
+                                <span className="text-sm font-body leading-tight font-semibold text-ink-green">
+                                  {formatFeatureName(feature)}
+                                </span>
+                              </li>
+                            );
+                          }
+
+                          return (
+                            <li key={feature} className="flex items-start gap-2.5">
+                              <Check
+                                className={cn(
+                                  "w-4 h-4 mt-0.5 flex-shrink-0",
+                                  isPopular
+                                    ? "text-brass-gold"
+                                    : "text-chalk-teal"
+                                )}
+                              />
+                              <span
+                                className={cn(
+                                  "text-sm font-body leading-tight",
+                                  isPopular
+                                    ? "text-white/80"
+                                    : "text-ink-green/70"
+                                )}
+                              >
+                                {formatFeatureName(feature)}
+                              </span>
+                            </li>
+                          );
+                        })}
                       </ul>
 
-                      <div className="mt-auto pt-3 border-t border-dashed border-black/5 dark:border-white/10">
-                        <Button
-                          variant={isPopular ? "primary" : "secondary"}
-                          size="lg"
-                          className="w-full"
-                          withArrow={isPopular}
+                      <div className="mt-auto pt-4 border-t border-black/[0.06] dark:border-white/10">
+                        <Link
+                          href={`/demo?plan=${encodeURIComponent(plan.name.toLowerCase())}`}
+                          className={cn(
+                            "w-full py-3 px-4 rounded-xl font-body font-bold text-sm text-center flex items-center justify-center gap-2 transition-all duration-200 shadow-sm",
+                            isPopular
+                              ? "bg-brass-gold text-white hover:bg-brass-gold/90 shadow-md"
+                              : "bg-ink-green text-white hover:bg-chalk-teal"
+                          )}
                         >
-                          Start 7-Day Free Trial
-                        </Button>
+                          <span>Start 7-Day Free Trial</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </Link>
                       </div>
                     </motion.div>
                   );

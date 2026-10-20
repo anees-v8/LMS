@@ -11,6 +11,10 @@ import {
   MessageCircle,
   Clock,
   TrendingUp,
+  Smartphone,
+  MessageSquare,
+  ShieldCheck,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -23,13 +27,8 @@ export interface NavLink {
 
 export const NAV_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
-  {
-    label: "Features",
-    href: "/features",
-  },
-  { label: "How It Works", href: "/how-it-works" },
+  { label: "Features", href: "/features" },
   { label: "Pricing", href: "/pricing" },
-  { label: "Demo", href: "/demo" },
   { label: "About Us", href: "/about" },
   { label: "Contact", href: "/contact" },
 ];
@@ -42,20 +41,18 @@ export interface TrustItem {
 }
 
 export const TRUST_BADGES: TrustItem[] = [
-  { icon: Users, title: "1000+ Institutes", subtitle: "Trust Campus" },
-  { icon: Clock, title: "24/7 Support", subtitle: "We're here to help" },
-  { icon: Shield, title: "Secure & Reliable", subtitle: "Your data is safe" },
-  {
-    icon: TrendingUp,
-    title: "99.9% Uptime",
-    subtitle: "Always available",
-  },
+  { icon: Smartphone, title: "100% Mobile First", subtitle: "Runs natively on phone" },
+  { icon: MessageSquare, title: "WhatsApp Receipts", subtitle: "Instant alerts to parents" },
+  { icon: ShieldCheck, title: "Bank-Grade Privacy", subtitle: "Your data stays 100% private" },
+  { icon: Zap, title: "Zero Commission", subtitle: "Direct payments to your bank" },
 ];
 
 /* ───────── Key Features (Home) ───────── */
 export interface Feature {
   icon: LucideIcon;
   title: string;
+  badge?: string;
+  badgeColor?: "teal" | "gold";
   description: string;
   highlights?: string[];
   href?: string;
@@ -64,47 +61,67 @@ export interface Feature {
 export const KEY_FEATURES: Feature[] = [
   {
     icon: LayoutDashboard,
-    title: "Dashboard",
-    description:
-      "Get a complete overview of your institute in one place.",
-  },
-  {
-    icon: Users,
-    title: "Students",
-    description:
-      "Manage student details, batches and all academic information.",
+    title: "Live Coaching Dashboard",
+    badge: "Real-Time Pulse",
+    badgeColor: "teal",
+    description: "Get immediate visibility into active student count, batch health, and daily fee collections.",
+    highlights: ["Revenue & dues breakdown", "Batch health status", "1-Tap quick actions"],
   },
   {
     icon: ClipboardCheck,
-    title: "Attendance",
-    description: "Mark attendance easily by batch, date or custom range.",
+    title: "QR & Batch Attendance",
+    badge: "5-Sec Scan",
+    badgeColor: "teal",
+    description: "Mark attendance in 5 seconds with dynamic QR code scanning or 1-tap batch rosters.",
+    highlights: ["Dynamic QR scan", "Automated parent WhatsApp alerts", "Monthly attendance rate"],
   },
   {
     icon: IndianRupee,
-    title: "Fees",
-    description: "Track fees, collect online payments and send reminders.",
-  },
-  {
-    icon: Video,
-    title: "Live Classes",
-    description: "Conduct live classes via Google Meet seamlessly.",
+    title: "Fees & WhatsApp Receipts",
+    badge: "0% Commission",
+    badgeColor: "gold",
+    description: "Track dues, send 1-click WhatsApp reminders, and collect payments with zero platform commission.",
+    highlights: ["Instant official PDF receipts", "WhatsApp reminder alerts", "0% platform commission"],
   },
   {
     icon: FileText,
-    title: "Tests & Exams",
-    description:
-      "Create tests, evaluate automatically and analyze performance.",
+    title: "Online Tests & Quizzes",
+    badge: "Auto-Grading",
+    badgeColor: "teal",
+    description: "Schedule live online MCQs or record offline scores with automated grading and student analytics.",
+    highlights: ["Live/Upcoming test status", "Subject-wise performance", "Instant student scorecard"],
+  },
+  {
+    icon: Video,
+    title: "Integrated Live Classes",
+    badge: "1-Tap Launch",
+    badgeColor: "teal",
+    description: "Conduct Google Meet live lectures seamlessly inside the app without sharing raw links.",
+    highlights: ["1-Tap Google Meet launch", "Automated student reminders", "Scheduled batch timetable"],
+  },
+  {
+    icon: MessageCircle,
+    title: "Doubt Clearing on WhatsApp",
+    badge: "Direct Routing",
+    badgeColor: "teal",
+    description: "Students select batch-assigned teachers and resolve doubts directly on WhatsApp with full privacy.",
+    highlights: ["Assigned subject routing", "Photo & voice note doubts", "Direct teacher chat"],
   },
   {
     icon: BookOpen,
-    title: "Assignments",
-    description:
-      "Share assignments, collect submissions and provide feedback.",
+    title: "Organized Video Library",
+    badge: "Chapter-Wise",
+    badgeColor: "teal",
+    description: "Upload and categorize recorded lectures by subject and chapter for flexible self-paced revision.",
+    highlights: ["Chapter-wise lectures", "Secure student-only access", "Revision on the go"],
   },
   {
-    icon: BarChart3,
-    title: "Reports & Analytics",
-    description: "Powerful reports and analytics to make smart decisions.",
+    icon: Users,
+    title: "Student & Parent Mobile App",
+    badge: "Native Android",
+    badgeColor: "gold",
+    description: "A clean, modern mobile app for students and parents to track classes, tests, attendance, and fees.",
+    highlights: ["Dedicated Android app", "Real-time push notifications", "Zero technical training needed"],
   },
 ];
 
@@ -194,7 +211,7 @@ export const HOW_IT_WORKS_STEPS: Step[] = [
     step: 2,
     title: "Quick Setup in 24 Hours",
     description:
-      "We set up your institute, customize your brand and import your data.",
+      "We configure your batches, subjects, fee structures and import your student data.",
     subtext: "Go live within 24 hours",
   },
   {
@@ -249,7 +266,7 @@ export const PRICING_BADGES = [
   "7 Days Free Trial",
   "No Credit Card Required",
   "Cancel Anytime",
-  "Trusted by 1000+ Institutes",
+  "Direct Founder Onboarding",
 ];
 
 /* ───────── FAQs ───────── */
@@ -260,34 +277,34 @@ export interface FAQ {
 
 export const FAQS: FAQ[] = [
   {
-    question: "Is there a free trial available?",
+    question: "Do I need a computer or laptop to run CampusWeb?",
     answer:
-      "Yes! We offer a 7-day free trial on all plans. No credit card required to get started.",
+      "No. CampusWeb is designed mobile-first. Teachers, directors, and students can manage attendance, create tests, collect fees, and track performance 100% from their Android phones.",
   },
   {
-    question: "Can I upgrade or downgrade my plan later?",
+    question: "How do parents receive fee receipts and attendance updates?",
     answer:
-      "Absolutely. You can switch plans anytime from your account settings. Changes will be reflected in the next billing cycle.",
+      "Whenever fees are paid or recorded, parents receive an automated, official receipt link directly on WhatsApp. Absent alerts and test scorecards are also delivered seamlessly.",
   },
   {
-    question: "Do you offer annual billing?",
+    question: "Can I import our existing students from an Excel sheet?",
     answer:
-      "Yes, we offer annual billing with up to 20% discount on all plans. Contact our sales team for details.",
+      "Yes! You can bulk import all your existing students with their name, roll number, phone number, and batch in a single click using our Excel import tool.",
   },
   {
-    question: "What payment methods do you accept?",
+    question: "Does CampusWeb charge commission on student fee payments?",
     answer:
-      "We accept UPI, credit/debit cards, net banking and wallet payments through Razorpay.",
+      "Zero commission. Your fee collection integrates directly with your institute's UPI or Razorpay account — every single rupee goes straight to your bank account.",
   },
   {
-    question: "Is my data secure with Campus?",
+    question: "Is there a free trial before deciding?",
     answer:
-      "Your data is encrypted with industry-standard SSL encryption and stored securely on AWS servers in India.",
+      "Yes, we provide a full-access 7-day free trial with personal guided onboarding. No credit card or advance payment required.",
   },
   {
-    question: "Can I get a custom plan for my institute?",
+    question: "How secure is our student and fee data?",
     answer:
-      "Yes, for institutes with specific needs, we offer custom plans. Contact our sales team to discuss your requirements.",
+      "Your institute's records are protected with bank-grade SSL encryption and private cloud storage. We never sell, share, or advertise to your students.",
   },
 ];
 
@@ -295,20 +312,20 @@ export const FAQS: FAQ[] = [
 export const FOOTER_LINKS = {
   product: [
     { label: "Features", href: "/features" },
-    { label: "How It Works", href: "/how-it-works" },
+    { label: "How It Works", href: "/#how-it-works" },
     { label: "Pricing", href: "/pricing" },
     { label: "Demo", href: "/demo" },
   ],
   solutions: [
-    { label: "For Coaching Institutes", href: "#" },
-    { label: "For Teachers", href: "#" },
-    { label: "For Students & Parents", href: "#" },
+    { label: "For Coaching Directors", href: "/#workflows" },
+    { label: "For Teachers & Staff", href: "/#workflows" },
+    { label: "For Students & Parents", href: "/#workflows" },
   ],
   resources: [
-    { label: "Blog", href: "#" },
-    { label: "Help Center", href: "#" },
-    { label: "Privacy Policy", href: "#" },
-    { label: "Terms & Conditions", href: "#" },
+    { label: "Privacy Policy", href: "/legals/privacy-policy" },
+    { label: "Terms & Conditions", href: "/legals/terms-conditions" },
+    { label: "Book a Demo", href: "/demo" },
+    { label: "Contact Us", href: "/contact" },
   ],
   company: [
     { label: "About Us", href: "/about" },

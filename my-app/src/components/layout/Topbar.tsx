@@ -1,24 +1,30 @@
 import React from "react";
-import { Phone } from "lucide-react";
+import Link from "next/link";
+import { Sparkles, Phone, ArrowRight } from "lucide-react";
 
 export default function Topbar() {
   return (
-    <div className="bg-ink-green text-white text-xs font-body">
+    <div className="bg-ink-green text-white text-xs font-body border-b border-white/10">
       <div className="container-main flex items-center justify-between py-2">
-        <p className="hidden sm:block">All-in-one LMS for Coaching Institutes</p>
-        <div className="flex items-center gap-4 ml-auto sm:ml-0">
-          <a
-            href="tel:+919876543210"
-            className="flex items-center gap-1.5 hover:text-brass-gold transition-colors"
+        <p className="hidden sm:flex items-center gap-1.5 text-white/80 font-medium">
+          <Sparkles className="w-3.5 h-3.5 text-brass-gold shrink-0" />
+          <span>Mobile-First Operating System for Coaching Institutes</span>
+        </p>
+        <div className="flex items-center gap-4 ml-auto sm:ml-0 font-medium">
+          <Link
+            href="/demo"
+            className="inline-flex items-center gap-1 text-brass-gold hover:text-brass-gold/90 transition-colors"
           >
-            <Phone className="w-3 h-3" />
-            <span>Talk to Expert: +91 98765 43210</span>
-          </a>
+            <span>Book Free 1-on-1 Demo</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+          <span className="text-white/20 hidden md:inline">|</span>
           <a
-            href="#"
-            className="hidden md:inline hover:text-brass-gold transition-colors"
+            href="tel:+918080161421"
+            className="hidden md:inline-flex items-center gap-1.5 text-white/80 hover:text-brass-gold transition-colors"
           >
-            Support
+            <Phone className="w-3 h-3 text-brass-gold" />
+            <span>Call Us: +91 80801 61421</span>
           </a>
         </div>
       </div>

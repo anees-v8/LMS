@@ -5,9 +5,9 @@ import CTABanner from "@/components/sections/CTABanner";
 import FAQSection from "@/components/sections/FAQSection";
 
 export const metadata: Metadata = {
-  title: "Pricing — Campus",
+  title: "Pricing Plans — CampusWeb | Transparent & Affordable",
   description:
-    "Simple, transparent, affordable pricing plans for Campus. Start your 7-day free trial today.",
+    "Explore transparent per-student pricing for coaching institutes. Start your 7-day free trial with zero setup charges and zero commission.",
 };
 
 export default function PricingPage() {

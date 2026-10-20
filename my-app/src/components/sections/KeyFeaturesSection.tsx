@@ -7,7 +7,7 @@ import { KEY_FEATURES } from "@/utils/constants";
 
 export default function KeyFeaturesSection() {
   return (
-    <section className="bg-paper pb-16 md:pb-24 pt-4 md:pt-8">
+    <section className="bg-white border-t border-black/[0.06] py-16 md:py-24">
       <div className="container-main">
         {/* Section Header */}
         <motion.div
@@ -15,12 +15,17 @@ export default function KeyFeaturesSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-12"
+          className="text-center max-w-3xl mx-auto mb-12 md:mb-16"
         >
-          <span className="badge-gold mb-4 inline-block">Key Features</span>
-          <h2 className="text-3xl sm:text-4xl font-display font-bold text-ink-green mt-4">
+          <span className="badge-teal inline-flex items-center gap-1.5 px-3.5 py-1 text-xs font-semibold tracking-wide">
+            Platform Capabilities
+          </span>
+          <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-display font-extrabold text-ink-green tracking-tight leading-tight mt-3">
             Everything You Need to Run Your Institute
           </h2>
+          <p className="mt-4 text-base sm:text-lg text-ink-green/75 font-body leading-relaxed max-w-2xl mx-auto">
+            A complete suite of tools engineered specifically for Indian coaching institutes, academies, and tuition centers.
+          </p>
         </motion.div>
 
         {/* Feature Grid */}
@@ -30,6 +35,8 @@ export default function KeyFeaturesSection() {
               key={feature.title}
               icon={feature.icon}
               title={feature.title}
+              badge={feature.badge}
+              badgeColor={feature.badgeColor}
               description={feature.description}
               highlights={feature.highlights}
               href={feature.href}

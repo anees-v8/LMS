@@ -408,7 +408,7 @@ export default function PrivacyPolicyPage() {
               <strong>Email:</strong> support@campusweb.co.in
             </li>
             <li>
-              <strong>Phone:</strong> +91 98765 43210
+              <strong>Support:</strong> WhatsApp / Online Support Desk (Mon – Sat, 10:00 AM - 7:00 PM IST)
             </li>
             <li>
               <strong>Location:</strong> Mumbai, Maharashtra, India

@@ -41,11 +41,22 @@ export default function ContactForm() {
 
   if (status === "success") {
     return (
-      <div className="flex flex-col items-center text-center py-8 gap-3">
-        <CheckCircle className="w-12 h-12 text-chalk-teal" />
-        <p className="text-base font-body font-semibold text-ink-green">
-          Thanks for reaching out! We&apos;ll get back to you shortly.
+      <div className="flex flex-col items-center text-center py-8 px-4 gap-3">
+        <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-1">
+          <CheckCircle className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-display font-bold text-ink-green">
+          Message Received!
+        </h3>
+        <p className="text-sm font-body text-ink-green/75 max-w-sm leading-relaxed">
+          Thank you for reaching out. An onboarding specialist will review your inquiry and connect with you shortly via phone or WhatsApp.
         </p>
+        <button
+          onClick={() => setStatus("idle")}
+          className="mt-4 px-4 py-2 rounded-xl text-xs font-semibold text-chalk-teal bg-chalk-teal/10 hover:bg-chalk-teal/20 transition-colors"
+        >
+          Send Another Message
+        </button>
       </div>
     );
   }
@@ -59,7 +70,7 @@ export default function ContactForm() {
           </label>
           <input
             type="text"
-            placeholder="John Doe"
+            placeholder="e.g. Rajesh Sharma"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             required
@@ -74,7 +85,7 @@ export default function ContactForm() {
           </label>
           <input
             type="tel"
-            placeholder="+91 98765 43210"
+            placeholder="e.g. 98200 12345"
             value={phone}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
             required
@@ -105,7 +116,7 @@ export default function ContactForm() {
         </label>
         <input
           type="email"
-          placeholder="john@example.com"
+          placeholder="director@institute.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full px-4 py-2.5 rounded-lg border border-paper bg-paper/50 text-sm font-body text-ink-green placeholder:text-ink-green/30 focus:outline-none focus:border-chalk-teal focus:ring-1 focus:ring-chalk-teal/20 transition-colors"

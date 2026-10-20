@@ -2,12 +2,14 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { type LucideIcon } from "lucide-react";
+import { Check, type LucideIcon } from "lucide-react";
 import { cn } from "@/utils/cn";
 
 interface FeatureCardProps {
   icon: LucideIcon;
   title: string;
+  badge?: string;
+  badgeColor?: "teal" | "gold";
   description: string;
   highlights?: string[];
   href?: string;
@@ -18,6 +20,8 @@ interface FeatureCardProps {
 export default function FeatureCard({
   icon: Icon,
   title,
+  badge,
+  badgeColor = "teal",
   description,
   highlights,
   href,
@@ -31,34 +35,57 @@ export default function FeatureCard({
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.45, delay: index * 0.05, ease: "easeOut" }}
       className={cn(
-        "group bg-card-surface rounded-2xl p-6 shadow-card hover:shadow-card-hover transition-[box-shadow,border-color] duration-300 border border-transparent hover:border-chalk-teal/20 flex flex-col h-full",
+        "group relative bg-white rounded-2xl p-6 sm:p-7 shadow-sm hover:shadow-xl transition-all duration-300 border border-black/[0.07] hover:border-chalk-teal/30 flex flex-col h-full overflow-hidden hover:-translate-y-1",
         className
       )}
     >
-      <div className="w-12 h-12 rounded-xl bg-chalk-teal/10 flex items-center justify-center mb-4 group-hover:bg-chalk-teal/20 transition-colors duration-300">
-        <Icon className="w-6 h-6 text-chalk-teal" />
+      {/* Top Accent Gradient Line on Hover */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-chalk-teal via-chalk-teal to-brass-gold opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+
+      {/* Top Row: Icon + Badge */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="w-11 h-11 rounded-xl bg-chalk-teal/10 border border-chalk-teal/15 text-chalk-teal flex items-center justify-center group-hover:scale-105 group-hover:bg-chalk-teal group-hover:text-white transition-all duration-300 shadow-xs">
+          <Icon className="w-5 h-5" />
+        </div>
+        {badge && (
+          <span
+            className={cn(
+              "px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide font-body border",
+              badgeColor === "gold"
+                ? "bg-brass-gold/10 text-brass-gold border-brass-gold/30"
+                : "bg-chalk-teal/10 text-chalk-teal border-chalk-teal/20"
+            )}
+          >
+            {badge}
+          </span>
+        )}
       </div>
-      <h3 className="text-lg font-display font-semibold text-ink-green mb-2">
+
+      <h3 className="text-lg font-display font-bold text-ink-green tracking-tight group-hover:text-chalk-teal transition-colors mb-2">
         {title}
       </h3>
-      <p className={cn("text-sm text-ink-green/70 font-body leading-relaxed", (highlights || href) ? "mb-4" : "")}>
+      <p className={cn("text-sm text-ink-green/70 font-body leading-relaxed", highlights ? "mb-4" : "")}>
         {description}
       </p>
 
+      {/* Crisp Branded Checklist (No Dull Grey) */}
       {highlights && (
-        <ul className="bg-paper rounded-xl p-4 space-y-2 mb-4">
-          {highlights.map((item, i) => (
-            <li key={i} className="flex items-center gap-2 text-sm text-ink-green/70 font-body">
-              <span className="w-1.5 h-1.5 rounded-full bg-chalk-teal/40 flex-shrink-0" />
-              {item}
-            </li>
-          ))}
-        </ul>
+        <div className="mt-auto bg-[#F8F9F7] group-hover:bg-[#F2F5F3] rounded-xl p-3.5 border border-black/[0.05] group-hover:border-chalk-teal/15 transition-colors">
+          <ul className="space-y-2">
+            {highlights.map((item, i) => (
+              <li key={i} className="flex items-center gap-2 text-xs sm:text-[13px] text-ink-green/85 font-body font-medium">
+                <Check className="w-3.5 h-3.5 text-chalk-teal flex-shrink-0" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {href && (
-        <a href={href} className="inline-flex items-center gap-1 text-sm font-medium text-brass-gold hover:text-brass-gold/80 transition-colors mt-auto">
-          Learn more <span className="text-lg leading-none">&rarr;</span>
+        <a href={href} className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-brass-gold hover:text-brass-gold/80 transition-colors mt-3 pt-2">
+          <span>Learn more</span>
+          <span className="text-base leading-none">&rarr;</span>
         </a>
       )}
     </motion.div>

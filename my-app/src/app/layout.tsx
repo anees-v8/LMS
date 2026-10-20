@@ -1,20 +1,20 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Inter } from "next/font/google";
+import { Plus_Jakarta_Sans, Inter } from "next/font/google";
 import Topbar from "@/components/layout/Topbar";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import "./globals.css";
 
-const playfair = Playfair_Display({
+const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-playfair",
+  variable: "--font-display",
   display: "swap",
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["500", "600", "700", "800"],
 });
 
 const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-body",
   display: "swap",
   weight: ["400", "500", "600", "700"],
 });
@@ -31,6 +31,14 @@ export const metadata: Metadata = {
     "EdTech",
     "Campus",
   ],
+  icons: {
+    icon: [
+      { url: "/icon.png?v=3", sizes: "64x64", type: "image/png" },
+      { url: "/favicon.ico?v=3" },
+    ],
+    shortcut: "/icon.png?v=3",
+    apple: "/icon.png?v=3",
+  },
 };
 
 export default function RootLayout({
@@ -39,7 +47,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${playfair.variable} ${inter.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${plusJakarta.variable} ${inter.variable}`} suppressHydrationWarning>
       <body className="min-h-screen flex flex-col" suppressHydrationWarning>
         <Topbar />
         <Navbar />

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600;1,700&family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -17,7 +17,7 @@
 /* ===== BASE STYLES ===== */
 @layer base {
   html, body {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   html {
@@ -25,18 +25,11 @@
   }
 
   body {
-    @apply bg-paper text-ink-green font-body antialiased;
+    @apply bg-paper text-ink-green font-body antialiased selection:bg-chalk-teal/15 selection:text-ink-green;
   }
 
-  h1, h2 {
-    @apply text-ink-green;
-    font-family: 'Fraunces', serif;
-    font-weight: 620;
-    font-optical-sizing: auto;
-  }
-
-  h3, h4, h5, h6 {
-    @apply font-display text-ink-green;
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
   }
 
   /* Custom scrollbar */

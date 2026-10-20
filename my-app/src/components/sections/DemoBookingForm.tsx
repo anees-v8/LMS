@@ -100,7 +100,7 @@ export default function DemoBookingForm() {
           </label>
           <input
             type="tel"
-            placeholder="e.g. 9876543210"
+            placeholder="e.g. 98200 12345"
             value={phone}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
             required

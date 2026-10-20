@@ -18,8 +18,9 @@ const config: Config = {
         "topbar-green": "#1F2E27",
       },
       fontFamily: {
-        display: ["var(--font-playfair)", "serif"],
-        body: ["var(--font-inter)", "sans-serif"],
+        display: ["var(--font-display)", "'Plus Jakarta Sans'", "sans-serif"],
+        body: ["var(--font-body)", "'Inter'", "sans-serif"],
+        sans: ["var(--font-body)", "'Inter'", "sans-serif"],
       },
       boxShadow: {
         card: "0 2px 16px 0 rgba(31,46,39,0.08)",

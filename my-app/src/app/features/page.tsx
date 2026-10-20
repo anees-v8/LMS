@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
 import DetailedFeaturesGrid from "@/components/sections/DetailedFeaturesGrid";
+import WhyCampusSection from "@/components/sections/WhyCampusSection";
 import CTABanner from "@/components/sections/CTABanner";
 
 export const metadata: Metadata = {
-  title: "Features — Campus",
+  title: "Features — CampusWeb",
   description:
-    "Explore all the powerful features of Campus: Dashboard, Students Management, Attendance, Fees, Live Classes, Tests & Exams, and more.",
+    "Explore all the powerful features of CampusWeb: Live Dashboard, Attendance, WhatsApp Fees, Online Tests, Live Classes, and Student App.",
 };
 
 export default function FeaturesPage() {
   return (
     <>
       <DetailedFeaturesGrid />
+      <WhyCampusSection />
       <CTABanner
         variant="dark"
-        title="One Platform. Every Operation. Better Management. Bigger Impact."
-        subtitle="Your data is safe with us. Automate routine tasks and focus on teaching."
+        title="Ready to See CampusWeb in Action?"
+        subtitle="Book a personalized live demo and see how these features can streamline your coaching operations."
       />
     </>
   );
