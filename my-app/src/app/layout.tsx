@@ -88,6 +88,9 @@ export const metadata: Metadata = {
     shortcut: "/icon.png?v=3",
     apple: "/icon.png?v=3",
   },
+  verification: {
+    google: "google8cb08c077cfae0a6",
+  },
 };
 
 const jsonLd = {
