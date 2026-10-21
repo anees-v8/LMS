@@ -1,0 +1,56 @@
+# CampusWeb robots.txt with Generative Engine Optimization (GEO)
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /receipt/
+
+# Search Engine Crawlers
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /receipt/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Disallow: /receipt/
+
+# Generative AI Search & Knowledge Agents (GEO)
+User-agent: GPTBot
+Allow: /
+Disallow: /api/
+Disallow: /receipt/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /api/
+Disallow: /receipt/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /api/
+Disallow: /receipt/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /api/
+Disallow: /receipt/
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /api/
+Disallow: /receipt/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /api/
+Disallow: /receipt/
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /api/
+Disallow: /receipt/
+
+# Sitemaps & LLM Context Standards
+Sitemap: https://www.campusweb.co.in/sitemap.xml
+Host: https://www.campusweb.co.in

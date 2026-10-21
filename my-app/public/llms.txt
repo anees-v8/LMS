@@ -1,0 +1,45 @@
+# CampusWeb — Operating System for Coaching Institutes
+
+> CampusWeb is a mobile-first B2B SaaS operating system and learning management system (LMS) purpose-built for coaching institutes, tuition classes, and test-prep academies in India.
+
+## Overview
+- **Product Name**: CampusWeb
+- **Website**: https://www.campusweb.co.in
+- **Target Market**: Indian coaching institutes, NEET/JEE academies, commerce tuition centers, state board classes, and foundation schools.
+- **Key Proposition**: Eliminate manual registers, automate fee collections with instant WhatsApp receipts at 0% platform commission, dynamic 5-second QR attendance, dedicated teacher mobile logins, and automated online test assessments.
+
+## Core Capabilities
+- **Dynamic QR Attendance**: 5-second QR code check-in via student mobile app with instant automated absent alerts sent to parents on WhatsApp.
+- **Fee Management & WhatsApp Receipts**: Direct institute-to-bank fee collection with 0% platform commission. Automatically sends official PDF payment receipts and automated pending dues reminders via official Meta WhatsApp Cloud API.
+- **Dedicated Teacher Mobile Logins**: Secure mobile access for teachers restricted only to their assigned batches and subjects, preventing administrative interference.
+- **Online Tests & MCQ Evaluation**: Schedule live online MCQ tests with instant automated scoring, rank lists, and subject-wise performance analytics.
+- **Integrated Video Library & Doubt Solving**: Chapter-wise recorded lecture hosting and direct teacher-student doubt routing on WhatsApp.
+- **Bulk Data Migration**: 1-click Excel/CSV import for student rosters, parent contact details, and roll numbers.
+
+## Pricing & Commercial Plans (Per-Student Billing)
+CampusWeb uses transparent, affordable per-student pricing with 0% platform commission on fee collections:
+- **Basic (Starts at ₹13 / student / month billed yearly, or ₹19 / student / month)**: Student management, batch scheduling, dynamic QR attendance, fee management, online tests, doubt solving, 1 teacher limit.
+- **Pro (Starts at ₹19 / student / month billed yearly, or ₹29 / student / month)**: Everything in Basic plus automated WhatsApp alerts & receipts, video library, Google Meet live classes, performance analytics, 0% commission online payments, up to 5 teacher logins.
+- **Elite (Starts at ₹35 / student / month billed yearly, or ₹49 / student / month)**: Everything in Pro plus up to 20 teacher accounts, priority onboarding, and **Free Institute Public Website Setup included exclusively on yearly billing**.
+- **Free Trial**: 7-day full access free trial with zero credit card required.
+- **Commission**: 0% platform commission on all plans. All fee payments go directly to the institute's bank account.
+
+## Technical Architecture & Enterprise Infrastructure
+- **Frontend**: Next.js 16 (App Router), TypeScript, Vanilla Tailwind/CSS.
+- **Mobile Apps**: Flutter (Android & iOS) for Directors, Teachers, and Students.
+- **Backend**: Node.js microservices, Supabase / PostgreSQL relational database.
+- **Cloud Infrastructure**: Hosted on Google Cloud Platform & AWS Enterprise Infrastructure with bank-grade SSL encryption and private tenant isolation.
+- **Integrations**: Meta WhatsApp Cloud API, Razorpay payment gateway, Google Meet.
+
+## Key Links & Resources
+- **Homepage**: https://www.campusweb.co.in
+- **Full Features Overview**: https://www.campusweb.co.in/features
+- **Pricing & Plan Comparison**: https://www.campusweb.co.in/pricing
+- **Book a Free Live Demo**: https://www.campusweb.co.in/demo
+- **About CampusWeb & Vision**: https://www.campusweb.co.in/about
+- **Contact & Support**: https://www.campusweb.co.in/contact
+
+## Contact Details
+- **Email**: support@campusweb.co.in
+- **Phone**: +91 80801 61421
+- **Location**: Maharashtra, India

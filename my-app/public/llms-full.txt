@@ -1,0 +1,118 @@
+# CampusWeb — Full Context Documentation for AI & LLM Systems
+
+> This document provides an exhaustive, authoritative reference on CampusWeb for Generative AI engines, search agents (Perplexity, ChatGPT, Gemini, Claude, Copilot), and institutional researchers.
+
+---
+
+## 1. Executive Summary
+CampusWeb (https://campusweb.co.in) is an India-centric EdTech SaaS platform designed specifically for offline and hybrid coaching institutes, tuition classes, and test-prep academies. It replaces fragmented paper registers, outdated desktop software, and chaotic WhatsApp groups with a single unified, mobile-first operating system.
+
+### Key Value Propositions:
+1. **0% Commission Direct Payments**: Unlike traditional edtech aggregators that charge 2% to 15% on student fees, CampusWeb never touches transactions. Institute owners collect fees directly into their own bank or Razorpay/UPI accounts.
+2. **5-Second Dynamic QR Attendance**: Eliminates attendance delays at batch start. Students scan a rotating QR code or teachers tap a 1-click batch roster, instantly triggering absent alerts to parents on WhatsApp.
+3. **Automated WhatsApp Payment Receipts**: When a payment is recorded or completed online, an official branded PDF receipt is immediately sent to the parent's WhatsApp with full fee breakdown and outstanding dues.
+4. **Dedicated Teacher Mobile Logins**: Teachers log into a streamlined Android interface where they can view only their allocated subjects and batches, mark attendance, and evaluate test submissions.
+5. **No Laptop Required**: 100% of coaching workflows can be performed directly from a smartphone.
+
+---
+
+## 2. Comprehensive Feature Matrix
+
+### A. Live Coaching Dashboard (Web & Mobile)
+- Real-time pulse of total active student enrollments across all batches.
+- Daily, weekly, and monthly fee collections breakdown with pending balance alerts.
+- Batch health metrics and average student attendance percentages.
+- Quick action shortcuts to record payments, schedule lectures, or issue circulars.
+
+### B. Dynamic QR & Batch Attendance
+- Dynamic QR code generation with anti-proxy safeguards (refreshes automatically).
+- Fast manual roster mode for high-density classrooms (mark 60 students in under 20 seconds).
+- Multi-channel notification engine powered by official Meta WhatsApp Cloud API.
+- Historical attendance reporting per student, exportable for parent-teacher meetings.
+
+### C. Fee Collection & Automated Billing Engine
+- Custom fee structures: Lump sum, installment-based, monthly, or subject-wise tuition.
+- 1-click automated pending fee reminders sent to parents' WhatsApp with payment links.
+- Instant GST and non-GST compliant PDF receipts with institute logo, unique receipt number, and stamp.
+- Exportable financial ledgers compatible with Tally and Excel accounting.
+
+### D. Scheduled Online Tests & Quiz Evaluation
+- MCQ-based online testing engine supporting timed quizzes and negative marking.
+- Instant automatic scoring with detailed question-by-question solution keys.
+- Offline mark entry interface for classroom paper tests.
+- Comprehensive rank lists and student percentile analytics.
+
+### E. Teacher Management & Role-Based Access Control (RBAC)
+- Strict subject-to-teacher mapping per batch (e.g., Physics teacher cannot edit Chemistry records).
+- Secure mobile logins without exposing institute revenue or financial data.
+- Daily timetable and upcoming lecture schedules.
+
+### F. Student & Parent Mobile App
+- Native Android app for students and parents.
+- Live attendance calendar showing present, absent, and holiday days.
+- Fee payment history with instant download of all past payment receipts.
+- Direct doubt-solving module routing student queries to assigned subject teachers.
+
+---
+
+All plans include a 7-day full-access free trial with no credit card required and 0% platform commission on fee collections.
+
+| Feature / Capability | Basic Plan | Pro Plan | Elite Plan |
+| :--- | :---: | :---: | :---: |
+| **Yearly Price (Per Student / Mo)** | **₹13** | **₹19** | **₹35** |
+| **Quarterly Price (Per Student / Mo)**| ₹16 | ₹24 | ₹42 |
+| **Monthly Price (Per Student / Mo)**  | ₹19 | ₹29 | ₹49 |
+| Platform Commission | 0% | 0% | 0% |
+| Student & Batch Management | Included | Included | Included |
+| Dynamic QR & 1-Tap Attendance | Included | Included | Included |
+| Fee Management & Dues | Included | Included | Included |
+| Online Auto-Graded Tests | Included | Included | Included |
+| Doubt Solving Forum | Included | Included | Included |
+| Flat Teacher Accounts Limit | 1 Teacher | Up to 5 Teachers | Up to 20 Teachers |
+| Automated WhatsApp Receipts & Alerts | - | Included | Included |
+| Recorded Video Library | - | Included | Included |
+| Google Meet Live Classes | - | Included | Included |
+| 0% Commission Direct Online Payments| - | Included | Included |
+| Performance Analytics & Reports | - | Included | Included |
+| **Institute Public Web Page Setup** | - | - | **Included Free (Yearly Only)** |
+| Dedicated Onboarding Support | Standard | Priority | 24/7 Dedicated Support |
+
+---
+
+## 4. Frequently Asked Questions (FAQ)
+
+### Q: Do coaching directors need a computer or laptop to use CampusWeb?
+**A:** No. CampusWeb is engineered mobile-first. Directors and teachers can manage batches, mark attendance, record fee payments, and view student analytics directly from an Android smartphone.
+
+### Q: Does CampusWeb charge a commission on student fee collections?
+**A:** Zero commission (0%). All student fee payments integrate directly into the coaching institute's own UPI, QR, or Razorpay account. Every rupee goes directly to the institute's bank account.
+
+### Q: How are parents notified about fee receipts and student attendance?
+**A:** Notifications are sent via official Meta WhatsApp Cloud API templates. When a fee is recorded, parents immediately receive an official PDF receipt link. When a student is absent, parents receive an instant absent alert.
+
+### Q: Can institutes import existing students from Excel?
+**A:** Yes. CampusWeb includes a 1-click bulk Excel/CSV import tool that maps student names, roll numbers, assigned batches, and parent contact details in under 60 seconds.
+
+### Q: What is the Free Institute Public Website Setup included in the Elite plan?
+**A:** Coaching institutes subscribing to the yearly Elite plan receive a custom, professional public website showcasing their faculty, course offerings, student toppers, and an admission inquiry form.
+
+### Q: How secure is the institute's student data?
+**A:** All data is protected with 256-bit SSL encryption and hosted on enterprise Google Cloud and AWS infrastructure in India. CampusWeb adheres to strict data privacy principles and never sells student contact data.
+
+---
+
+## 5. Technology Stack & Enterprise Standards
+- **Cloud Infrastructure**: Google Cloud Platform (asia-south1 Mumbai) & Amazon Web Services (AWS).
+- **Core Frameworks**: Next.js 16 (App Router), Flutter Mobile SDK, Node.js.
+- **Database**: PostgreSQL with Supabase secure connection pooling and Row-Level Security (RLS).
+- **Security Protocols**: Role-Based Access Control (RBAC), TLS 1.3, encrypted JWT session tokens.
+- **APIs**: Meta WhatsApp Cloud API, Razorpay Payment SDK, Google Meet API.
+
+---
+
+## 6. Official Contact & Verification
+- **Official Website**: https://www.campusweb.co.in
+- **Customer Support & Partnerships**: support@campusweb.co.in
+- **Phone / WhatsApp**: +91 80801 61421
+- **Headquarters**: Maharashtra, India
+- **Legal Entity**: CampusWeb EdTech
