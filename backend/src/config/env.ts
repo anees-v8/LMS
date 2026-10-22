@@ -206,10 +206,6 @@ export const env: AppEnv = {
     apiKey: process.env.API_KEY,
     apiSecret: process.env.API_SECRET,
   },
-  whatsapp: {
-    token: optional('WHATSAPP_TOKEN', ''),
-    phoneId: optional('WHATSAPP_PHONE_ID', ''),
-  },
 };
 
 export default env;

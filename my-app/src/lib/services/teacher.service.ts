@@ -2,6 +2,7 @@ import { after } from 'next/server';
 import { query, withTransaction } from '../db';
 import ApiError from '../utils/ApiError';
 import { buildWaUrl, absentMessage, sendAbsentAlert } from './whatsapp.service';
+import { canTenantUseWhatsappApi, claimDailyWhatsappDispatch } from './whatsappDispatch.service';
 import * as adminService from './admin.service';
 import * as notificationCenter from './notificationCenter.service';
 import { createMeetEvent, deleteMeetEvent } from './googleMeet.service';
@@ -261,6 +262,10 @@ export async function markAttendance(
   const instituteRow = await query<{ name: string }>(`SELECT name FROM tenants WHERE id=$1`, [tenantId]);
   const instituteName = instituteRow.rows[0]?.name || '';
 
+  // Check if tenant is on Pro/Elite/Trial (has automated whatsapp_reminders feature)
+  // If tenant is on Basic Plan, automated paid Meta API calls are completely disabled (₹0 cost).
+  const canUseApi = await canTenantUseWhatsappApi(tenantId);
+
   const absentReminders: AbsentReminder[] = [];
 
   await withTransaction(async (client) => {
@@ -288,18 +293,22 @@ export async function markAttendance(
             waUrl: buildWaUrl(s.rows[0].phone, msg),
           });
 
-          // Automatically send WhatsApp template alert
-          if (s.rows[0].phone) {
-            sendAbsentAlert({
-              parentPhone: s.rows[0].phone,
-              studentName: s.rows[0].name,
-              instituteName,
-              date,
-            }).catch((err) =>
-              logger.error('Failed to send automated absent WhatsApp alert', {
-                error: err instanceof Error ? err.message : String(err),
-              })
-            );
+          // Rule 1: Basic Plan OFF. Only Pro/Elite/Trial can use paid automated WhatsApp API.
+          // Rule 2: Max 1 absent alert per student per day across all subjects/batches to prevent cost waste.
+          if (canUseApi && s.rows[0].phone) {
+            const claimed = await claimDailyWhatsappDispatch(tenantId, r.studentId, 'absent', date);
+            if (claimed) {
+              sendAbsentAlert({
+                parentPhone: s.rows[0].phone,
+                studentName: s.rows[0].name,
+                instituteName,
+                date,
+              }).catch((err) =>
+                logger.error('Failed to send automated absent WhatsApp alert', {
+                  error: err instanceof Error ? err.message : String(err),
+                })
+              );
+            }
           }
         }
       }

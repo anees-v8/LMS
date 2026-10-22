@@ -5,6 +5,7 @@ import ApiError from '../utils/ApiError';
 import { generateReceiptNo } from '../utils/receipt';
 import { writeAudit } from '../utils/audit';
 import { buildWaUrl, feeReminderMessage, sendPaymentReceipt, sendFeeReminder } from './whatsapp.service';
+import { canTenantUseWhatsappApi, claimDailyWhatsappDispatch } from './whatsappDispatch.service';
 import { getTenantDashboard } from './superadmin.service';
 import * as notificationCenter from './notificationCenter.service';
 import { sendPaymentReceiptEmail } from './notification.service';
@@ -1927,15 +1928,24 @@ export async function recordPayment(
               );
             }
             if (studentInfo?.parentPhone) {
-              sendPaymentReceipt({
-                parentPhone: studentInfo.parentPhone,
-                amount: amountPaid,
-                feeType: 'Tuition Fee',
-                studentName: studentInfo.fullName,
-                instituteName: studentInfo.instituteName,
-                receiptPath: 'student/fees',
+              // Rule 1: Basic Plan OFF. Only Pro/Elite/Trial can use paid automated WhatsApp API.
+              canTenantUseWhatsappApi(tenantId).then((canUseApi) => {
+                if (canUseApi && studentInfo.parentPhone) {
+                  sendPaymentReceipt({
+                    parentPhone: studentInfo.parentPhone,
+                    amount: amountPaid,
+                    feeType: 'Tuition Fee',
+                    studentName: studentInfo.fullName,
+                    instituteName: studentInfo.instituteName,
+                    receiptPath: 'student/fees',
+                  }).catch((err) =>
+                    logger.error('Fee receipt WhatsApp failed', {
+                      error: err instanceof Error ? err.message : String(err),
+                    })
+                  );
+                }
               }).catch((err) =>
-                logger.error('Fee receipt WhatsApp failed', {
+                logger.error('Fee receipt WhatsApp entitlement check failed', {
                   error: err instanceof Error ? err.message : String(err),
                 })
               );
@@ -1998,19 +2008,25 @@ export async function feeReminderLink(
     instituteName: r.instituteName,
   });
 
-  // Automatically trigger WhatsApp Cloud API template alert
-  if (r.parentPhone) {
-    sendFeeReminder({
-      parentPhone: r.parentPhone,
-      studentName: r.studentName,
-      feeTitle: 'Tuition Fee',
-      pending: r.pending,
-      instituteName: r.instituteName,
-    }).catch((err) =>
-      logger.error('Fee reminder WhatsApp failed', {
-        error: err instanceof Error ? err.message : String(err),
-      })
-    );
+  // Rule 1: Basic Plan OFF. Only Pro/Elite/Trial can use paid automated WhatsApp API.
+  // Rule 2: Max 1 fee reminder per student per day to prevent duplicate API charges.
+  const canUseApi = await canTenantUseWhatsappApi(tenantId);
+  if (canUseApi && r.parentPhone) {
+    const today = istDateString();
+    const claimed = await claimDailyWhatsappDispatch(tenantId, studentId, 'fee_reminder', today);
+    if (claimed) {
+      sendFeeReminder({
+        parentPhone: r.parentPhone,
+        studentName: r.studentName,
+        feeTitle: 'Tuition Fee',
+        pending: r.pending,
+        instituteName: r.instituteName,
+      }).catch((err) =>
+        logger.error('Fee reminder WhatsApp failed', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+      );
+    }
   }
 
   return { waUrl: buildWaUrl(r.parentPhone, msg), pending: r.pending };
