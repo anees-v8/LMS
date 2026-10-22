@@ -109,26 +109,34 @@ export async function createTeacher(
   actorUserId: number,
   { fullName, phone, password, email }: CreateTeacherInput
 ): Promise<TeacherItem> {
-  // Check Teacher Plan Limits
-  const planInfo = await query(`
-    SELECT pc.name AS "planName"
-    FROM subscriptions s
-    LEFT JOIN plan_catalog pc ON pc.id = s.plan_catalog_id
-    WHERE s.tenant_id = $1
-  `, [tenantId]);
-  
-  const planName = planInfo.rows[0]?.planName || 'Basic';
-  let allowedTeachers = 1; // Basic plan limit is 1 (actually admin is 1, so 0 extra, but let's say 0 extra teachers)
-  
-  if (planName === 'Basic') allowedTeachers = 0;
-  else if (planName === 'Pro') allowedTeachers = 3;
-  else if (planName === 'Elite') allowedTeachers = 15;
+  // Reads the real, superadmin-configured limit from plan_catalog — never
+  // a hardcoded number. A tenant not yet linked to a catalog row (legacy
+  // flat-plan subscriptions, plan_catalog_id IS NULL) falls back to
+  // whatever the "Basic" row itself currently says, so the limit always
+  // tracks what's actually configured on the website, never drifts from it.
+  const planInfo = await query<{ planName: string; teacherLimit: number }>(
+    `SELECT pc.name AS "planName", pc.flat_teacher_limit AS "teacherLimit"
+       FROM subscriptions s
+       LEFT JOIN plan_catalog pc ON pc.id = s.plan_catalog_id
+      WHERE s.tenant_id = $1`,
+    [tenantId]
+  );
+  let planName = planInfo.rows[0]?.planName;
+  let allowedTeachers = planInfo.rows[0]?.teacherLimit;
+
+  if (allowedTeachers === undefined || allowedTeachers === null) {
+    const basic = await query<{ name: string; teacherLimit: number }>(
+      `SELECT name, flat_teacher_limit AS "teacherLimit" FROM plan_catalog WHERE name = 'Basic' AND is_active = true LIMIT 1`
+    );
+    planName = basic.rows[0]?.name ?? 'Basic';
+    allowedTeachers = basic.rows[0]?.teacherLimit ?? 1;
+  }
 
   const teacherCountRes = await query(`SELECT count(*) FROM users WHERE tenant_id = $1 AND role = 'teacher'`, [tenantId]);
   const currentTeachers = parseInt(teacherCountRes.rows[0].count, 10);
 
   if (currentTeachers >= allowedTeachers) {
-    throw ApiError.forbidden('PLAN_LIMIT_REACHED', `Your ${planName} plan only allows up to ${allowedTeachers} teachers.`);
+    throw ApiError.forbidden('PLAN_LIMIT_REACHED', `Your ${planName} plan only allows up to ${allowedTeachers} teacher${allowedTeachers === 1 ? '' : 's'}.`);
   }
 
   const hash = await bcrypt.hash(password, 10);
