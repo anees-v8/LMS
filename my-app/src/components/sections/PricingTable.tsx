@@ -65,10 +65,74 @@ function priceForCycle(plan: BackendPlan, cycle: Cycle): number {
   }
 }
 
+const DEFAULT_INITIAL_PLANS: BackendPlan[] = [
+  {
+    id: 1,
+    name: "Basic",
+    tagline: "Apni coaching ko digital banayein, bina kisi jhanjhat ke.",
+    priceMonthly: 19,
+    priceQuarterly: 16,
+    priceYearly: 13,
+    features: [
+      "student_management",
+      "batch_management",
+      "digital_attendance",
+      "fee_management",
+      "online_tests",
+      "doubt_solving",
+    ],
+  },
+  {
+    id: 2,
+    name: "Pro",
+    tagline: "Smart automation jo aapka time bachaye. Ideal for growing institutes.",
+    priceMonthly: 29,
+    priceQuarterly: 24,
+    priceYearly: 19,
+    features: [
+      "student_management",
+      "batch_management",
+      "digital_attendance",
+      "fee_management",
+      "online_tests",
+      "video_library",
+      "whatsapp_reminders",
+      "live_classes",
+      "online_payments",
+      "performance_reports",
+      "teacher_accounts",
+      "doubt_solving",
+    ],
+  },
+  {
+    id: 3,
+    name: "Elite",
+    tagline: "Apna khud ka digital brand banayein. For premium setups.",
+    priceMonthly: 49,
+    priceQuarterly: 42,
+    priceYearly: 35,
+    features: [
+      "student_management",
+      "batch_management",
+      "digital_attendance",
+      "fee_management",
+      "online_tests",
+      "video_library",
+      "whatsapp_reminders",
+      "live_classes",
+      "online_payments",
+      "performance_reports",
+      "website_request",
+      "doubt_solving",
+      "teacher_accounts",
+    ],
+  },
+];
+
 export default function PricingTable() {
   const [cycle, setCycle] = useState<Cycle>("monthly");
-  const [backendPlans, setBackendPlans] = useState<BackendPlan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [backendPlans, setBackendPlans] = useState<BackendPlan[]>(DEFAULT_INITIAL_PLANS);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchPlans = async () => {

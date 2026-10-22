@@ -61,9 +61,61 @@ function CellValue({
   );
 }
 
+const DEFAULT_INITIAL_PLANS: BackendPlan[] = [
+  {
+    id: 1,
+    name: "Basic",
+    features: [
+      "student_management",
+      "batch_management",
+      "digital_attendance",
+      "fee_management",
+      "online_tests",
+      "doubt_solving",
+    ],
+  },
+  {
+    id: 2,
+    name: "Pro",
+    features: [
+      "student_management",
+      "batch_management",
+      "digital_attendance",
+      "fee_management",
+      "online_tests",
+      "video_library",
+      "whatsapp_reminders",
+      "live_classes",
+      "online_payments",
+      "performance_reports",
+      "teacher_accounts",
+      "doubt_solving",
+    ],
+  },
+  {
+    id: 3,
+    name: "Elite",
+    features: [
+      "student_management",
+      "batch_management",
+      "digital_attendance",
+      "fee_management",
+      "online_tests",
+      "video_library",
+      "whatsapp_reminders",
+      "live_classes",
+      "online_payments",
+      "performance_reports",
+      "website_request",
+      "doubt_solving",
+      "teacher_accounts",
+    ],
+  },
+];
+
 export default function ComparisonTable() {
-  const [plans, setPlans] = useState<BackendPlan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [plans, setPlans] = useState<BackendPlan[]>(DEFAULT_INITIAL_PLANS);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchPlans = async () => {
