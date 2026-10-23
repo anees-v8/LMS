@@ -84,7 +84,7 @@ export async function todaySchedule(
             EXISTS(
               SELECT 1 FROM attendance a
               WHERE a.batch_id = bs.batch_id
-                AND a.batch_schedule_id = bs.id
+                AND (a.batch_schedule_id = bs.id OR a.subject_id = bs.subject_id)
                 AND a.date = $4::date
             ) AS "isAttendanceMarked"
        FROM teacher_assignments ta

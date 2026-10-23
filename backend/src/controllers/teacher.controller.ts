@@ -36,9 +36,10 @@ export const myBatches = asyncHandler(async (req: Request, res: Response) =>
   res.json(await svc.myBatches(tenantId(req), userId(req)))
 );
 
-export const batchStudents = asyncHandler(async (req: Request, res: Response) =>
-  res.json(await svc.batchStudents(tenantId(req), Number(req.params.batchId), req.query.date as string | undefined))
-);
+export const batchStudents = asyncHandler(async (req: Request, res: Response) => {
+  const subjectId = req.query.subjectId ? Number(req.query.subjectId) : undefined;
+  res.json(await svc.batchStudents(tenantId(req), Number(req.params.batchId), req.query.date as string | undefined, subjectId));
+});
 
 export const markAttendance = asyncHandler(async (req: Request, res: Response) =>
   res.status(201).json(await svc.markAttendance(tenantId(req), userId(req), req.body))

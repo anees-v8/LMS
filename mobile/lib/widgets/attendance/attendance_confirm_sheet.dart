@@ -279,53 +279,61 @@ class _AttendanceConfirmSheetState extends State<AttendanceConfirmSheet> {
                 ],
               ),
             ] else ...[
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.pop(context, true),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: const BoxDecoration(
-                          color: AppColors.successLight,
-                          shape: BoxShape.circle,
+              SizedBox(
+                width: double.infinity,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.pop(context, true),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: const BoxDecoration(
+                            color: AppColors.successLight,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.check_rounded,
+                            color: AppColors.success,
+                            size: 34,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.check_rounded,
-                          color: AppColors.success,
-                          size: 32,
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Attendance Submitted',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryDark,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      const Text(
-                        'Attendance Submitted',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryDark,
+                        const SizedBox(height: 6),
+                        Text(
+                          'Saved for ${widget.dateLabel} · ${widget.batchName}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Saved for ${widget.dateLabel} · ${widget.batchName}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
+                        const SizedBox(height: 14),
+                        Text(
+                          'Tap to continue',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade400,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Tap to continue',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

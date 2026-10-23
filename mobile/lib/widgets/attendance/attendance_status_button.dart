@@ -8,6 +8,7 @@ class AttendanceStatusButton extends StatelessWidget {
   final Color color;
   final bool isSelected;
   final VoidCallback onTap;
+  final bool readOnly;
 
   const AttendanceStatusButton({
     super.key,
@@ -15,12 +16,13 @@ class AttendanceStatusButton extends StatelessWidget {
     required this.color,
     required this.isSelected,
     required this.onTap,
+    this.readOnly = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: readOnly ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: 36,
@@ -47,11 +49,13 @@ class AttendanceStatusButton extends StatelessWidget {
 class AttendanceStatusButtonRow extends StatelessWidget {
   final String? status;
   final ValueChanged<String> onChanged;
+  final bool readOnly;
 
   const AttendanceStatusButtonRow({
     super.key,
     required this.status,
     required this.onChanged,
+    this.readOnly = false,
   });
 
   @override
@@ -63,6 +67,7 @@ class AttendanceStatusButtonRow extends StatelessWidget {
           label: 'P',
           color: AppColors.success,
           isSelected: status == 'present',
+          readOnly: readOnly,
           onTap: () => onChanged('present'),
         ),
         const SizedBox(width: 8),
@@ -70,6 +75,7 @@ class AttendanceStatusButtonRow extends StatelessWidget {
           label: 'A',
           color: AppColors.error,
           isSelected: status == 'absent',
+          readOnly: readOnly,
           onTap: () => onChanged('absent'),
         ),
         const SizedBox(width: 8),
@@ -77,6 +83,7 @@ class AttendanceStatusButtonRow extends StatelessWidget {
           label: 'L',
           color: AppColors.warning,
           isSelected: status == 'late',
+          readOnly: readOnly,
           onTap: () => onChanged('late'),
         ),
       ],

@@ -58,6 +58,7 @@ class TeacherMarkAttendanceSelectBatchScreen extends ConsumerWidget {
                         batchId: c['batchId'],
                         batchName: c['batch'] ?? 'Batch',
                         subjectId: c['subjectId'],
+                        subjectName: c['subject'],
                         batchScheduleId: c['batchScheduleId'],
                       ),
                     ),

@@ -14,14 +14,18 @@ class TeacherAttendanceScreen extends ConsumerStatefulWidget {
   final int batchId;
   final String batchName;
   final int subjectId;
+  final String? subjectName;
   final int? batchScheduleId;
+  final bool isAlreadyMarked;
 
   const TeacherAttendanceScreen({
     super.key,
     required this.batchId,
     required this.batchName,
     required this.subjectId,
+    this.subjectName,
     this.batchScheduleId,
+    this.isAlreadyMarked = false,
   });
 
   @override
@@ -33,6 +37,7 @@ class _TeacherAttendanceScreenState
     extends ConsumerState<TeacherAttendanceScreen> {
   // Map of studentId -> 'present' | 'absent' | 'late'
   final Map<int, String> _attendanceState = {};
+  bool _isEditing = false;
 
   @override
   void initState() {
@@ -141,8 +146,10 @@ class _TeacherAttendanceScreenState
           subjectId: widget.subjectId,
         )),
       );
+      // Invalidate schedule provider immediately so Home and Schedule tabs reflect marked status
+      ref.invalidate(todayScheduleProvider);
       await Future.delayed(const Duration(milliseconds: 900));
-      if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context, true);
     }
   }
 
@@ -161,9 +168,20 @@ class _TeacherAttendanceScreenState
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(
-          'Attendance: ${widget.batchName}',
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Attendance: ${widget.batchName}',
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            if (widget.subjectName != null && widget.subjectName!.isNotEmpty)
+              Text(
+                'Subject: ${widget.subjectName}',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+          ],
         ),
         backgroundColor: AppColors.primaryDark,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -171,17 +189,27 @@ class _TeacherAttendanceScreenState
           IconButton(
             tooltip: 'QR Attendance',
             icon: const Icon(Icons.qr_code_rounded, color: Colors.white),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => TeacherQrAttendanceScreen(
-                  batchId: widget.batchId,
-                  batchName: widget.batchName,
-                  subjectId: widget.subjectId,
-                  batchScheduleId: widget.batchScheduleId,
-                ),
-              ),
-            ),
+            onPressed: () async {
+              final minutes = await showQrDurationDrawer(
+                context,
+                batchName: widget.batchName,
+              );
+              if (minutes != null && context.mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TeacherQrAttendanceScreen(
+                      batchId: widget.batchId,
+                      batchName: widget.batchName,
+                      subjectId: widget.subjectId,
+                      batchScheduleId: widget.batchScheduleId,
+                      initialMinutes: minutes,
+                      autoGenerate: true,
+                    ),
+                  ),
+                );
+              }
+            },
           ),
         ],
       ),
@@ -203,6 +231,12 @@ class _TeacherAttendanceScreenState
             if (status == 'absent') absent++;
             if (status == 'late') late++;
           }
+          final bool hasRecordedDbAttendance = students.isNotEmpty &&
+              students.any((s) =>
+                  s['status'] != null && s['status'].toString().isNotEmpty);
+          final bool isAlreadySubmitted =
+              widget.isAlreadyMarked || hasRecordedDbAttendance;
+          final bool isLocked = isAlreadySubmitted && !_isEditing;
           final hasAnyMarked = marked > 0;
 
           return Stack(
@@ -226,13 +260,90 @@ class _TeacherAttendanceScreenState
                                 fontSize: 16,
                               ),
                             ),
-                            TextButton(
-                              onPressed: () => _markAll('present', students),
-                              child: const Text(
-                                'Mark All Present',
-                                style: TextStyle(color: AppColors.success),
+                            if (isLocked)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.successLight,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle_rounded,
+                                          size: 14,
+                                          color: AppColors.success,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Submitted',
+                                          style: TextStyle(
+                                            color: AppColors.success,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton(
+                                    onPressed: () =>
+                                        setState(() => _isEditing = true),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: const Text(
+                                      'Edit',
+                                      style: TextStyle(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else if (_isEditing)
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _isEditing = false;
+                                    _attendanceState.clear();
+                                  });
+                                },
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              )
+                            else
+                              TextButton(
+                                onPressed: () => _markAll('present', students),
+                                child: const Text(
+                                  'Mark All Present',
+                                  style: TextStyle(color: AppColors.success),
+                                ),
                               ),
-                            ),
                           ],
                         ),
                         if (hasAnyMarked) ...[
@@ -262,7 +373,8 @@ class _TeacherAttendanceScreenState
                         padding: const EdgeInsets.only(bottom: 100),
                         physics: const AlwaysScrollableScrollPhysics(),
                         itemCount: students.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final student = students[index];
                           final sid = _studentId(student);
@@ -283,8 +395,11 @@ class _TeacherAttendanceScreenState
                             subtitle: Text('ID: $sid'),
                             trailing: AttendanceStatusButtonRow(
                               status: status,
-                              onChanged: (val) =>
-                                  setState(() => _attendanceState[sid] = val),
+                              readOnly: isLocked,
+                              onChanged: isLocked
+                                  ? (_) {}
+                                  : (val) => setState(
+                                      () => _attendanceState[sid] = val),
                             ),
                           );
                         },
@@ -294,7 +409,7 @@ class _TeacherAttendanceScreenState
                 ],
               ),
 
-              // Floating Done button — appears once at least one student is marked
+              // Floating Done button — appears once at least one student is marked and not locked
               Positioned(
                 left: 20,
                 right: 20,
@@ -304,7 +419,7 @@ class _TeacherAttendanceScreenState
                   child: AttendanceDoneFab(
                     markedCount: marked,
                     totalCount: students.length,
-                    visible: hasAnyMarked,
+                    visible: hasAnyMarked && !isLocked,
                     onTap: () => _openConfirmSheet(students),
                   ),
                 ),

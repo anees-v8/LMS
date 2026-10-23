@@ -360,7 +360,34 @@ class TeacherScheduleList extends ConsumerWidget {
                           ? AppColors.success
                           : null,
                       onPressed: isAttendanceMarked
-                          ? () {}
+                          ? () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle_rounded,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      SizedBox(width: 10),
+                                      Text(
+                                        'Attendance already marked for this class',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: AppColors.success,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
                           : () {
                               Navigator.push(
                                 context,
@@ -369,7 +396,9 @@ class TeacherScheduleList extends ConsumerWidget {
                                     batchId: batchId,
                                     batchName: batchName,
                                     subjectId: subjectId,
+                                    subjectName: subject,
                                     batchScheduleId: batchScheduleId,
+                                    isAlreadyMarked: false,
                                   ),
                                 ),
                               ).then((_) {
@@ -404,6 +433,7 @@ class TeacherScheduleList extends ConsumerWidget {
                               batchId: batchId,
                               batchName: batchName,
                               subjectId: subjectId,
+                              subjectName: subject,
                               batchScheduleId: batchScheduleId,
                             ),
                           ),
@@ -422,16 +452,20 @@ class TeacherScheduleList extends ConsumerWidget {
                       color: AppColors.success.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Row(
-                      children: const [
+                    child: const Row(
+                      children: [
                         Icon(Icons.check_circle_rounded, color: AppColors.success, size: 16),
                         SizedBox(width: 8),
-                        Text(
-                          'Attendance recorded for this class',
-                          style: TextStyle(
-                            color: AppColors.success,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Text(
+                            'Attendance recorded for this class',
+                            style: TextStyle(
+                              color: AppColors.success,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],

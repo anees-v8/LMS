@@ -74,13 +74,13 @@ export async function todaySchedule(
 ): Promise<{ day: number; count: number; classes: ScheduleClass[] }> {
   const dow = new Date().getDay();
   const { rows } = await query<ScheduleClass>(
-    `SELECT tt.id AS "timetableId", b.name AS batch, sub.name AS subject,
+    `SELECT tt.id AS "timetableId", b.name AS batch, sub.name AS subject, tt.subject_id AS "subjectId",
             tt.start_time AS "startTime", tt.end_time AS "endTime",
             tt.batch_id AS "batchId",
             EXISTS(
               SELECT 1 FROM attendance a 
               WHERE a.batch_id = tt.batch_id 
-                AND a.timetable_id = tt.id 
+                AND (a.timetable_id = tt.id OR a.subject_id = tt.subject_id) 
                 AND a.date = CURRENT_DATE
             ) AS "isAttendanceMarked"
        FROM timetable tt
@@ -122,7 +122,7 @@ export interface BatchStudent {
   rollNo: string | null;
 }
 
-export async function batchStudents(tenantId: number, batchId: number, date?: string): Promise<any[]> {
+export async function batchStudents(tenantId: number, batchId: number, date?: string, subjectId?: number): Promise<any[]> {
   const b = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
   if (!b.rowCount) throw ApiError.notFound('BATCH_NOT_FOUND');
   
@@ -132,10 +132,13 @@ export async function batchStudents(tenantId: number, batchId: number, date?: st
          FROM batch_enrollments be
          JOIN students s ON s.id = be.student_id
          JOIN users u ON u.id = s.user_id
-         LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $3 AND a.batch_id = $2
+         LEFT JOIN attendance a ON a.student_id = s.id 
+                                AND a.date = $3 
+                                AND a.batch_id = $2
+                                AND ($4::int IS NULL OR a.subject_id = $4)
         WHERE be.tenant_id=$1 AND be.batch_id=$2
         ORDER BY u.full_name`,
-      [tenantId, batchId, date]
+      [tenantId, batchId, date, subjectId ?? null]
     );
     return rows;
   } else {
@@ -161,6 +164,8 @@ export interface AttendanceRecord {
 
 export interface MarkAttendanceInput {
   batchId: number;
+  subjectId?: number;
+  batchScheduleId?: number;
   timetableId?: number;
   date: string;
   records: AttendanceRecord[];
@@ -179,7 +184,7 @@ export interface AbsentReminder {
 export async function markAttendance(
   tenantId: number,
   teacherId: number,
-  { batchId, timetableId, date, records }: MarkAttendanceInput
+  { batchId, subjectId, batchScheduleId, timetableId, date, records }: MarkAttendanceInput
 ): Promise<{ saved: number; absentReminders: AbsentReminder[] }> {
   const b = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
   if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH');
@@ -194,14 +199,40 @@ export async function markAttendance(
   const absentReminders: AbsentReminder[] = [];
 
   await withTransaction(async (client) => {
+    let resolvedSubjectId = subjectId;
+    if (!resolvedSubjectId && timetableId) {
+      const ttRow = await client.query<{ subject_id: number }>(`SELECT subject_id FROM timetable WHERE id=$1`, [timetableId]);
+      resolvedSubjectId = ttRow.rows[0]?.subject_id;
+    }
+    if (!resolvedSubjectId && batchScheduleId) {
+      const bsRow = await client.query<{ subject_id: number }>(`SELECT subject_id FROM batch_schedule WHERE id=$1`, [batchScheduleId]);
+      resolvedSubjectId = bsRow.rows[0]?.subject_id;
+    }
+    if (!resolvedSubjectId) {
+      const bRow = await client.query<{ subject_ids: number[] }>(`SELECT subject_ids FROM batches WHERE id=$1`, [batchId]);
+      if (bRow.rows[0]?.subject_ids?.length === 1) {
+        resolvedSubjectId = bRow.rows[0].subject_ids[0];
+      }
+    }
+
     for (const r of records) {
-      await client.query(
-        `INSERT INTO attendance (tenant_id, timetable_id, batch_id, student_id, date, status, marked_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)
-         ON CONFLICT (student_id, date, batch_id)
-         DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, timetable_id = EXCLUDED.timetable_id`,
-        [tenantId, timetableId || null, batchId, r.studentId, date, r.status, teacherId]
-      );
+      if (resolvedSubjectId) {
+        await client.query(
+          `INSERT INTO attendance (tenant_id, batch_schedule_id, batch_id, subject_id, student_id, date, status, marked_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+           ON CONFLICT (student_id, date, batch_id, subject_id)
+           DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, batch_schedule_id = EXCLUDED.batch_schedule_id`,
+          [tenantId, batchScheduleId || timetableId || null, batchId, resolvedSubjectId, r.studentId, date, r.status, teacherId]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO attendance (tenant_id, batch_schedule_id, batch_id, student_id, date, status, marked_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)
+           ON CONFLICT (student_id, date, batch_id)
+           DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, batch_schedule_id = EXCLUDED.batch_schedule_id`,
+          [tenantId, batchScheduleId || timetableId || null, batchId, r.studentId, date, r.status, teacherId]
+        );
+      }
 
       if (r.status === 'absent') {
         const s = await client.query<{ name: string; phone: string }>(
