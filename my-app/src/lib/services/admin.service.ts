@@ -1539,6 +1539,18 @@ export async function setBatchSchedule(
       }
     }
 
+    // Historical attendance records stay intact (their date, batch, subject, student, status, marked_by are preserved);
+    // detach batch_schedule_id pointer before replacing the recurring schedule template so FK constraints are never violated.
+    await client.query(
+      `UPDATE attendance SET batch_schedule_id = NULL
+        WHERE batch_schedule_id IN (SELECT id FROM batch_schedule WHERE tenant_id=$1 AND batch_id=$2)`,
+      [tenantId, batchId]
+    );
+    await client.query(
+      `UPDATE attendance_sessions SET batch_schedule_id = NULL
+        WHERE batch_schedule_id IN (SELECT id FROM batch_schedule WHERE tenant_id=$1 AND batch_id=$2)`,
+      [tenantId, batchId]
+    );
     await client.query(`DELETE FROM batch_schedule WHERE tenant_id=$1 AND batch_id=$2`, [tenantId, batchId]);
     for (const e of entries) {
       await client.query(
