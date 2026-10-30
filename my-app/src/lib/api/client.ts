@@ -2,7 +2,12 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import Cookies from 'js-cookie';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== 'undefined'
+    ? '/api'
+    : process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}/api`
+    : 'http://localhost:3000/api');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
