@@ -17,7 +17,7 @@ export const refreshSchema = z
 
 export const updateAvatarSchema = z
   .object({
-    avatarUrl: z.string().url(),
+    avatarUrl: z.string().url().nullable(),
   })
   .strict();
 

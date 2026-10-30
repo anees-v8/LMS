@@ -47,12 +47,12 @@ export default function HeroSection() {
               <Button
                 variant="secondary"
                 size="lg"
+                icon={<Layers className="w-4 h-4 text-chalk-teal" />}
                 onClick={() => {
                   const el = document.getElementById("workflows");
                   el?.scrollIntoView({ behavior: "smooth" });
                 }}
               >
-                <Layers className="w-4 h-4 text-chalk-teal" />
                 Explore Platform
               </Button>
             </div>
@@ -106,10 +106,10 @@ export default function HeroSection() {
             {/* Dashboard Image */}
             <div className="relative z-10 w-full flex items-center justify-center max-w-[500px] lg:max-w-none mx-auto lg:scale-[1.05] lg:-translate-x-1">
               <Image
-                src="/home.png"
+                src="/home-new.png"
                 alt="Campus Dashboard Preview"
-                width={1200}
-                height={800}
+                width={1024}
+                height={593}
                 className="w-full h-auto object-contain drop-shadow-2xl rounded-lg"
                 priority
               />

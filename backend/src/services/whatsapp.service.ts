@@ -120,7 +120,7 @@ export async function sendPaymentReceipt({
   feeType,
   studentName,
   instituteName,
-  receiptPath = 'student/fees',
+  receiptPath = 'receipt',
 }: {
   parentPhone: string;
   amount: number | string;

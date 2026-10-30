@@ -10,7 +10,14 @@ import { cn } from "@/utils/cn";
 const planIcons = [Building2, Star, Building2];
 
 // Utility to format raw backend feature keys into readable text
-const formatFeatureName = (key: string) => {
+const formatFeatureName = (key: string, plan?: BackendPlan) => {
+  if (key === "teacher_accounts") {
+    const limit = plan?.flatTeacherLimit;
+    if (limit === 1) return "1 Dedicated Teacher Login";
+    if (limit) return `Up to ${limit} Dedicated Teacher Logins`;
+    return "Dedicated Teacher Mobile Logins";
+  }
+
   const customMappings: Record<string, string> = {
     student_management: "Student Roster & Profiles",
     batch_management: "Batch & Timetable Scheduling",
@@ -43,6 +50,7 @@ interface BackendPlan {
   priceMonthly: number;
   priceQuarterly: number;
   priceYearly: number;
+  flatTeacherLimit?: number;
   features: string[];
 }
 
@@ -73,12 +81,14 @@ const DEFAULT_INITIAL_PLANS: BackendPlan[] = [
     priceMonthly: 19,
     priceQuarterly: 16,
     priceYearly: 13,
+    flatTeacherLimit: 1,
     features: [
       "student_management",
       "batch_management",
       "digital_attendance",
       "fee_management",
       "online_tests",
+      "teacher_accounts",
       "doubt_solving",
     ],
   },
@@ -89,6 +99,7 @@ const DEFAULT_INITIAL_PLANS: BackendPlan[] = [
     priceMonthly: 29,
     priceQuarterly: 24,
     priceYearly: 19,
+    flatTeacherLimit: 5,
     features: [
       "student_management",
       "batch_management",
@@ -111,6 +122,7 @@ const DEFAULT_INITIAL_PLANS: BackendPlan[] = [
     priceMonthly: 49,
     priceQuarterly: 42,
     priceYearly: 35,
+    flatTeacherLimit: 15,
     features: [
       "student_management",
       "batch_management",
@@ -129,15 +141,19 @@ const DEFAULT_INITIAL_PLANS: BackendPlan[] = [
   },
 ];
 
-export default function PricingTable() {
+export default function PricingTable({ initialPlans }: { initialPlans?: BackendPlan[] } = {}) {
   const [cycle, setCycle] = useState<Cycle>("monthly");
-  const [backendPlans, setBackendPlans] = useState<BackendPlan[]>(DEFAULT_INITIAL_PLANS);
+  const [backendPlans, setBackendPlans] = useState<BackendPlan[]>(
+    initialPlans && initialPlans.length > 0 ? initialPlans : DEFAULT_INITIAL_PLANS
+  );
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        setLoading(true);
+        if (backendPlans.length === 0) {
+          setLoading(true);
+        }
         // Same-origin: the marketing site and API are the same Next.js
         // deployment now, so no base URL/host/port is needed.
         const res = await fetch("/api/public/plans");
@@ -332,6 +348,27 @@ export default function PricingTable() {
                           {`Billed ${cycle}`}
                         </p>
 
+                        {/* Teacher Accounts Badge Callout */}
+                        {plan.flatTeacherLimit !== undefined && (
+                          <div className="mt-2.5">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold font-body",
+                                isPopular
+                                  ? "bg-white/10 text-brass-gold border border-brass-gold/30"
+                                  : "bg-chalk-teal/10 text-chalk-teal border border-chalk-teal/20"
+                              )}
+                            >
+                              <Building2 className="w-3.5 h-3.5 shrink-0" />
+                              <span>
+                                {plan.flatTeacherLimit === 1
+                                  ? "1 Teacher Account"
+                                  : `Up to ${plan.flatTeacherLimit} Teacher Accounts`}
+                              </span>
+                            </span>
+                          </div>
+                        )}
+
                         {/* Exclusive Elite Yearly Perk Callout */}
                         {plan.name === "Elite" && cycle === "yearly" && (
                           <div className="mt-3 px-3 py-1.5 rounded-xl bg-brass-gold/10 border border-brass-gold/25 flex items-center gap-2 text-xs font-semibold text-brass-gold font-body">
@@ -360,7 +397,7 @@ export default function PricingTable() {
                                   )}
                                 />
                                 <span className="text-sm font-body leading-tight font-semibold text-ink-green">
-                                  {formatFeatureName(feature)}
+                                  {formatFeatureName(feature, plan)}
                                 </span>
                               </li>
                             );
@@ -384,7 +421,7 @@ export default function PricingTable() {
                                     : "text-ink-green/70"
                                 )}
                               >
-                                {formatFeatureName(feature)}
+                                {formatFeatureName(feature, plan)}
                               </span>
                             </li>
                           );

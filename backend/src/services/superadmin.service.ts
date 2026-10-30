@@ -3,6 +3,7 @@ import { query, withTransaction } from '../config/db.js';
 import env from '../config/env.js';
 import ApiError from '../utils/ApiError.js';
 import { writeAudit } from '../utils/audit.js';
+import logger from '../utils/logger.js';
 
 export interface RegisterTenantInput {
   name: string;
@@ -386,22 +387,29 @@ export async function getTenantDashboard(tenantId: number, month?: number, year?
     ORDER BY day_series.day ASC
   `, isCurrentMonth ? [tenantId] : [tenantId, endDateStr]);
 
-  const scheduleRes = await query(`
-    SELECT 
-      t.id, 
-      t.start_time as "startTime", 
-      t.end_time as "endTime", 
-      b.name as "batchName", 
-      s.name as "subjectName", 
-      u.full_name as "teacherName"
-    FROM timetable t
-    JOIN batches b ON b.id = t.batch_id
-    LEFT JOIN subjects s ON s.id = t.subject_id
-    JOIN users u ON u.id = t.teacher_id
-    WHERE t.tenant_id = $1 AND t.day_of_week = EXTRACT(DOW FROM CURRENT_DATE)
-    ORDER BY t.start_time ASC
-    LIMIT 5
-  `, [tenantId]);
+  let upcomingSchedule: any[] = [];
+  try {
+    const scheduleRes = await query(`
+      SELECT 
+        bs.id, 
+        bs.start_time as "startTime", 
+        bs.end_time as "endTime", 
+        b.name as "batchName", 
+        s.name as "subjectName", 
+        COALESCE(u.full_name, 'Educator') as "teacherName"
+      FROM batch_schedule bs
+      JOIN batches b ON b.id = bs.batch_id
+      LEFT JOIN subjects s ON s.id = bs.subject_id
+      LEFT JOIN teacher_assignments ta ON ta.batch_id = bs.batch_id AND ta.subject_id = bs.subject_id AND ta.tenant_id = bs.tenant_id
+      LEFT JOIN users u ON u.id = ta.teacher_user_id
+      WHERE bs.tenant_id = $1 AND bs.day_of_week = EXTRACT(DOW FROM CURRENT_DATE)
+      ORDER BY bs.start_time ASC
+      LIMIT 5
+    `, [tenantId]);
+    upcomingSchedule = scheduleRes.rows;
+  } catch (err) {
+    logger.error('Failed to get dashboard upcomingSchedule:', { error: err instanceof Error ? err.message : String(err) });
+  }
 
   return {
     overview: {
@@ -416,6 +424,6 @@ export async function getTenantDashboard(tenantId: number, month?: number, year?
     },
     studentChart: chartRes.rows,
     feesChart: { collected: stats.feesCollectedThisMonth, pending: feesPending },
-    upcomingSchedule: scheduleRes.rows
+    upcomingSchedule: upcomingSchedule
   };
 }

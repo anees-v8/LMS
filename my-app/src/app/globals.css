@@ -6,6 +6,8 @@
 
 /* ===== CSS CUSTOM PROPERTIES ===== */
 :root {
+  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --ink-green: #1F2E27;
   --paper: #F4F6F3;
   --brass-gold: #A87D26;
@@ -115,21 +117,71 @@
 
 /* ===== PRINT STYLES ===== */
 @media print {
-  body {
-    background: #ffffff !important;
+  @page {
+    size: A4 portrait;
+    margin: 0 !important;
   }
-  header, nav, footer, .no-print, [role="banner"], [role="navigation"] {
+}
+@media print {
+  body, html {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Force single-page print and prevent unwanted page spill */
+  .page-single,
+  .print-single-page {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    max-height: 290mm !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+  }
+
+  /* Hide navigation, sidebars, headers, action buttons, modals, notifications */
+  aside,
+  header,
+  nav,
+  footer,
+  .no-print,
+  [data-no-print="true"],
+  [role="banner"],
+  [role="navigation"],
+  .print\:hidden,
+  .modal-backdrop,
+  .fixed.inset-0 {
     display: none !important;
   }
+
+  /* Reset dashboard layout wrapper padding */
+  .lg\:pl-64,
+  [class*="lg:pl-64"] {
+    padding-left: 0 !important;
+  }
+
   main {
     padding: 0 !important;
     margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
   }
+
+  /* Keep backgrounds and colors sharp on print / PDF */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   .receipt-container {
     padding: 0 !important;
     margin: 0 !important;
     max-width: 100% !important;
   }
+
   .receipt-card {
     border: none !important;
     box-shadow: none !important;
@@ -137,4 +189,3 @@
     margin: 0 !important;
   }
 }
-

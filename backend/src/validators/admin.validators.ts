@@ -21,6 +21,7 @@ export const createStudentSchema = z
     parentPhone: phone,
     grade: z.string().trim().max(30).optional(),
     rollNo: z.string().trim().max(30).optional(),
+    courseFee: z.coerce.number().int().nonnegative().optional(),
     // Required: a student must be enrolled in a batch at creation time.
     batchId: z.coerce.number().int().positive(),
   })
@@ -62,6 +63,7 @@ export const createTimetableSchema = z
 export const createFeeStructureSchema = z
   .object({
     batchId: z.coerce.number().int().positive().optional(),
+    studentId: z.coerce.number().int().positive().optional(),
     title: z.string().trim().min(1).max(100),
     amount: z.coerce.number().int().min(0),
     dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -89,5 +91,6 @@ export const broadcastNotificationSchema = z
     targetRole: z.enum(['student', 'teacher']).default('student'),
     // Omit to broadcast to everyone (of targetRole) in the institute; set to target one batch.
     batchId: z.coerce.number().int().positive().optional(),
+    studentId: z.coerce.number().int().positive().optional(),
   })
   .strict();

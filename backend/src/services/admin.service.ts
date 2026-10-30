@@ -271,7 +271,9 @@ export async function listStudents(tenantId: number, batchId: number | null): Pr
              s.parent_name AS "parentName", 
              s.parent_phone AS "parentPhone", 
              u.phone,
+             u.is_active AS "isActive",
              b.name AS "batchName",
+             b.id AS "batchId",
              (COALESCE(sd.total_due, 0) - COALESCE(sf.total_paid, 0)) AS "pendingFees",
              CASE 
                WHEN sa.total_days > 0 THEN ROUND((sa.present_days::numeric / sa.total_days::numeric) * 100)
@@ -306,6 +308,7 @@ export interface CreateStudentInput {
   grade?: string;
   rollNo?: string;
   batchId: number;
+  courseFee?: number;
 }
 
 export async function createStudent(tenantId: number, actorUserId: number, input: CreateStudentInput) {
@@ -325,12 +328,22 @@ export async function createStudent(tenantId: number, actorUserId: number, input
       )
     ).rows[0];
 
+    // Auto-generate roll number if not provided
+    let finalRollNo = rollNo?.trim() || null;
+    if (!finalRollNo) {
+      const tRes = await client.query<{ name: string }>(`SELECT name FROM tenants WHERE id=$1`, [tenantId]);
+      const initial = (tRes.rows[0]?.name?.[0] || 'S').toUpperCase();
+      const countRes = await client.query<{ count: string }>(`SELECT count(*)::int as count FROM students WHERE tenant_id=$1`, [tenantId]);
+      const nextNum = Number(countRes.rows[0]?.count || 0) + 1;
+      finalRollNo = `${initial}-${tenantId}${nextNum.toString().padStart(2, '0')}`;
+    }
+
     const student = (
       await client.query<{ id: number; rollNo: string | null; parentPhone: string; grade: string | null }>(
         `INSERT INTO students (tenant_id, user_id, roll_no, parent_name, parent_phone, grade)
        VALUES ($1,$2,$3,$4,$5,$6)
        RETURNING id, roll_no AS "rollNo", parent_phone AS "parentPhone", grade`,
-        [tenantId, user.id, rollNo || null, parentName || null, parentPhone, grade || null]
+        [tenantId, user.id, finalRollNo, parentName || null, parentPhone, grade || null]
       )
     ).rows[0];
 
@@ -338,6 +351,29 @@ export async function createStudent(tenantId: number, actorUserId: number, input
       `INSERT INTO batch_enrollments (tenant_id, batch_id, student_id) VALUES ($1,$2,$3)`,
       [tenantId, batchId, student.id]
     );
+
+    // Assign agreed course fee or auto-inherit batch standard fee
+    if (input.courseFee !== undefined && Number(input.courseFee) > 0) {
+      await client.query(
+        `INSERT INTO fee_dues (tenant_id, student_id, batch_id, title, amount, due_date, period_index)
+         VALUES ($1, $2, $3, $4, $5, CURRENT_DATE + interval '30 days', 1)
+         ON CONFLICT (student_id, batch_id, period_index) DO UPDATE SET amount = EXCLUDED.amount`,
+        [tenantId, student.id, batchId, 'Course Fee', Number(input.courseFee)]
+      );
+    } else {
+      const bf = await client.query<{ title: string; amount: number; due_date: any }>(
+        `SELECT title, amount, due_date FROM fee_dues WHERE tenant_id = $1 AND batch_id = $2 AND amount > 0 ORDER BY id ASC LIMIT 1`,
+        [tenantId, batchId]
+      );
+      if (bf.rowCount && bf.rows[0].amount > 0) {
+        await client.query(
+          `INSERT INTO fee_dues (tenant_id, student_id, batch_id, title, amount, due_date, period_index)
+           VALUES ($1, $2, $3, $4, $5, COALESCE($6, CURRENT_DATE + interval '30 days'), 1)
+           ON CONFLICT (student_id, batch_id, period_index) DO NOTHING`,
+          [tenantId, student.id, batchId, bf.rows[0].title, bf.rows[0].amount, bf.rows[0].due_date]
+        );
+      }
+    }
 
     await writeAudit(
       {
@@ -711,7 +747,7 @@ export interface SubjectItem {
 
 export async function listSubjects(tenantId: number): Promise<SubjectItem[]> {
   const { rows } = await query<SubjectItem>(
-    `SELECT id, name, total_chapters AS "totalChapters" FROM subjects WHERE tenant_id=$1 ORDER BY name`,
+    `SELECT id, name, 0 AS "totalChapters" FROM subjects WHERE tenant_id=$1 AND is_active = true ORDER BY name`,
     [tenantId]
   );
   return rows;
@@ -774,19 +810,20 @@ export async function listTimetable(
   let where = '';
   if (day !== undefined && day !== null && day !== '') {
     params.push(Number(day));
-    where = `AND tt.day_of_week = $2`;
+    where = `AND bs.day_of_week = $2`;
   }
   const { rows } = await query<TimetableItem>(
-    `SELECT tt.id, tt.day_of_week AS "dayOfWeek", tt.start_time AS "startTime",
-            tt.end_time AS "endTime",
-            b.name AS batch, sub.name AS subject, u.full_name AS teacher,
-            tt.batch_id AS "batchId", tt.teacher_id AS "teacherId", tt.subject_id AS "subjectId"
-       FROM timetable tt
-       JOIN batches b ON b.id = tt.batch_id
-       LEFT JOIN subjects sub ON sub.id = tt.subject_id
-       JOIN users u ON u.id = tt.teacher_id
-      WHERE tt.tenant_id = $1 ${where}
-      ORDER BY tt.day_of_week, tt.start_time`,
+    `SELECT bs.id, bs.day_of_week AS "dayOfWeek", bs.start_time AS "startTime",
+            bs.end_time AS "endTime",
+            b.name AS batch, sub.name AS subject, COALESCE(u.full_name, 'Unassigned') AS teacher,
+            bs.batch_id AS "batchId", COALESCE(ta.teacher_user_id, 0) AS "teacherId", bs.subject_id AS "subjectId"
+       FROM batch_schedule bs
+       JOIN batches b ON b.id = bs.batch_id
+       LEFT JOIN subjects sub ON sub.id = bs.subject_id
+       LEFT JOIN teacher_assignments ta ON ta.batch_id = bs.batch_id AND ta.subject_id = bs.subject_id AND ta.tenant_id = bs.tenant_id
+       LEFT JOIN users u ON u.id = ta.teacher_user_id
+      WHERE bs.tenant_id = $1 ${where}
+      ORDER BY bs.day_of_week, bs.start_time`,
     params
   );
   return rows;
@@ -816,13 +853,22 @@ export async function createTimetableEntry(tenantId: number, input: CreateTimeta
   if (subjectId != null && !checks.rows[0].subject_ok) throw ApiError.badRequest('INVALID_SUBJECT');
 
   const { rows } = await query(
-    `INSERT INTO timetable (tenant_id, batch_id, subject_id, teacher_id, day_of_week, start_time, end_time)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
-     RETURNING id, batch_id AS "batchId", teacher_id AS "teacherId", day_of_week AS "dayOfWeek",
+    `INSERT INTO batch_schedule (tenant_id, batch_id, subject_id, day_of_week, start_time, end_time)
+     VALUES ($1,$2,$3,$4,$5,$6)
+     RETURNING id, batch_id AS "batchId", day_of_week AS "dayOfWeek",
                start_time AS "startTime", end_time AS "endTime"`,
-    [tenantId, batchId, subjectId || null, teacherId, dayOfWeek, startTime, endTime]
+    [tenantId, batchId, subjectId || null, dayOfWeek, startTime, endTime]
   );
   const entry = rows[0];
+
+  if (subjectId && teacherId) {
+    await query(
+      `INSERT INTO teacher_assignments (tenant_id, teacher_user_id, batch_id, subject_id)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (teacher_user_id, batch_id, subject_id) DO NOTHING`,
+      [tenantId, teacherId, batchId, subjectId]
+    );
+  }
 
   const { rows: batchRow } = await query<{ name: string }>(`SELECT name FROM batches WHERE id = $1`, [batchId]);
   notificationCenter
@@ -836,7 +882,7 @@ export async function createTimetableEntry(tenantId: number, input: CreateTimeta
     })
     .catch((err) => logger.error('Timetable-update notify failed', { error: err instanceof Error ? err.message : String(err) }));
 
-  return entry;
+  return { ...entry, teacherId, subjectId };
 }
 
 /* ─────────────── Fees ─────────────── */
@@ -949,6 +995,7 @@ export async function getFeeAnalytics(tenantId: number) {
 
 export interface CreateFeeStructureInput {
   batchId?: number;
+  studentId?: number;
   title: string;
   amount: number;
   dueDate?: string;
@@ -957,8 +1004,33 @@ export interface CreateFeeStructureInput {
 export async function createFeeStructure(
   tenantId: number,
   actorUserId: number,
-  { batchId, title, amount, dueDate }: CreateFeeStructureInput
+  { batchId, studentId, title, amount, dueDate }: CreateFeeStructureInput
 ) {
+  if (studentId) {
+    let targetBatchId = batchId;
+    if (!targetBatchId) {
+      const be = await query<{ batch_id: number }>(
+        `SELECT batch_id FROM batch_enrollments WHERE student_id=$1 AND tenant_id=$2 LIMIT 1`,
+        [studentId, tenantId]
+      );
+      targetBatchId = be.rows[0]?.batch_id;
+    }
+    if (!targetBatchId) {
+      const bFirst = await query<{ id: number }>(`SELECT id FROM batches WHERE tenant_id=$1 LIMIT 1`, [tenantId]);
+      targetBatchId = bFirst.rows[0]?.id;
+    }
+    if (targetBatchId) {
+      await query(
+        `INSERT INTO fee_dues (tenant_id, student_id, batch_id, title, amount, due_date, period_index)
+         VALUES ($1, $2, $3, $4, $5, COALESCE($6::date, CURRENT_DATE + interval '30 days'), 1)
+         ON CONFLICT (student_id, batch_id, period_index) 
+         DO UPDATE SET amount = EXCLUDED.amount, title = EXCLUDED.title, due_date = EXCLUDED.due_date`,
+        [tenantId, studentId, targetBatchId, title || 'Course Fee', amount, dueDate || null]
+      );
+    }
+    return { title, amount, batchId: targetBatchId, studentId, dueDate };
+  }
+
   if (batchId) {
     const b = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
     if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH');
@@ -970,7 +1042,8 @@ export async function createFeeStructure(
       await query(
         `INSERT INTO fee_dues (tenant_id, student_id, batch_id, title, amount, due_date, period_index)
          VALUES ($1, $2, $3, $4, $5, COALESCE($6, CURRENT_DATE), 1)
-         ON CONFLICT (student_id, batch_id, period_index) DO NOTHING`,
+         ON CONFLICT (student_id, batch_id, period_index) 
+         DO UPDATE SET amount = EXCLUDED.amount, title = EXCLUDED.title`,
         [tenantId, s.student_id, batchId, title, amount, dueDate || null]
       );
     }
@@ -1069,7 +1142,7 @@ export async function recordPayment(
                   feeType: 'Tuition Fee',
                   studentName: studentInfo.fullName,
                   instituteName: studentInfo.instituteName,
-                  receiptPath: 'student/fees',
+                  receiptPath: `receipt/${receiptNo}`,
                 }).catch((err) =>
                   logger.error('Fee receipt WhatsApp failed', {
                     error: err instanceof Error ? err.message : String(err),

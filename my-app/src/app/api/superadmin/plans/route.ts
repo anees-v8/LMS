@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import * as svc from '@/lib/services/plan.service';
 import { requireAuth } from '@/lib/middleware/auth';
 import { validateBody } from '@/lib/middleware/validate';
@@ -22,6 +23,12 @@ export async function POST(req: NextRequest) {
     const user = requireAuth(req, 'super_admin');
     const body = validateBody(createPlanSchema, await req.json());
     const result = await svc.createPlan(body, user.userId);
+    try {
+      revalidatePath('/api/public/plans');
+      revalidatePath('/pricing');
+    } catch {
+      // Best-effort cache invalidation
+    }
     return NextResponse.json(result, { status: 201 });
   } catch (err) {
     return handleApiError(err);

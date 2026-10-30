@@ -1,23 +1,10 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Inter } from "next/font/google";
-import Topbar from "@/components/layout/Topbar";
-import Navbar from "@/components/layout/Navbar";
-import Footer from "@/components/layout/Footer";
+
+import SiteShell from "@/components/layout/SiteShell";
+
+
 import "./globals.css";
 
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-display",
-  display: "swap",
-  weight: ["500", "600", "700", "800"],
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-body",
-  display: "swap",
-  weight: ["400", "500", "600", "700"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.campusweb.co.in"),
@@ -82,12 +69,17 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icon.png?v=3", sizes: "64x64", type: "image/png" },
-      { url: "/favicon.ico?v=3" },
+      { url: "/icon-brand.png?v=99", sizes: "512x512", type: "image/png" },
+      { url: "/favicon-brand.png?v=99", sizes: "192x192", type: "image/png" },
+      { url: "/favicon-brand.ico?v=99", sizes: "48x48" },
+      { url: "/favicon.ico", sizes: "any" },
     ],
-    shortcut: "/icon.png?v=3",
-    apple: "/icon.png?v=3",
+    shortcut: "/icon-brand.png?v=99",
+    apple: [
+      { url: "/icon-brand.png?v=99", sizes: "180x180", type: "image/png" },
+    ],
   },
+  manifest: "/site.webmanifest",
   verification: {
     google: "google8cb08c077cfae0a6",
   },
@@ -255,16 +247,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${plusJakarta.variable} ${inter.variable}`} suppressHydrationWarning>
+    <html lang="en" className="font-body" suppressHydrationWarning>
+      <head>
+        <link rel="icon" type="image/png" sizes="512x512" href="/icon-brand.png?v=99" />
+        <link rel="shortcut icon" href="/icon-brand.png?v=99" />
+        <link rel="apple-touch-icon" href="/icon-brand.png?v=99" />
+      </head>
       <body className="min-h-screen flex flex-col" suppressHydrationWarning>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        <Topbar />
-        <Navbar />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <SiteShell>{children}</SiteShell>
+
+
+
       </body>
     </html>
   );

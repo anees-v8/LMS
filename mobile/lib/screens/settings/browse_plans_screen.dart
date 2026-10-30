@@ -18,6 +18,8 @@ const Map<String, String> _featureLabels = {
   'performance_reports': 'Performance Reports',
   'online_tests': 'Online Tests',
   'doubt_solving': 'Doubt Solving',
+  'teacher_accounts': 'Dedicated Teacher Logins',
+  'website_request': 'Institute Public Web Page',
 };
 
 class BrowsePlansScreen extends ConsumerStatefulWidget {

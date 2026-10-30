@@ -8,6 +8,7 @@ import { cn } from "@/utils/cn";
 interface BackendPlan {
   id: number;
   name: string;
+  flatTeacherLimit?: number;
   features: string[];
 }
 
@@ -33,10 +34,22 @@ const FEATURE_ROWS: { key: string; label: string }[] = [
 function CellValue({
   included,
   isWebsite,
+  teacherLimit,
 }: {
   included: boolean;
   isWebsite?: boolean;
+  teacherLimit?: number;
 }) {
+  if (teacherLimit !== undefined && teacherLimit > 0) {
+    return (
+      <div className="flex justify-center">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-chalk-teal/10 border border-chalk-teal/25 text-chalk-teal text-xs font-bold font-body">
+          {teacherLimit === 1 ? "1 Teacher" : `Up to ${teacherLimit} Teachers`}
+        </span>
+      </div>
+    );
+  }
+
   if (included) {
     if (isWebsite) {
       return (
@@ -65,18 +78,21 @@ const DEFAULT_INITIAL_PLANS: BackendPlan[] = [
   {
     id: 1,
     name: "Basic",
+    flatTeacherLimit: 1,
     features: [
       "student_management",
       "batch_management",
       "digital_attendance",
       "fee_management",
       "online_tests",
+      "teacher_accounts",
       "doubt_solving",
     ],
   },
   {
     id: 2,
     name: "Pro",
+    flatTeacherLimit: 5,
     features: [
       "student_management",
       "batch_management",
@@ -95,6 +111,7 @@ const DEFAULT_INITIAL_PLANS: BackendPlan[] = [
   {
     id: 3,
     name: "Elite",
+    flatTeacherLimit: 15,
     features: [
       "student_management",
       "batch_management",
@@ -113,14 +130,18 @@ const DEFAULT_INITIAL_PLANS: BackendPlan[] = [
   },
 ];
 
-export default function ComparisonTable() {
-  const [plans, setPlans] = useState<BackendPlan[]>(DEFAULT_INITIAL_PLANS);
+export default function ComparisonTable({ initialPlans }: { initialPlans?: BackendPlan[] } = {}) {
+  const [plans, setPlans] = useState<BackendPlan[]>(
+    initialPlans && initialPlans.length > 0 ? initialPlans : DEFAULT_INITIAL_PLANS
+  );
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        setLoading(true);
+        if (plans.length === 0) {
+          setLoading(true);
+        }
         const res = await fetch("/api/public/plans");
         if (res.ok) {
           const data = await res.json();
@@ -224,6 +245,11 @@ export default function ComparisonTable() {
                         <CellValue
                           included={plan.features.includes(row.key)}
                           isWebsite={row.key === "website_request"}
+                          teacherLimit={
+                            row.key === "teacher_accounts"
+                              ? (plan.flatTeacherLimit ?? (plan.name.toLowerCase() === "elite" ? 15 : plan.name.toLowerCase() === "pro" ? 5 : 1))
+                              : undefined
+                          }
                         />
                       </div>
                     ))}

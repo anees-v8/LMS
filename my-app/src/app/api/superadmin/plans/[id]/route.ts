@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import * as svc from '@/lib/services/plan.service';
 import { requireAuth } from '@/lib/middleware/auth';
 import { validateBody } from '@/lib/middleware/validate';
@@ -25,6 +26,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = validateBody(idParamSchema, await params);
     const body = validateBody(updatePlanSchema, await req.json());
     const result = await svc.updatePlan(id, body, user.userId);
+    try {
+      revalidatePath('/api/public/plans');
+      revalidatePath('/pricing');
+    } catch {
+      // Best-effort cache invalidation
+    }
     return NextResponse.json(result);
   } catch (err) {
     return handleApiError(err);
@@ -37,6 +44,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const user = requireAuth(req, 'super_admin');
     const { id } = validateBody(idParamSchema, await params);
     const result = await svc.deactivatePlan(id, user.userId);
+    try {
+      revalidatePath('/api/public/plans');
+      revalidatePath('/pricing');
+    } catch {
+      // Best-effort cache invalidation
+    }
     return NextResponse.json(result);
   } catch (err) {
     return handleApiError(err);
