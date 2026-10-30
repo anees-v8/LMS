@@ -33,7 +33,7 @@ export default function CTABanner({
             <div className="flex items-start sm:items-center gap-5">
               {/* Logo */}
               <div className="hidden sm:flex w-16 h-16 rounded-2xl bg-white items-center justify-center flex-shrink-0 overflow-hidden shadow-lg">
-                <Image src="/main-logo.png" alt="Campus Logo" width={48} height={48} className="object-contain" />
+                <Image src="/brand-logo.png" alt="Campus Logo" width={48} height={48} className="object-contain" />
               </div>
               <div>
                 <h3 className="text-2xl sm:text-3xl lg:text-4xl font-display font-extrabold text-white tracking-tight leading-tight mb-3">

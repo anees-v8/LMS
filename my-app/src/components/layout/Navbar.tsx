@@ -23,7 +23,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2" onClick={closeMobileMenu}>
             <div className="w-10 h-10 lg:w-12 lg:h-12 flex items-center justify-center shrink-0">
-              <Image src="/main-logo.png" alt="Campus Logo" width={48} height={48} className="object-contain" priority />
+              <Image src="/brand-logo.png" alt="Campus Logo" width={48} height={48} className="object-contain" priority />
             </div>
             <div className="flex flex-col">
               <span className="text-lg lg:text-xl font-display font-bold text-ink-green leading-tight">
