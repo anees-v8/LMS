@@ -31,6 +31,7 @@ export function proxy(request: NextRequest) {
       pathname === '/reports' || pathname.startsWith('/reports/') ||
       pathname === '/settings' || pathname.startsWith('/settings/') ||
       pathname === '/subscription' || pathname.startsWith('/subscription/') ||
+      pathname === '/forgot-password' || pathname.startsWith('/forgot-password/') ||
       pathname === '/login' || pathname.startsWith('/login/') ||
       pathname === '/student' || pathname.startsWith('/student/') ||
       pathname.startsWith('/receipt/');

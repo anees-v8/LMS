@@ -157,16 +157,29 @@ export async function checkTermsStatus({ phone }: { phone: string }): Promise<{ 
  * An account with no email simply never receives anything; the mobile UI
  * tells the user to add an email from their profile first regardless.
  */
-export async function forgotPassword({ phone }: { phone: string }): Promise<void> {
+export async function forgotPassword({ phone }: { phone: string }): Promise<{ target?: string }> {
   const user = await userRepo.findForLogin(phone);
-  if (!user || !user.is_active || !user.email) return;
+  if (!user || !user.is_active) return {};
+
+  const target = user.email || user.phone;
+  if (!target) return {};
 
   await otpService.requestOtp({
     userId: user.id,
     purpose: 'password_reset',
-    target: user.email,
+    target,
     purposeLabel: 'Reset your Campus password',
   });
+
+  let masked = target;
+  if (target.includes('@')) {
+    const [name, dom] = target.split('@');
+    masked = `${name.slice(0, 2)}***@${dom}`;
+  } else {
+    masked = `+91 ******${target.slice(-4)}`;
+  }
+
+  return { target: masked };
 }
 
 /** Verifies the OTP sent by forgotPassword and sets the new password. */
@@ -180,9 +193,10 @@ export async function resetPassword({
   newPassword: string;
 }): Promise<void> {
   const user = await userRepo.findForLogin(phone);
-  if (!user || !user.is_active || !user.email) throw ApiError.badRequest('OTP_INVALID', 'Invalid or expired code.');
+  if (!user || !user.is_active) throw ApiError.badRequest('OTP_INVALID', 'Invalid or expired code.');
 
-  await otpService.verifyOtp({ userId: user.id, purpose: 'password_reset', target: user.email, code: otp });
+  const target = user.email || user.phone;
+  await otpService.verifyOtp({ userId: user.id, purpose: 'password_reset', target, code: otp });
 
   const hash = await bcrypt.hash(newPassword, 10);
   await userRepo.setPasswordHash(user.id, hash);

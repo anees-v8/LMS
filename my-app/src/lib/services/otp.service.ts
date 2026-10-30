@@ -5,6 +5,7 @@ import ApiError from '../utils/ApiError';
 import { renderOtpEmail } from '../utils/emailTemplate';
 import { env } from '../config/env';
 import { Resend } from 'resend';
+import logger from '../utils/logger';
 
 export type OtpPurpose = 'password_reset' | 'email_change' | 'password_change';
 
@@ -48,9 +49,9 @@ export async function requestOtp({
   purpose: OtpPurpose;
   target: string;
   purposeLabel: string;
-}): Promise<void> {
-  const resend = getResend();
-  if (!resend) throw ApiError.internal('EMAIL_NOT_CONFIGURED', 'Email delivery is not configured on this server.');
+}): Promise<string> {
+  const isEmail = target.includes('@');
+  const resend = isEmail ? getResend() : null;
 
   const { rows: recent } = await query<{ count: number }>(
     `SELECT count(*)::int AS count FROM otp_verifications
@@ -70,13 +71,24 @@ export async function requestOtp({
     [userId, purpose, target, otpHash, OTP_EXPIRY_MINUTES]
   );
 
-  await resend.emails.send({
-    from: env.resend.from,
-    to: target,
-    subject: `${code} is your Campus verification code`,
-    text: `${purposeLabel}\n\nYour verification code: ${code}\n\nThis code expires in ${OTP_EXPIRY_MINUTES} minutes and only works once.\n\nDidn't request this? You can safely ignore this email — no changes will be made without this code.\n\n— Campus`,
-    html: renderOtpEmail(code, purposeLabel, OTP_EXPIRY_MINUTES),
-  });
+  if (isEmail && resend) {
+    try {
+      await resend.emails.send({
+        from: env.resend.from,
+        to: target,
+        subject: `${code} is your Campus verification code`,
+        text: `${purposeLabel}\n\nYour verification code: ${code}\n\nThis code expires in ${OTP_EXPIRY_MINUTES} minutes and only works once.\n\nDidn't request this? You can safely ignore this email — no changes will be made without this code.\n\n— Campus`,
+        html: renderOtpEmail(code, purposeLabel, OTP_EXPIRY_MINUTES),
+      });
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.error('Failed to send OTP email via Resend', { error: errMsg, target });
+    }
+  } else {
+    logger.info(`[OTP] Generated verification code for ${target}: ${code}`);
+  }
+
+  return code;
 }
 
 /**

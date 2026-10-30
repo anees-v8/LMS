@@ -223,14 +223,12 @@ export default function LoginPage() {
                   </button>
                 </div>
                 <div className="flex justify-end pt-2">
-                  <a
-                    href="https://wa.me/919999999999?text=Hello%20CampusWeb%20Support,%20I%20need%20help%20logging%20in"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    href="/forgot-password"
                     className="text-xs text-brass-gold hover:text-brass-gold/80 font-medium hover:underline transition-colors"
                   >
                     Forgot password?
-                  </a>
+                  </Link>
                 </div>
               </div>
 
