@@ -43,8 +43,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // 2. Fetch enrolled students with attendance rate
     const { rows: studentRows } = await query(
-      `SELECT s.id, s.full_name AS "fullName", s.roll_no AS "rollNo", s.phone, s.parent_phone AS "parentPhone",
-              s.email, s.gender, s.created_at AS "createdAt",
+      `SELECT s.id, u.full_name AS "fullName", s.roll_no AS "rollNo", u.phone, s.parent_phone AS "parentPhone",
+              u.email, s.grade, u.created_at AS "createdAt",
               COALESCE(
                 (SELECT ROUND(COUNT(CASE WHEN status='present' THEN 1 END)::numeric / NULLIF(COUNT(*), 0) * 100)
                    FROM attendance a WHERE a.student_id = s.id AND a.tenant_id = $2),
@@ -52,8 +52,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
               )::int AS "attendanceRate"
          FROM batch_enrollments be
          JOIN students s ON s.id = be.student_id
-        WHERE be.batch_id = $1 AND s.tenant_id = $2 AND s.is_active = true
-        ORDER BY s.roll_no ASC NULLS LAST, s.full_name ASC`,
+         JOIN users u ON u.id = s.user_id
+        WHERE be.batch_id = $1 AND s.tenant_id = $2 AND u.is_active = true
+        ORDER BY s.roll_no ASC NULLS LAST, u.full_name ASC`,
       [batchId, tenantId]
     );
 

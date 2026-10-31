@@ -258,6 +258,7 @@ export interface StudentItem {
   parentName: string | null;
   parentPhone: string | null;
   phone: string;
+  batchId: number | null;
   batchName: string | null;
   isActive: boolean;
   pendingFees: number;
@@ -303,6 +304,7 @@ export async function listStudents(tenantId: number, batchId: number | null): Pr
              s.parent_name AS "parentName",
              s.parent_phone AS "parentPhone",
              u.phone,
+             b.id AS "batchId",
              b.name AS "batchName",
              u.is_active AS "isActive",
              GREATEST(0, COALESCE(sd.total_due, 0) - COALESCE(sf.total_paid, 0)) AS "pendingFees",
@@ -325,6 +327,7 @@ export async function listStudents(tenantId: number, batchId: number | null): Pr
 
   return rows.map(r => ({
     ...r,
+    batchId: r.batchId ? Number(r.batchId) : null,
     pendingFees: Number(r.pendingFees) || 0,
     attendance: Number(r.attendance) || 0
   }));

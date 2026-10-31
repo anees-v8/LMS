@@ -604,8 +604,8 @@ export default function AttendancePage() {
                               b.attendanceRate >= 75
                                 ? "bg-chalk-teal"
                                 : b.attendanceRate >= 50
-                                ? "bg-brass-gold"
-                                : "bg-red-ink"
+                                  ? "bg-brass-gold"
+                                  : "bg-red-ink"
                             )}
                             style={{ width: `${b.attendanceRate}%` }}
                           />

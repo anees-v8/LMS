@@ -81,24 +81,25 @@ export async function GET(req: NextRequest) {
         markedByName: string | null;
       }>(
         `SELECT s.id AS "studentId",
-                s.full_name AS "fullName",
+                stu_user.full_name AS "fullName",
                 s.roll_no AS "rollNo",
-                s.phone,
+                stu_user.phone AS "phone",
                 s.parent_phone AS "parentPhone",
                 a.status,
-                u.full_name AS "markedByName"
+                marker.full_name AS "markedByName"
            FROM batch_enrollments be
            JOIN students s ON s.id = be.student_id
+           JOIN users stu_user ON stu_user.id = s.user_id
            LEFT JOIN attendance a
                   ON a.student_id = s.id
                  AND a.batch_id = be.batch_id
                  AND a.date = $3::date
                  AND a.tenant_id = $2
-           LEFT JOIN users u ON u.id = a.marked_by
+           LEFT JOIN users marker ON marker.id = a.marked_by
           WHERE be.batch_id = $1
             AND s.tenant_id = $2
-            AND s.is_active = true
-          ORDER BY s.roll_no ASC NULLS LAST, s.full_name ASC`,
+            AND stu_user.is_active = true
+          ORDER BY s.roll_no ASC NULLS LAST, stu_user.full_name ASC`,
         [batchId, tenantId, date]
       );
 
@@ -169,7 +170,7 @@ export async function GET(req: NextRequest) {
       `SELECT b.id AS "batchId",
               b.name AS "batchName",
               b.grade,
-              (SELECT count(*)::int FROM batch_enrollments be JOIN students st ON st.id = be.student_id WHERE be.batch_id = b.id AND st.is_active = true) AS "totalStudents",
+              (SELECT count(*)::int FROM batch_enrollments be JOIN students st ON st.id = be.student_id JOIN users u ON u.id = st.user_id WHERE be.batch_id = b.id AND u.is_active = true) AS "totalStudents",
               count(CASE WHEN a.status = 'present' THEN 1 END)::int AS "presentCount",
               count(CASE WHEN a.status = 'absent' THEN 1 END)::int AS "absentCount",
               count(CASE WHEN a.status = 'late' THEN 1 END)::int AS "lateCount",
@@ -212,20 +213,21 @@ export async function GET(req: NextRequest) {
       phone: string | null;
     }>(
       `SELECT s.id AS "studentId",
-              s.full_name AS "fullName",
+              stu_user.full_name AS "fullName",
               s.roll_no AS "rollNo",
               b.id AS "batchId",
               b.name AS "batchName",
               s.parent_phone AS "parentPhone",
-              s.phone
+              stu_user.phone AS "phone"
          FROM attendance a
          JOIN students s ON s.id = a.student_id
+         JOIN users stu_user ON stu_user.id = s.user_id
          JOIN batches b ON b.id = a.batch_id
         WHERE a.tenant_id = $1
           AND a.date = $2::date
           AND a.status = 'absent'
-          AND s.is_active = true
-        ORDER BY b.name ASC, s.roll_no ASC NULLS LAST, s.full_name ASC`,
+          AND stu_user.is_active = true
+        ORDER BY b.name ASC, s.roll_no ASC NULLS LAST, stu_user.full_name ASC`,
       [tenantId, date]
     );
 
@@ -250,7 +252,7 @@ export async function GET(req: NextRequest) {
     // C. Attendance Defaulters (<75% attendance overall)
     const { rows: defaulterRows } = await query<DefaulterStudent>(
       `SELECT s.id AS "studentId",
-              s.full_name AS "fullName",
+              stu_user.full_name AS "fullName",
               s.roll_no AS "rollNo",
               COALESCE(b.name, 'Unassigned') AS "batchName",
               s.parent_phone AS "parentPhone",
@@ -258,12 +260,13 @@ export async function GET(req: NextRequest) {
               count(CASE WHEN a.status = 'present' THEN 1 END)::int AS "attendedClasses",
               ROUND(count(CASE WHEN a.status = 'present' THEN 1 END)::numeric / NULLIF(count(a.id), 0) * 100)::int AS "attendanceRate"
          FROM students s
+         JOIN users stu_user ON stu_user.id = s.user_id
          LEFT JOIN batch_enrollments be ON be.student_id = s.id
          LEFT JOIN batches b ON b.id = be.batch_id
          JOIN attendance a ON a.student_id = s.id AND a.tenant_id = s.tenant_id
         WHERE s.tenant_id = $1
-          AND s.is_active = true
-        GROUP BY s.id, s.full_name, s.roll_no, b.name, s.parent_phone
+          AND stu_user.is_active = true
+        GROUP BY s.id, stu_user.full_name, s.roll_no, b.name, s.parent_phone
        HAVING count(a.id) >= 5 AND (ROUND(count(CASE WHEN a.status = 'present' THEN 1 END)::numeric / NULLIF(count(a.id), 0) * 100)) < 75
         ORDER BY "attendanceRate" ASC
         LIMIT 20`,
@@ -325,6 +328,15 @@ export async function POST(req: NextRequest) {
       );
       if (bRows[0]?.subject_ids?.[0]) {
         subjectId = bRows[0].subject_ids[0];
+      }
+    }
+    if (!subjectId) {
+      const { rows: subRows } = await query<{ id: number }>(
+        `SELECT id FROM subjects WHERE tenant_id = $1 ORDER BY id ASC LIMIT 1`,
+        [tenantId]
+      );
+      if (subRows[0]?.id) {
+        subjectId = subRows[0].id;
       }
     }
 

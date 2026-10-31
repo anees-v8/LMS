@@ -45,6 +45,37 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
     return '$y-$m-$d';
   }
 
+  bool _isToday(DateTime dt) {
+    final now = DateTime.now();
+    return dt.year == now.year && dt.month == now.month && dt.day == now.day;
+  }
+
+  bool _isFutureDate(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(dt.year, dt.month, dt.day);
+    return target.isAfter(today);
+  }
+
+  String _formatDateDisplay(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(dt.year, dt.month, dt.day);
+    final diff = target.difference(today).inDays;
+
+    final months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final dateFormatted = '${dt.day} ${months[dt.month]} ${dt.year}';
+
+    if (diff == 0) return 'Today, $dateFormatted';
+    if (diff == -1) return 'Yesterday, $dateFormatted';
+    if (diff == 1) return 'Tomorrow, $dateFormatted';
+
+    final weekdays = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return '${weekdays[dt.weekday]}, $dateFormatted';
+  }
+
   Future<void> _loadAttendance() async {
     setState(() {
       _isLoading = true;
@@ -159,13 +190,13 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Green Header matching Teachers / Batches Screen
+            // Clean Green Header with full width for title and subtitle
             Padding(
               padding: EdgeInsets.only(
                 left: hPadding,
                 right: hPadding,
                 top: 8.0,
-                bottom: 16.0,
+                bottom: 14.0,
               ),
               child: Row(
                 children: [
@@ -175,12 +206,12 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
+                  const SizedBox(width: 8),
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Attendance Desk',
                           style: TextStyle(
                             fontFamily: 'Playfair Display',
@@ -189,44 +220,16 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2),
                         Text(
                           'Institute-wide monitoring & WhatsApp alerts',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
+                            color: Colors.white70,
                             fontSize: 12,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
-                    ),
-                  ),
-
-                  // Date Picker Pill
-                  InkWell(
-                    onTap: _selectDate,
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.calendar_today, color: Colors.white, size: 14),
-                          const SizedBox(width: 6),
-                          Text(
-                            _formatDate(_selectedDate),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
                 ],
@@ -243,40 +246,47 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     topRight: Radius.circular(24),
                   ),
                 ),
-                child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(color: Color(0xFF2E6656)),
-                      )
-                    : _error != null
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24.0),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.error_outline, color: Colors.red, size: 40),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    _error!,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(fontSize: 14, color: Colors.black87),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  ElevatedButton(
-                                    onPressed: _loadAttendance,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF1F2E27),
+                child: Column(
+                  children: [
+                    // Sleek Date Navigation Bar
+                    _buildDateNavBar(hPadding),
+
+                    // Content Area: Loading, Error, or Data
+                    Expanded(
+                      child: _isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(color: Color(0xFF2E6656)),
+                            )
+                          : _error != null
+                              ? Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(24.0),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          _error!,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        ElevatedButton(
+                                          onPressed: _loadAttendance,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF1F2E27),
+                                          ),
+                                          child: const Text('Try Again', style: TextStyle(color: Colors.white)),
+                                        ),
+                                      ],
                                     ),
-                                    child: const Text('Try Again', style: TextStyle(color: Colors.white)),
                                   ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : Column(
-                            children: [
-                              // Top Summary Card
-                              _buildTopSummaryCard(hPadding),
+                                )
+                              : Column(
+                                  children: [
+                                    // Top Summary Card
+                                    _buildTopSummaryCard(hPadding),
 
                               // Tab Bar
                               Container(
@@ -371,6 +381,157 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  
+  Widget _buildDateNavBar(double hPadding) {
+    final isToday = _isToday(_selectedDate);
+    final isFuture = _isFutureDate(_selectedDate);
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(hPadding, 12, hPadding, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Previous Day Button
+          InkWell(
+            onTap: () {
+              setState(() {
+                _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+              });
+              _loadAttendance();
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4F6F3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.chevron_left, size: 20, color: Color(0xFF1F2E27)),
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Center Date Pill (clickable for DatePicker)
+          Expanded(
+            child: InkWell(
+              onTap: _selectDate,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF2E6656)),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        _formatDateDisplay(_selectedDate),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1F2E27),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Jump to Today button if not today
+          if (!isToday) ...[
+            InkWell(
+              onTap: () {
+                setState(() {
+                  _selectedDate = DateTime.now();
+                });
+                _loadAttendance();
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E6656).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Today',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2E6656),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
+
+          // Next Day Button
+          InkWell(
+            onTap: isFuture
+                ? null
+                : () {
+                    setState(() {
+                      _selectedDate = _selectedDate.add(const Duration(days: 1));
+                    });
+                    _loadAttendance();
+                  },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4F6F3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: isFuture ? Colors.grey.shade400 : const Color(0xFF1F2E27),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 4),
+
+          // Refresh Button
+          InkWell(
+            onTap: _isLoading ? null : _loadAttendance,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4F6F3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.refresh, size: 18, color: Color(0xFF2E6656)),
+            ),
+          ),
+        ],
       ),
     );
   }
