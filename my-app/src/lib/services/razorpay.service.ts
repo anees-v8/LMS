@@ -240,7 +240,11 @@ export async function verifyPayment(
       .createHmac('sha256', env.razorpay.secret)
       .update(`${orderId}|${paymentId}`)
       .digest('hex');
-    if (expected !== signature) {
+    const expectedBuf = Buffer.from(expected, 'utf8');
+    const signatureBuf = Buffer.from(signature ?? '', 'utf8');
+    const signatureValid =
+      expectedBuf.length === signatureBuf.length && crypto.timingSafeEqual(expectedBuf, signatureBuf);
+    if (!signatureValid) {
       throw ApiError.badRequest('INVALID_SIGNATURE', 'Payment signature verification failed');
     }
   } else if (!String(orderId).startsWith('order_mock_')) {
@@ -346,27 +350,49 @@ export async function createFeeOrder(tenantId: number, studentId: number, amount
   };
 }
 
+/**
+ * Verifies a student's fee payment and returns the amount to credit —
+ * ALWAYS derived from Razorpay's own captured-payment record, never from
+ * whatever the client claims. Razorpay's signature is HMAC(orderId|paymentId)
+ * only — it proves the order/payment pair is genuine, but says nothing
+ * about the amount, so a client could otherwise pay ₹1 for a real order
+ * and then assert any amountPaid it likes at verify-time. Fetching the
+ * payment from Razorpay and reading ITS amount closes that gap.
+ */
 export async function verifyFeePayment(
   tenantId: number,
   studentId: number,
   { orderId, paymentId, signature }: VerifyPaymentInput,
-  amountPaid: number,
   feeStructureId?: number
-) {
+): Promise<{ success: true; paymentId: string; amountPaid: number; feeStructureId?: number }> {
   const keys = await getTenantRazorpayKeys(tenantId);
-  
+
   if (orderId.startsWith('order_fee_mock_') || keys.key_id === 'rzp_test_mock') {
-    return { success: true, paymentId, amountPaid, feeStructureId };
+    // Mock/dev path has no real Razorpay order to fetch an amount from —
+    // callers on this path must already know the amount isn't verifiable
+    // server-side (dev-only, env.razorpay disabled).
+    return { success: true, paymentId, amountPaid: 0, feeStructureId };
   }
 
   const expected = crypto
     .createHmac('sha256', keys.secret)
     .update(`${orderId}|${paymentId}`)
     .digest('hex');
-    
-  if (expected !== signature) {
+
+  const expectedBuf = Buffer.from(expected, 'utf8');
+  const signatureBuf = Buffer.from(signature ?? '', 'utf8');
+  const signatureValid =
+    expectedBuf.length === signatureBuf.length && crypto.timingSafeEqual(expectedBuf, signatureBuf);
+  if (!signatureValid) {
     throw ApiError.badRequest('INVALID_SIGNATURE', 'Payment signature verification failed');
   }
+
+  const rzp = new Razorpay({ key_id: keys.key_id, key_secret: keys.secret });
+  const payment = await rzp.payments.fetch(paymentId);
+  if (payment.order_id !== orderId || payment.status !== 'captured') {
+    throw ApiError.badRequest('PAYMENT_NOT_CAPTURED', 'This payment was not captured for the given order.');
+  }
+  const amountPaid = Math.round(Number(payment.amount) / 100);
 
   return { success: true, paymentId, amountPaid, feeStructureId };
 }
@@ -421,16 +447,27 @@ export async function processWebhookEvent(event: any): Promise<{ handled: boolea
       return { handled: false, reason: 'NO_TENANT_ID' };
     }
 
-    // Check idempotency: If this order/payment was already recorded
-    const { rows: existingAudit } = await query(
-      `SELECT id FROM audit_log
-        WHERE tenant_id = $1
-          AND action IN ('payment_verified', 'fee_payment_recorded')
-          AND (meta->>'orderId' = $2 OR meta->>'paymentId' = $3)`,
-      [tenantId, orderId, paymentId]
-    );
+    // Idempotency key — payment_id when present (payment.captured always has
+    // one), else order_id (order.paid may fire without a payment entity).
+    const idempotencyKey = paymentId || orderId;
+    if (!idempotencyKey) {
+      return { handled: false, reason: 'NO_IDEMPOTENCY_KEY' };
+    }
 
-    if (existingAudit.length > 0) {
+    // Atomically claim this payment before doing any crediting work. A plain
+    // SELECT-then-INSERT here would race: two near-simultaneous deliveries
+    // of the same webhook (Razorpay retries on timeout/non-2xx, and can fire
+    // order.paid + payment.captured close together) could both pass a
+    // SELECT check before either commits. INSERT ... ON CONFLICT DO NOTHING
+    // is atomic — only the first of two concurrent claims gets a row back.
+    const claim = await query(
+      `INSERT INTO razorpay_webhook_events (payment_id, order_id, tenant_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (payment_id) DO NOTHING
+       RETURNING payment_id`,
+      [idempotencyKey, orderId ?? null, tenantId]
+    );
+    if (!claim.rowCount) {
       logger.info(`Razorpay webhook: Order ${orderId} / Payment ${paymentId} already processed (idempotent).`);
       return { handled: true, reason: 'ALREADY_PROCESSED' };
     }

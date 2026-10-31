@@ -18,14 +18,20 @@ export interface PublicReceiptData {
 }
 
 /**
- * Publicly fetches receipt data by receipt number or payment ID.
- * Designed for one-click access from WhatsApp notifications without login.
+ * Publicly fetches receipt data by receipt number ONLY (never by raw
+ * fee_payments.id). receipt_no is a high-entropy token
+ * (RCPT-<tenantId>-<date>-<random4>, see generateReceiptNo); fp.id is a
+ * platform-wide sequential integer, so matching on it here would let
+ * anyone enumerate /receipt/1, /receipt/2, ... and read every tenant's
+ * student PII with no auth — this endpoint is intentionally unauthenticated
+ * for one-click WhatsApp access, so receipt_no being unguessable is the
+ * ONLY thing standing between a stranger and this data. Every payment row
+ * has carried a receipt_no since recordPayment() started generating one
+ * (confirmed zero NULL receipt_no rows in production as of this fix).
  */
 export async function getPublicReceipt(receiptIdentifier: string): Promise<PublicReceiptData | null> {
   const cleanId = decodeURIComponent(receiptIdentifier).trim();
   if (!cleanId) return null;
-
-  const isNumeric = /^\d+$/.test(cleanId);
 
   const { rows } = await query<PublicReceiptData>(
     `SELECT fp.id,
@@ -50,10 +56,8 @@ export async function getPublicReceipt(receiptIdentifier: string): Promise<Publi
        LEFT JOIN batch_enrollments be ON be.student_id = s.id
        LEFT JOIN batches b ON b.id = be.batch_id
       WHERE fp.receipt_no = $1
-         OR ($2::boolean AND fp.id = $3::int)
-      ORDER BY fp.paid_on DESC
       LIMIT 1`,
-    [cleanId, isNumeric, isNumeric ? parseInt(cleanId, 10) : 0]
+    [cleanId]
   );
 
   return rows[0] || null;

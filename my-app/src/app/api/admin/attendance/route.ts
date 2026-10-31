@@ -4,6 +4,8 @@ import { handleApiError } from '@/lib/utils/apiResponse';
 import { query, withTransaction } from '@/lib/db';
 import ApiError from '@/lib/utils/ApiError';
 import { istDateString } from '@/lib/utils/istDate';
+import { validateBody } from '@/lib/middleware/validate';
+import { adminAttendanceCorrectionSchema } from '@/lib/validators/admin.validators';
 
 export interface AbsenteeItem {
   studentId: number;
@@ -313,14 +315,11 @@ export async function POST(req: NextRequest) {
   try {
     const user = requireAuth(req, 'coaching_admin');
     const tenantId = requireTenantId(user);
-    const body = await req.json();
+    const body = validateBody(adminAttendanceCorrectionSchema, await req.json());
 
     const { batchId, date, records } = body;
-    if (!batchId || !date || !Array.isArray(records)) {
-      throw ApiError.badRequest('INVALID_PAYLOAD', 'batchId, date, and records array are required');
-    }
 
-    let subjectId = body.subjectId ? Number(body.subjectId) : null;
+    let subjectId = body.subjectId ?? null;
     if (!subjectId) {
       const { rows: bRows } = await query<{ subject_ids: number[] }>(
         `SELECT subject_ids FROM batches WHERE id = $1 AND tenant_id = $2`,

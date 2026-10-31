@@ -13,8 +13,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const { orderId, paymentId, signature, feeDueId } = body;
-    const amount = Number(body.amount);
-    if (!amount || isNaN(amount) || amount <= 0) {
+
+    const studentId = await svc.getStudentId(tenantId, user.userId);
+
+    // Verify signature AND fetch the real captured amount from Razorpay —
+    // never trust a client-supplied amount here (see verifyFeePayment's
+    // doc comment: the HMAC signature alone doesn't cover the amount).
+    const verified = await rzpSvc.verifyFeePayment(
+      tenantId,
+      studentId,
+      { orderId, paymentId, signature }
+    );
+    const amount = verified.amountPaid;
+    if (!amount || amount <= 0) {
       throw ApiError.badRequest('INVALID_AMOUNT', 'Invalid fee amount');
     }
 
@@ -25,16 +36,6 @@ export async function POST(req: NextRequest) {
         `Payment amount (₹${amount}) cannot exceed the pending fee balance of ₹${feeInfo.pending}.`
       );
     }
-
-    const studentId = await svc.getStudentId(tenantId, user.userId);
-
-    // Verify signature with tenant's Razorpay credentials
-    await rzpSvc.verifyFeePayment(
-      tenantId,
-      studentId,
-      { orderId, paymentId, signature },
-      amount
-    );
 
     // Record payment in fee_payments & triggers email receipt
     const result = await adminSvc.recordPayment(tenantId, user.userId, {

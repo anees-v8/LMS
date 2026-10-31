@@ -183,9 +183,10 @@ export interface BatchStudent {
   rollNo: string | null;
 }
 
-export async function batchStudents(tenantId: number, batchId: number, date?: string, subjectId?: number): Promise<any[]> {
+export async function batchStudents(tenantId: number, teacherId: number, batchId: number, date?: string, subjectId?: number): Promise<any[]> {
   const b = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
   if (!b.rowCount) throw ApiError.notFound('BATCH_NOT_FOUND');
+  await ensureTeacherAssignedToBatch(tenantId, teacherId, batchId);
 
   if (date) {
     // subjectId narrows to one subject's attendance row for that date —
@@ -461,6 +462,18 @@ async function ensureTeacherAssignedToBatchSubject(
   if (!rowCount) throw ApiError.forbidden('NOT_ASSIGNED', 'You are not assigned to teach this subject in this batch.');
 }
 
+/** Batch-level (not subject-specific) assignment check — true if this
+ *  teacher teaches ANY subject in this batch. Used by read endpoints like
+ *  the roster view that aren't scoped to one subject, unlike
+ *  ensureTeacherAssignedToBatchSubject above. */
+async function ensureTeacherAssignedToBatch(tenantId: number, teacherId: number, batchId: number): Promise<void> {
+  const { rowCount } = await query(
+    `SELECT 1 FROM teacher_assignments WHERE tenant_id=$1 AND teacher_user_id=$2 AND batch_id=$3`,
+    [tenantId, teacherId, batchId]
+  );
+  if (!rowCount) throw ApiError.forbidden('NOT_ASSIGNED', 'You are not assigned to this batch.');
+}
+
 export async function listChapters(
   tenantId: number,
   teacherId: number,
@@ -637,12 +650,18 @@ export async function createContent(
     const b = await query(`SELECT 1 FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
     if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH');
   }
-  const ch = await query(
-    `SELECT 1 FROM batch_subject_chapters bsc, jsonb_array_elements(bsc.chapters) e
+  const ch = await query<{ batchId: number; subjectId: number }>(
+    `SELECT bsc.batch_id AS "batchId", bsc.subject_id AS "subjectId"
+       FROM batch_subject_chapters bsc, jsonb_array_elements(bsc.chapters) e
       WHERE bsc.tenant_id=$2 AND (e->>'id')::int = $1`,
     [chapterId, tenantId]
   );
   if (!ch.rowCount) throw ApiError.badRequest('INVALID_CHAPTER');
+  // A teacher may only attach content to a chapter they're actually
+  // assigned to teach — without this, any teacher in the tenant could
+  // post content to a batch/subject that isn't theirs, attributed to
+  // themselves, notifying that batch's students.
+  await ensureTeacherAssignedToBatchSubject(tenantId, teacherId, ch.rows[0].batchId, ch.rows[0].subjectId);
 
   // duration_seconds is the exact, source-of-truth value (used for mm:ss
   // display); duration_minutes is a floor()'d fallback for older/simpler
@@ -708,6 +727,11 @@ export async function createLiveClass(
 ) {
   const b = await query<{ name: string }>(`SELECT name FROM batches WHERE id=$1 AND tenant_id=$2`, [batchId, tenantId]);
   if (!b.rowCount) throw ApiError.badRequest('INVALID_BATCH');
+  // Without this, any teacher in the tenant could schedule a real Google
+  // Meet live class (and trigger a student notification) for a batch they
+  // don't teach — a live class has no subject, so this is a batch-level
+  // check, not the subject-specific ensureTeacherAssignedToBatchSubject.
+  await ensureTeacherAssignedToBatch(tenantId, teacherId, batchId);
 
   const { eventId, meetUrl } = await createMeetEvent(teacherId, { title, scheduledAt, durationMinutes });
 
@@ -813,10 +837,19 @@ export async function deleteLiveClass(
 /** Free wa.me link to reply to a student's doubt. */
 export async function doubtLink(
   tenantId: number,
-  _teacherId: number,
+  teacherId: number,
   studentId: number,
   text?: string
 ): Promise<{ waUrl: string }> {
+  const owns = await query(
+    `SELECT 1 FROM batch_enrollments be
+       JOIN teacher_assignments ta ON ta.batch_id = be.batch_id AND ta.tenant_id = be.tenant_id
+      WHERE be.student_id = $1 AND be.tenant_id = $2 AND ta.teacher_user_id = $3
+      LIMIT 1`,
+    [studentId, tenantId, teacherId]
+  );
+  if (!owns.rowCount) throw ApiError.forbidden('NOT_YOUR_STUDENT', 'This student is not in any of your batches');
+
   const { rows } = await query<{ name: string; phone: string; institute: string }>(
     `SELECT u.full_name AS name, u.phone, t.name AS institute
        FROM students s JOIN users u ON u.id=s.user_id JOIN tenants t ON t.id=s.tenant_id

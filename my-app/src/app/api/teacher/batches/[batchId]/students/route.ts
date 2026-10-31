@@ -12,7 +12,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ batc
     const { batchId } = validateBody(batchIdParamSchema, await params);
     const query = Object.fromEntries(req.nextUrl.searchParams);
     const { date, subjectId } = validateBody(batchStudentsQuerySchema, query);
-    const result = await svc.batchStudents(requireTenantId(user), batchId, date, subjectId);
+    const result = await svc.batchStudents(requireTenantId(user), user.userId, batchId, date, subjectId);
     return NextResponse.json(result);
   } catch (err) {
     return handleApiError(err);

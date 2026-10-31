@@ -3,7 +3,7 @@ import { query, withTransaction } from '../db';
 import env from '../config/env';
 import ApiError from '../utils/ApiError';
 import { writeAudit } from '../utils/audit';
-import { istDayOfWeek } from '../utils/istDate';
+import { istDayOfWeek, nowInIst } from '../utils/istDate';
 
 export interface RegisterTenantInput {
   name: string;
@@ -253,20 +253,26 @@ export interface PlatformAnalytics {
 }
 
 export async function analytics(month?: number, year?: number): Promise<PlatformAnalytics> {
-  const targetDate = new Date();
-  if (year) targetDate.setFullYear(year);
-  if (month) targetDate.setMonth(month - 1); // month is 1-indexed
+  // IST, not server-UTC — see istDate.ts. nowInIst() returns a Date whose
+  // UTC getters read back the IST wall-clock value, so every getter below
+  // is deliberately getUTC*, and every `new Date(...)` reconstruction uses
+  // Date.UTC(...) so the two stay in the same (IST-shifted) time base —
+  // mixing local-timezone `new Date(y,m,d)` back in here would silently
+  // reintroduce the UTC-vs-IST boundary bug this fix is for.
+  const targetDate = nowInIst();
+  if (year) targetDate.setUTCFullYear(year);
+  if (month) targetDate.setUTCMonth(month - 1); // month is 1-indexed
 
-  const startStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-01`;
-  const endDate = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0); // Last day of month
-  const endStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+  const startStr = `${targetDate.getUTCFullYear()}-${String(targetDate.getUTCMonth() + 1).padStart(2, '0')}-01`;
+  const endDate = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth() + 1, 0)); // Last day of month
+  const endStr = `${endDate.getUTCFullYear()}-${String(endDate.getUTCMonth() + 1).padStart(2, '0')}-${String(endDate.getUTCDate()).padStart(2, '0')}`;
 
-  const lastMonthStart = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1);
-  const lastMonthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth(), 0);
-  const lastMonthStartStr = `${lastMonthStart.getFullYear()}-${String(lastMonthStart.getMonth() + 1).padStart(2, '0')}-01`;
-  const lastMonthEndStr = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(lastMonthEnd.getDate()).padStart(2, '0')} 23:59:59`;
+  const lastMonthStart = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth() - 1, 1));
+  const lastMonthEnd = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), 0));
+  const lastMonthStartStr = `${lastMonthStart.getUTCFullYear()}-${String(lastMonthStart.getUTCMonth() + 1).padStart(2, '0')}-01`;
+  const lastMonthEndStr = `${lastMonthEnd.getUTCFullYear()}-${String(lastMonthEnd.getUTCMonth() + 1).padStart(2, '0')}-${String(lastMonthEnd.getUTCDate()).padStart(2, '0')} 23:59:59`;
 
-  const endStrFull = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')} 23:59:59`;
+  const endStrFull = `${endDate.getUTCFullYear()}-${String(endDate.getUTCMonth() + 1).padStart(2, '0')}-${String(endDate.getUTCDate()).padStart(2, '0')} 23:59:59`;
 
   const { rows } = await query<Omit<PlatformAnalytics, 'graphData'>>(`
     SELECT
@@ -339,9 +345,10 @@ export interface TenantDashboardResponse {
 }
 
 export async function getTenantDashboard(tenantId: number, month?: number, year?: number): Promise<TenantDashboardResponse> {
-  const d = new Date();
-  const targetYear = year || d.getFullYear();
-  const targetMonth = month || (d.getMonth() + 1); // 1-12
+  // IST, not server-UTC — see istDate.ts / analytics()'s comment above.
+  const d = nowInIst();
+  const targetYear = year || d.getUTCFullYear();
+  const targetMonth = month || (d.getUTCMonth() + 1); // 1-12
 
   const startDateStr = `${targetYear}-${targetMonth.toString().padStart(2, '0')}-01`;
   const nextMonth = targetMonth === 12 ? 1 : targetMonth + 1;
@@ -384,7 +391,7 @@ export async function getTenantDashboard(tenantId: number, month?: number, year?
   const feesCollectedGrowth = calculateGrowth(stats.feesCollectedThisMonth, stats.feesCollectedLastMonth);
   const feesPendingGrowth = calculateGrowth(feesPending, feesPendingLastMonth);
 
-  const isCurrentMonth = targetYear === d.getFullYear() && targetMonth === (d.getMonth() + 1);
+  const isCurrentMonth = targetYear === d.getUTCFullYear() && targetMonth === (d.getUTCMonth() + 1);
   const chartEndDate = isCurrentMonth ? "CURRENT_DATE" : "$2::date - interval '1 day'";
 
   const chartRes = await query<{ day: string; count: number }>(`

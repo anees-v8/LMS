@@ -190,7 +190,7 @@ export async function dashboard(tenantId: number, userId: number): Promise<Stude
                 WHERE bsc.tenant_id = c.tenant_id AND (ch->>'id')::int = c.chapter_id) AS subject,
               p.progress_seconds AS "progressSeconds"
        FROM user_content_progress p
-       JOIN content c ON c.id = p.content_id
+       JOIN content c ON c.id = p.content_id AND c.tenant_id = p.tenant_id
        WHERE p.tenant_id=$1 AND p.user_id=$2 AND c.content_type = 'video'
        ORDER BY p.updated_at DESC LIMIT 1`,
       [tenantId, userId]
@@ -209,6 +209,14 @@ export async function dashboard(tenantId: number, userId: number): Promise<Stude
 }
 
 export async function updateProgress(tenantId: number, userId: number, contentId: number, progressSeconds: number): Promise<void> {
+  // contentId comes straight from the request body — without this check a
+  // student could write progress against ANY tenant's content.id, and the
+  // dashboard's continuePlaying query would then surface that other
+  // tenant's video title/fileUrl back to them (cross-tenant leak + a
+  // content.id enumeration oracle).
+  const owns = await query(`SELECT 1 FROM content WHERE id=$1 AND tenant_id=$2`, [contentId, tenantId]);
+  if (!owns.rowCount) throw ApiError.notFound('CONTENT_NOT_FOUND');
+
   await query(
     `INSERT INTO user_content_progress (tenant_id, user_id, content_id, progress_seconds, updated_at)
      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)

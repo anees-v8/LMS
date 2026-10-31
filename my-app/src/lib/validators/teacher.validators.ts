@@ -1,13 +1,29 @@
 import { z } from 'zod';
+import { istDateString } from '../utils/istDate';
 
 export const idParamSchema = z.object({ id: z.coerce.number().int().positive() }).strict();
+
+// Format-only regex previously accepted any syntactically-valid date —
+// a teacher could mark attendance for "1900-01-01" or any date years in
+// the future, corrupting attendance-rate analytics and defaulter
+// calculations with impossible records. Future dates are blocked outright
+// (attendance can never be marked ahead of time); past dates allow a
+// generous backfill window since institutes commonly batch-correct
+// attendance days or weeks later, but not an arbitrary historical date.
+const attendanceDateStr = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD')
+  .refine((s) => {
+    const today = istDateString();
+    const daysDiff = (new Date(`${today}T00:00:00Z`).getTime() - new Date(`${s}T00:00:00Z`).getTime()) / 86400000;
+    return daysDiff >= 0 && daysDiff <= 90;
+  }, 'Attendance date must be today or within the past 90 days');
 
 export const markAttendanceSchema = z
   .object({
     batchId: z.coerce.number().int().positive(),
     subjectId: z.coerce.number().int().positive(),
     batchScheduleId: z.coerce.number().int().positive().optional(),
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD'),
+    date: attendanceDateStr,
     records: z
       .array(
         z

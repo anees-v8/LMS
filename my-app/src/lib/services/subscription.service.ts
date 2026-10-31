@@ -258,8 +258,28 @@ export async function confirmPlanChange(
         .createHmac('sha256', env.razorpay.secret)
         .update(`${payment.orderId}|${payment.paymentId}`)
         .digest('hex');
-      if (expected !== payment.signature) {
+      const expectedBuf = Buffer.from(expected, 'utf8');
+      const signatureBuf = Buffer.from(payment.signature ?? '', 'utf8');
+      const signatureValid =
+        expectedBuf.length === signatureBuf.length && crypto.timingSafeEqual(expectedBuf, signatureBuf);
+      if (!signatureValid) {
         throw ApiError.badRequest('INVALID_SIGNATURE', 'Payment signature verification failed');
+      }
+
+      // The signature only proves orderId/paymentId are a genuine Razorpay
+      // pair — it says nothing about which plan/cycle/studentCount that
+      // order was created for. Without this check, a cheap order (e.g. for
+      // the lowest tier) could be paid once and then replayed here against
+      // a freshly-requested, far more expensive plan. Confirm the order
+      // Razorpay actually captured matches what THIS quote says is due.
+      const client = razorpayClient();
+      if (!client) throw ApiError.badRequest('RAZORPAY_NOT_CONFIGURED', 'Payment gateway not configured');
+      const order = await client.orders.fetch(payment.orderId);
+      if (Number(order.amount) !== quote.amountDue * 100 || order.status !== 'paid') {
+        throw ApiError.badRequest(
+          'ORDER_AMOUNT_MISMATCH',
+          'The paid order does not match the requested plan change — please request a new quote.'
+        );
       }
     } else if (!payment.orderId.startsWith('order_mock_')) {
       throw ApiError.badRequest('RAZORPAY_NOT_CONFIGURED', 'Payment gateway not configured');

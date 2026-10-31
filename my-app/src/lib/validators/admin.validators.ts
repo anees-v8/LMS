@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { istDateString } from '../utils/istDate';
 
 const phone = z.string().regex(/^\d{10,15}$/, 'Phone must be 10-15 digits');
 const timeStr = z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Time must be HH:MM');
@@ -39,7 +40,18 @@ export const updateStudentFeeOverrideSchema = z
   .object({ feeOverrideAmount: z.coerce.number().int().nonnegative().nullable() })
   .strict();
 
-const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD');
+// Format-only regex previously let through any year (e.g. "1900-01-01" or
+// "2500-12-31") — syntactically valid, but nonsense for an institute that
+// never existed before 2000 and has no reason to plan a batch 80 years out.
+// A bogus endDate in particular used to feed straight into
+// generateFeeDues()'s span calculation, producing fee-installment due
+// dates spaced across centuries.
+const dateStr = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD')
+  .refine((s) => {
+    const year = Number(s.slice(0, 4));
+    return year >= 2000 && year <= 2100;
+  }, 'Date year must be between 2000 and 2100');
 
 const feeFields = {
   // Both-or-neither — enforced below via .refine, mirroring the DB CHECK
@@ -150,6 +162,33 @@ export const recordPaymentSchema = z
     feeDueId: z.coerce.number().int().positive().optional(),
     amountPaid: z.coerce.number().int().min(1),
     method: z.enum(['cash', 'upi', 'card']).optional(),
+  })
+  .strict();
+
+// Admin manual attendance correction — previously this route (POST
+// /api/admin/attendance) did its own inline `if (!batchId || !date || ...)`
+// truthy-check with no zod schema at all: no date-format check (a
+// non-date string would only fail at the Postgres insert as a generic
+// 500), no status-enum check (any string would be silently persisted).
+// Dates are still year-bounded and can't be in the future (a "correction"
+// for a date that hasn't happened yet makes no sense), but — unlike
+// markAttendanceSchema's 90-day teacher-facing window — no lower bound,
+// since a legitimate admin correction may need to reach further back.
+export const adminAttendanceCorrectionSchema = z
+  .object({
+    batchId: z.coerce.number().int().positive(),
+    subjectId: z.coerce.number().int().positive().optional(),
+    date: dateStr.refine((s) => s <= istDateString(), 'Date cannot be in the future'),
+    records: z
+      .array(
+        z
+          .object({
+            studentId: z.coerce.number().int().positive(),
+            status: z.enum(['present', 'absent', 'late']),
+          })
+          .strict()
+      )
+      .min(1),
   })
   .strict();
 
