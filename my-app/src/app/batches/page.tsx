@@ -467,13 +467,13 @@ function BatchesContent() {
                     {/* Batch Footer */}
                     <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
                       <Button
-                        href={`/students?batch=${batch.id}`}
+                        href={`/batches/${batch.id}`}
                         variant="secondary"
                         size="sm"
                         icon={<ChevronRight className="w-3.5 h-3.5" />}
                         iconPosition="right"
                       >
-                        View Students
+                        Syllabus & Details
                       </Button>
 
                       <Button

@@ -17,6 +17,8 @@ import {
   ChevronRight,
   Shield,
   Sparkles,
+  CalendarCheck,
+  Megaphone,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { cn } from "@/utils/cn";
@@ -26,7 +28,9 @@ const NAV_ITEMS = [
   { label: "Students", href: "/students", icon: Users },
   { label: "Teachers", href: "/teachers", icon: GraduationCap },
   { label: "Batches", href: "/batches", icon: BookOpen },
+  { label: "Attendance", href: "/attendance", icon: CalendarCheck },
   { label: "Fees & Receipts", href: "/fees", icon: CreditCard },
+  { label: "Announcements", href: "/notifications", icon: Megaphone },
   { label: "Reports", href: "/reports", icon: BarChart3 },
   { label: "Subscription & Plans", href: "/subscription", icon: Sparkles },
   { label: "Settings", href: "/settings", icon: Settings },

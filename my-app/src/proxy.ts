@@ -27,6 +27,8 @@ export function proxy(request: NextRequest) {
       pathname === '/students' || pathname.startsWith('/students/') ||
       pathname === '/teachers' || pathname.startsWith('/teachers/') ||
       pathname === '/batches' || pathname.startsWith('/batches/') ||
+      pathname === '/attendance' || pathname.startsWith('/attendance/') ||
+      pathname === '/notifications' || pathname.startsWith('/notifications/') ||
       pathname === '/fees' || pathname.startsWith('/fees/') ||
       pathname === '/reports' || pathname.startsWith('/reports/') ||
       pathname === '/settings' || pathname.startsWith('/settings/') ||

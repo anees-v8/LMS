@@ -537,7 +537,7 @@ export default function TopNavbar({
               {/* Footer */}
               <div className="p-2.5 px-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-xs">
                 <Link
-                  href="/settings?tab=broadcast"
+                  href="/notifications"
                   onClick={() => setShowNotifications(false)}
                   className="inline-flex items-center gap-1.5 text-slate-600 hover:text-chalk-teal font-semibold text-[11px] transition-colors"
                 >
