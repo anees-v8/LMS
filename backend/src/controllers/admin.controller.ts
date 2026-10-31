@@ -130,3 +130,15 @@ export const broadcastNotification = asyncHandler(async (req: Request, res: Resp
   );
   res.status(201).json(result);
 });
+
+/* Attendance */
+export const getAttendance = asyncHandler(async (req: Request, res: Response) => {
+  const date = req.query.date as string | undefined;
+  const batchId = req.query.batchId ? Number(req.query.batchId) : undefined;
+  res.json(await svc.getAttendance(tenantId(req), date, batchId));
+});
+
+export const saveAttendanceOverride = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await svc.saveAttendanceOverride(tenantId(req), userId(req), req.body));
+});
+

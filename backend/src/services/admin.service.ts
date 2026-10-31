@@ -1327,3 +1327,292 @@ export async function performanceReport(
   };
 }
 
+/* ─────────────── Attendance Monitoring & Overrides ─────────────── */
+export async function getAttendance(tenantId: number, targetDate?: string, batchIdParam?: number) {
+  const date = targetDate || istDateString();
+
+  const tenantRes = await query<{ name: string }>(
+    `SELECT name FROM tenants WHERE id = $1`,
+    [tenantId]
+  );
+  const instituteName = tenantRes.rows[0]?.name || 'the Institute';
+
+  // CASE 1: SPECIFIC BATCH REGISTER VIEW
+  if (batchIdParam) {
+    const batchId = Number(batchIdParam);
+    const bRes = await query<{ name: string; grade: string | null }>(
+      `SELECT name, grade FROM batches WHERE id = $1 AND tenant_id = $2 AND is_active = true`,
+      [batchId, tenantId]
+    );
+    if (!bRes.rows[0]) throw ApiError.notFound('BATCH_NOT_FOUND', 'Batch not found');
+
+    const sRes = await query<{
+      studentId: number;
+      fullName: string;
+      rollNo: string | null;
+      phone: string | null;
+      parentPhone: string | null;
+      status: 'present' | 'absent' | 'late' | null;
+      markedByName: string | null;
+    }>(
+      `SELECT s.id AS "studentId",
+              s.full_name AS "fullName",
+              s.roll_no AS "rollNo",
+              s.phone,
+              s.parent_phone AS "parentPhone",
+              a.status,
+              u.full_name AS "markedByName"
+         FROM batch_enrollments be
+         JOIN students s ON s.id = be.student_id
+         LEFT JOIN attendance a
+                ON a.student_id = s.id
+               AND a.batch_id = be.batch_id
+               AND a.date = $3::date
+               AND a.tenant_id = $2
+         LEFT JOIN users u ON u.id = a.marked_by
+        WHERE be.batch_id = $1
+          AND s.tenant_id = $2
+          AND s.is_active = true
+        ORDER BY s.roll_no ASC NULLS LAST, s.full_name ASC`,
+      [batchId, tenantId, date]
+    );
+
+    let present = 0;
+    let absent = 0;
+    let late = 0;
+    let unmarked = 0;
+    const batchAbsentees = [];
+
+    for (const r of sRes.rows) {
+      if (r.status === 'present') present++;
+      else if (r.status === 'absent') {
+        absent++;
+        const pPhone = (r.parentPhone || r.phone || '').replace(/\D/g, '');
+        const cleanPhone = pPhone.length === 10 ? `91${pPhone}` : pPhone;
+        const msg = encodeURIComponent(
+          `Dear Parent,\nThis is to notify you that your ward *${r.fullName}* was marked *ABSENT* for ${bRes.rows[0].name} class today (${date}) at *${instituteName}*.\n\nPlease contact the office if this was unexpected.`
+        );
+        batchAbsentees.push({
+          studentId: r.studentId,
+          fullName: r.fullName,
+          rollNo: r.rollNo,
+          batchId,
+          batchName: bRes.rows[0].name,
+          parentPhone: r.parentPhone || r.phone,
+          phone: r.phone,
+          waUrl: cleanPhone ? `https://wa.me/${cleanPhone}?text=${msg}` : '',
+        });
+      } else if (r.status === 'late') late++;
+      else unmarked++;
+    }
+
+    return {
+      batchId,
+      batchName: bRes.rows[0].name,
+      grade: bRes.rows[0].grade,
+      date,
+      summary: {
+        total: sRes.rows.length,
+        present,
+        absent,
+        late,
+        unmarked,
+        attendanceRate:
+          sRes.rows.length > 0 ? Math.round((present / sRes.rows.length) * 100) : 0,
+      },
+      records: sRes.rows,
+      absentees: batchAbsentees,
+    };
+  }
+
+  // CASE 2: INSTITUTE-WIDE DAILY MONITOR & ABSENTEE OVERVIEW
+  const bSumRes = await query<{
+    batchId: number;
+    batchName: string;
+    grade: string | null;
+    totalStudents: number;
+    presentCount: number;
+    absentCount: number;
+    lateCount: number;
+    markedCount: number;
+    markedByTeacher: string | null;
+  }>(
+    `SELECT b.id AS "batchId",
+            b.name AS "batchName",
+            b.grade,
+            (SELECT count(*)::int FROM batch_enrollments be JOIN students st ON st.id = be.student_id WHERE be.batch_id = b.id AND st.is_active = true) AS "totalStudents",
+            count(CASE WHEN a.status = 'present' THEN 1 END)::int AS "presentCount",
+            count(CASE WHEN a.status = 'absent' THEN 1 END)::int AS "absentCount",
+            count(CASE WHEN a.status = 'late' THEN 1 END)::int AS "lateCount",
+            count(a.id)::int AS "markedCount",
+            max(u.full_name) AS "markedByTeacher"
+       FROM batches b
+       LEFT JOIN attendance a
+              ON a.batch_id = b.id
+             AND a.tenant_id = b.tenant_id
+             AND a.date = $2::date
+       LEFT JOIN users u ON u.id = a.marked_by
+      WHERE b.tenant_id = $1
+        AND b.is_active = true
+      GROUP BY b.id, b.name, b.grade
+      ORDER BY b.name ASC`,
+    [tenantId, date]
+  );
+
+  const batchSummaries = bSumRes.rows.map((b) => ({
+    batchId: b.batchId,
+    batchName: b.batchName,
+    grade: b.grade,
+    totalStudents: b.totalStudents,
+    presentCount: b.presentCount,
+    absentCount: b.absentCount,
+    lateCount: b.lateCount,
+    isMarked: b.markedCount > 0,
+    markedByTeacher: b.markedByTeacher,
+    attendanceRate: b.totalStudents > 0 ? Math.round((b.presentCount / b.totalStudents) * 100) : 0,
+  }));
+
+  const absRes = await query<{
+    studentId: number;
+    fullName: string;
+    rollNo: string | null;
+    batchId: number;
+    batchName: string;
+    parentPhone: string | null;
+    phone: string | null;
+  }>(
+    `SELECT s.id AS "studentId",
+            s.full_name AS "fullName",
+            s.roll_no AS "rollNo",
+            b.id AS "batchId",
+            b.name AS "batchName",
+            s.parent_phone AS "parentPhone",
+            s.phone
+       FROM attendance a
+       JOIN students s ON s.id = a.student_id
+       JOIN batches b ON b.id = a.batch_id
+      WHERE a.tenant_id = $1
+        AND a.date = $2::date
+        AND a.status = 'absent'
+        AND s.is_active = true
+      ORDER BY b.name ASC, s.roll_no ASC NULLS LAST, s.full_name ASC`,
+    [tenantId, date]
+  );
+
+  const absentees = absRes.rows.map((r) => {
+    const pPhone = (r.parentPhone || r.phone || '').replace(/\D/g, '');
+    const cleanPhone = pPhone.length === 10 ? `91${pPhone}` : pPhone;
+    const msg = encodeURIComponent(
+      `Dear Parent,\nThis is to notify you that your ward *${r.fullName}* was marked *ABSENT* for ${r.batchName} class today (${date}) at *${instituteName}*.\n\nPlease contact the office if this was unexpected.`
+    );
+    return {
+      studentId: r.studentId,
+      fullName: r.fullName,
+      rollNo: r.rollNo,
+      batchId: r.batchId,
+      batchName: r.batchName,
+      parentPhone: r.parentPhone || r.phone,
+      phone: r.phone,
+      waUrl: cleanPhone ? `https://wa.me/${cleanPhone}?text=${msg}` : '',
+    };
+  });
+
+  const defRes = await query<{
+    studentId: number;
+    fullName: string;
+    rollNo: string | null;
+    batchName: string;
+    parentPhone: string | null;
+    totalClasses: number;
+    attendedClasses: number;
+    attendanceRate: number;
+  }>(
+    `SELECT s.id AS "studentId",
+            s.full_name AS "fullName",
+            s.roll_no AS "rollNo",
+            COALESCE(b.name, 'Unassigned') AS "batchName",
+            s.parent_phone AS "parentPhone",
+            count(a.id)::int AS "totalClasses",
+            count(CASE WHEN a.status = 'present' THEN 1 END)::int AS "attendedClasses",
+            ROUND(count(CASE WHEN a.status = 'present' THEN 1 END)::numeric / NULLIF(count(a.id), 0) * 100)::int AS "attendanceRate"
+       FROM students s
+       LEFT JOIN batch_enrollments be ON be.student_id = s.id
+       LEFT JOIN batches b ON b.id = be.batch_id
+       JOIN attendance a ON a.student_id = s.id AND a.tenant_id = s.tenant_id
+      WHERE s.tenant_id = $1
+        AND s.is_active = true
+      GROUP BY s.id, s.full_name, s.roll_no, b.name, s.parent_phone
+     HAVING count(a.id) >= 5 AND (ROUND(count(CASE WHEN a.status = 'present' THEN 1 END)::numeric / NULLIF(count(a.id), 0) * 100)) < 75
+      ORDER BY "attendanceRate" ASC
+      LIMIT 20`,
+    [tenantId]
+  );
+
+  let totalInstituteStudents = 0;
+  let totalPresent = 0;
+  let totalAbsent = 0;
+  let totalLate = 0;
+
+  batchSummaries.forEach((b) => {
+    totalInstituteStudents += b.totalStudents;
+    totalPresent += b.presentCount;
+    totalAbsent += b.absentCount;
+    totalLate += b.lateCount;
+  });
+
+  return {
+    date,
+    overallSummary: {
+      totalStudents: totalInstituteStudents,
+      present: totalPresent,
+      absent: totalAbsent,
+      late: totalLate,
+      unmarked: Math.max(0, totalInstituteStudents - (totalPresent + totalAbsent + totalLate)),
+      overallAttendanceRate:
+        totalInstituteStudents > 0 ? Math.round((totalPresent / totalInstituteStudents) * 100) : 0,
+      batchesMarkedCount: batchSummaries.filter((b) => b.isMarked).length,
+      batchesTotalCount: batchSummaries.length,
+    },
+    batchSummaries,
+    absentees,
+    defaulters: defRes.rows,
+  };
+}
+
+export async function saveAttendanceOverride(
+  tenantId: number,
+  adminUserId: number,
+  payload: { batchId: number; date: string; records: { studentId: number; status: string }[]; subjectId?: number }
+) {
+  const { batchId, date, records } = payload;
+  if (!batchId || !date || !Array.isArray(records)) {
+    throw ApiError.badRequest('INVALID_PAYLOAD', 'batchId, date, and records array are required');
+  }
+
+  let subjectId = payload.subjectId ? Number(payload.subjectId) : null;
+  if (!subjectId) {
+    const bRes = await query<{ subject_ids: number[] }>(
+      `SELECT subject_ids FROM batches WHERE id = $1 AND tenant_id = $2`,
+      [batchId, tenantId]
+    );
+    if (bRes.rows[0]?.subject_ids?.[0]) {
+      subjectId = bRes.rows[0].subject_ids[0];
+    }
+  }
+
+  await withTransaction(async (client) => {
+    for (const rec of records) {
+      if (!rec.studentId || !rec.status) continue;
+      await client.query(
+        `INSERT INTO attendance (tenant_id, batch_id, subject_id, student_id, date, status, marked_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (student_id, date, batch_id, subject_id)
+         DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by`,
+        [tenantId, batchId, subjectId, rec.studentId, date, rec.status, adminUserId]
+      );
+    }
+  });
+
+  return { success: true, savedCount: records.length };
+}
+

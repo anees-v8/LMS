@@ -22,9 +22,15 @@ export default function SiteShell({ children }: SiteShellProps) {
     pathname.startsWith("/students") ||
     pathname.startsWith("/teachers") ||
     pathname.startsWith("/batches") ||
+    pathname.startsWith("/attendance") ||
     pathname.startsWith("/fees") ||
     pathname.startsWith("/reports") ||
-    pathname.startsWith("/settings");
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/notifications") ||
+    pathname.startsWith("/subscription") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/receipt") ||
+    pathname.startsWith("/student");
 
   if (isAppRoute) {
     return <main className="min-h-screen bg-paper">{children}</main>;
@@ -39,4 +45,3 @@ export default function SiteShell({ children }: SiteShellProps) {
     </>
   );
 }
-

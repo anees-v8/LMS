@@ -37,6 +37,7 @@ router.get('/notifications', ctrl.listNotifications);
 router.get('/notifications/unread-count', ctrl.unreadNotificationCount);
 router.patch('/notifications/:id/read', validate(idParamSchema, 'params'), ctrl.markNotificationRead);
 router.get('/settings/payment', ctrl.getPaymentSettings);
+router.get('/attendance', ctrl.getAttendance);
 
 // Performance reports — Pro & Elite only
 router.get('/reports/performance', featureGuard('performance_reports'), ctrl.performance);
@@ -74,6 +75,7 @@ router.put('/subjects/:id', subscriptionGuard, validate(createSubjectSchema), ct
 router.delete('/subjects/:id', subscriptionGuard, ctrl.deleteSubject);
 
 router.post('/timetable', subscriptionGuard, validate(createTimetableSchema), ctrl.createTimetable);
+router.post('/attendance', subscriptionGuard, ctrl.saveAttendanceOverride);
 
 router.post('/fees/structures', subscriptionGuard, validate(createFeeStructureSchema), ctrl.createFeeStructure);
 router.post('/fees/payments', subscriptionGuard, validate(recordPaymentSchema), ctrl.recordPayment);

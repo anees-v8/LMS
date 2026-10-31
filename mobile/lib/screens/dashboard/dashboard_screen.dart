@@ -7,10 +7,10 @@ import '../../theme/app_colors.dart';
 import '../management/students_screen.dart';
 import '../management/teachers_screen.dart';
 import '../management/batches_screen.dart';
+import '../management/admin_attendance_screen.dart';
 import '../fees/fees_management_screen.dart';
 import '../reports/reports_screen.dart';
 import '../notifications/admin_notifications_screen.dart';
-import '../management/admin_profile_screen.dart';
 import '../../widgets/unified_app_header.dart';
 import '../../providers/management_providers.dart';
 import '../../services/api_service.dart';
@@ -652,6 +652,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   MaterialPageRoute(builder: (_) => const StudentsScreen()),
                 );
               }
+            },
+          ),
+          _buildActionBtn(
+            Icons.fact_check_outlined,
+            'Attendance',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminAttendanceScreen()),
+              );
             },
           ),
           _buildActionBtn(

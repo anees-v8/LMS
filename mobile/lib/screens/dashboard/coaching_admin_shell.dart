@@ -6,6 +6,7 @@ import '../management/admin_profile_screen.dart';
 import '../management/teachers_screen.dart';
 import '../management/batches_screen.dart';
 import '../management/subjects_screen.dart';
+import '../management/admin_attendance_screen.dart';
 import '../fees/fees_management_screen.dart';
 import '../reports/reports_screen.dart';
 import '../notifications/admin_notifications_screen.dart';
@@ -59,6 +60,11 @@ class CoachingAdminShell extends StatelessWidget {
                 destination: AdminProfileScreen(),
               ),
               MoreMenuItem(
+                icon: Icons.fact_check_outlined,
+                label: 'Attendance Desk',
+                destination: AdminAttendanceScreen(),
+              ),
+              MoreMenuItem(
                 icon: Icons.notifications,
                 label: 'Notifications',
                 destination: AdminNotificationsScreen(),
@@ -106,8 +112,6 @@ class CoachingAdminShell extends StatelessWidget {
   }
 }
 
-/// Shows `GET /admin/notifications/unread-count` as a badge on the "More"
-/// tab (Notifications lives inside it).
 class _MoreIconWithUnreadBadge extends ConsumerWidget {
   const _MoreIconWithUnreadBadge();
 
