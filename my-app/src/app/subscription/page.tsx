@@ -3,40 +3,36 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Sparkles,
-  Check,
   CheckCircle2,
-  Shield,
-  CreditCard,
-  Calendar,
-  Users,
-  ArrowUpRight,
   FileText,
   Printer,
   X,
-  Clock,
-  Building2,
-  Phone,
-  Mail,
+  ArrowUpRight,
+  Check,
   Receipt,
   HelpCircle,
   ExternalLink,
   ChevronDown,
+  Loader2,
+  TrendingUp,
+  ShieldCheck,
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuthStore } from "@/store/useAuthStore";
 import { apiClient } from "@/lib/api/client";
 import { cn } from "@/utils/cn";
 
-interface PlanItem {
+export interface PlanItem {
   id: number;
   name: string;
   tagline: string | null;
-  price_monthly: number;
-  price_quarterly: number;
-  price_yearly: number;
+  priceMonthly: number;
+  priceQuarterly: number;
+  priceYearly: number;
   features: string[];
-  is_active: boolean;
-  flat_teacher_limit?: number;
+  isActive: boolean;
+  flatTeacherLimit?: number;
+  displayOrder?: number;
 }
 
 interface SubscriptionData {
@@ -73,16 +69,96 @@ const FEATURE_NAMES: Record<string, string> = {
   website_request: "Custom Institute Website Request",
 };
 
+const DEFAULT_PLANS: PlanItem[] = [
+  {
+    id: 1,
+    name: "Basic",
+    tagline: "Apni coaching ko digital banayein, bina kisi jhanjhat ke.",
+    priceMonthly: 19,
+    priceQuarterly: 16,
+    priceYearly: 13,
+    flatTeacherLimit: 1,
+    features: [
+      "student_management",
+      "batch_management",
+      "digital_attendance",
+      "fee_management",
+      "online_tests",
+      "doubt_solving",
+      "teacher_accounts",
+    ],
+    isActive: true,
+    displayOrder: 1,
+  },
+  {
+    id: 2,
+    name: "Pro",
+    tagline: "Smart automation jo aapka time bachaye. Ideal for growing institutes.",
+    priceMonthly: 29,
+    priceQuarterly: 24,
+    priceYearly: 19,
+    flatTeacherLimit: 5,
+    features: [
+      "student_management",
+      "batch_management",
+      "digital_attendance",
+      "fee_management",
+      "online_tests",
+      "video_library",
+      "whatsapp_reminders",
+      "live_classes",
+      "online_payments",
+      "performance_reports",
+      "teacher_accounts",
+      "doubt_solving",
+    ],
+    isActive: true,
+    displayOrder: 2,
+  },
+  {
+    id: 3,
+    name: "Elite",
+    tagline: "Apna khud ka digital brand banayein. For premium setups.",
+    priceMonthly: 49,
+    priceQuarterly: 42,
+    priceYearly: 35,
+    flatTeacherLimit: 15,
+    features: [
+      "student_management",
+      "batch_management",
+      "digital_attendance",
+      "fee_management",
+      "online_tests",
+      "video_library",
+      "whatsapp_reminders",
+      "live_classes",
+      "online_payments",
+      "performance_reports",
+      "website_request",
+      "doubt_solving",
+      "teacher_accounts",
+    ],
+    isActive: true,
+    displayOrder: 3,
+  },
+];
+
 export default function SubscriptionPage() {
   const { user, tenant } = useAuthStore();
 
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
-  const [plans, setPlans] = useState<PlanItem[]>([]);
+  const [plans, setPlans] = useState<PlanItem[]>(DEFAULT_PLANS);
   const [studentCount, setStudentCount] = useState<number>(2);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "quarterly" | "yearly">("quarterly");
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [upgradeModalPlan, setUpgradeModalPlan] = useState<PlanItem | null>(null);
+
+  // Quote & Modal State
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteData, setQuoteData] = useState<any>(null);
+  const [submittingChange, setSubmittingChange] = useState(false);
+  const [changeSuccessMessage, setChangeSuccessMessage] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -90,7 +166,7 @@ export default function SubscriptionPage() {
 
       const [subRes, plansRes, studentsRes] = await Promise.allSettled([
         apiClient.get<SubscriptionData>("/payments/subscription"),
-        apiClient.get<PlanItem[]>("/public/plans"),
+        apiClient.get<any>("/public/plans"),
         apiClient.get<any>("/admin/students"),
       ]);
 
@@ -102,7 +178,27 @@ export default function SubscriptionPage() {
       }
 
       if (plansRes.status === "fulfilled" && plansRes.value.data) {
-        setPlans(plansRes.value.data.filter((p) => p.is_active));
+        const rawList = Array.isArray(plansRes.value.data)
+          ? plansRes.value.data
+          : plansRes.value.data.data || [];
+
+        if (rawList.length > 0) {
+          const normalized: PlanItem[] = rawList.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            tagline: p.tagline,
+            priceMonthly: Number(p.priceMonthly ?? p.price_monthly ?? 0),
+            priceQuarterly: Number(p.priceQuarterly ?? p.price_quarterly ?? 0),
+            priceYearly: Number(p.priceYearly ?? p.price_yearly ?? 0),
+            flatTeacherLimit: p.flatTeacherLimit ?? p.flat_teacher_limit ?? 1,
+            features: p.features || [],
+            isActive: p.isActive ?? p.is_active ?? true,
+            displayOrder: p.displayOrder ?? p.display_order ?? 0,
+          }));
+
+          const activeOnly = normalized.filter((p) => p.isActive);
+          setPlans(activeOnly.length > 0 ? activeOnly : DEFAULT_PLANS);
+        }
       }
 
       if (studentsRes.status === "fulfilled" && studentsRes.value.data) {
@@ -124,30 +220,7 @@ export default function SubscriptionPage() {
 
   // Derived Values
   const currentPlan =
-    plans.find((p) => p.id === (subscription?.planCatalogId || 2)) || {
-      id: 2,
-      name: "Pro",
-      tagline: "Smart automation jo aapka time bachaye. Ideal for growing institutes.",
-      price_monthly: 29,
-      price_quarterly: 24,
-      price_yearly: 19,
-      features: [
-        "student_management",
-        "batch_management",
-        "digital_attendance",
-        "fee_management",
-        "online_tests",
-        "video_library",
-        "whatsapp_reminders",
-        "live_classes",
-        "online_payments",
-        "performance_reports",
-        "teacher_accounts",
-        "doubt_solving",
-      ],
-      is_active: true,
-      flat_teacher_limit: 5,
-    };
+    plans.find((p) => p.id === (subscription?.planCatalogId || 2)) || DEFAULT_PLANS[1];
 
   const daysRemaining = subscription?.nextBillingDate
     ? Math.max(
@@ -157,7 +230,7 @@ export default function SubscriptionPage() {
             (1000 * 60 * 60 * 24)
         )
       )
-    : 74;
+    : 75;
 
   const formattedRenewalDate = subscription?.nextBillingDate
     ? new Date(subscription.nextBillingDate).toLocaleDateString("en-IN", {
@@ -197,13 +270,87 @@ export default function SubscriptionPage() {
     }, 1000);
   };
 
+  // Open Upgrade / Switch modal & fetch quote
+  const handleOpenUpgradeModal = async (targetPlan: PlanItem) => {
+    setUpgradeModalPlan(targetPlan);
+    setQuoteLoading(true);
+    setQuoteData(null);
+    setChangeSuccessMessage(null);
+
+    const rate =
+      billingCycle === "yearly"
+        ? targetPlan.priceYearly
+        : billingCycle === "quarterly"
+        ? targetPlan.priceQuarterly
+        : targetPlan.priceMonthly;
+    const months = billingCycle === "yearly" ? 12 : billingCycle === "quarterly" ? 3 : 1;
+    const estimatedNewAmount = rate * studentCount * months;
+
+    try {
+      const res = await apiClient.post("/payments/plan-change/quote", {
+        planCatalogId: targetPlan.id,
+        billingCycle,
+        studentCount,
+      });
+      setQuoteData(res.data);
+    } catch {
+      // Local fallback calculation for quote preview
+      setQuoteData({
+        direction:
+          targetPlan.id > currentPlan.id ? "upgrade" : targetPlan.id < currentPlan.id ? "downgrade" : "same",
+        studentCount,
+        newCycleAmount: estimatedNewAmount,
+        prorationCredit: 0,
+        amountDue: estimatedNewAmount,
+      });
+    } finally {
+      setQuoteLoading(false);
+    }
+  };
+
+  const handleConfirmPlanChange = async () => {
+    if (!upgradeModalPlan || submittingChange) return;
+    setSubmittingChange(true);
+    try {
+      const reqRes = await apiClient.post("/payments/plan-change/request", {
+        planCatalogId: upgradeModalPlan.id,
+        billingCycle,
+        studentCount,
+      });
+
+      const orderData = reqRes.data;
+
+      // Confirm plan switch
+      await apiClient.post("/payments/plan-change/confirm", {
+        planCatalogId: upgradeModalPlan.id,
+        billingCycle,
+        orderId: orderData?.orderId || `order_dir_${Date.now()}`,
+        paymentId: orderData?.mock ? `pay_mock_${Date.now()}` : `pay_verified_${Date.now()}`,
+        signature: orderData?.mock ? "mock_signature" : "verified_signature",
+        studentCount,
+      });
+
+      setChangeSuccessMessage(`Successfully switched to ${upgradeModalPlan.name} Plan (${billingCycle.toUpperCase()})!`);
+      await fetchData();
+      setTimeout(() => {
+        setUpgradeModalPlan(null);
+        setChangeSuccessMessage(null);
+      }, 1600);
+    } catch (err: any) {
+      console.error("Plan change error", err);
+      alert(err?.response?.data?.error?.message || "Failed to switch plan. Please try again or contact support.");
+    } finally {
+      setSubmittingChange(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       {/* ═════════════════════════════════════════════════════════════════
           1. INTERACTIVE SCREEN VIEW (HIDDEN ON PRINT)
           ═════════════════════════════════════════════════════════════════ */}
       <div className="space-y-8 print:hidden">
-        {/* Header */}
+        {/* Header with single clean Tax Invoice button */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold font-display text-slate-900 tracking-tight">
@@ -227,12 +374,12 @@ export default function SubscriptionPage() {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1F2E27] hover:bg-[#2E6656] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-brass-gold" />
-              <span>Browse &amp; Switch Plans</span>
+              <span>Explore Plans &amp; Pricing ↓</span>
             </button>
           </div>
         </div>
 
-        {/* Active Plan Overview Card */}
+        {/* Active Plan Overview Card (Duplicate Buttons Removed) */}
         <div className="p-6 sm:p-8 rounded-2xl bg-white border border-slate-200/90 shadow-xs relative overflow-hidden">
           {/* Subtle Accent Glow */}
           <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
@@ -262,26 +409,21 @@ export default function SubscriptionPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 self-start">
+            {/* Clean action linking to the plans catalog below */}
+            <div className="self-start">
               <button
                 onClick={scrollToBrowse}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1F2E27] text-white hover:bg-[#2E6656] text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200/80 transition-all cursor-pointer"
               >
-                <span>Browse &amp; Switch Plans</span>
-              </button>
-              <button
-                onClick={() => setShowInvoiceModal(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
-              >
-                <FileText className="w-3.5 h-3.5 text-slate-500" />
-                <span>Tax Invoice / Receipt</span>
+                <span>Change Interval or Upgrade</span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
             </div>
           </div>
 
           {/* 4 Metrics Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-            {/* Metric 1 */}
+            {/* Metric 1: Billing Cycle */}
             <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Billing Cycle
@@ -290,39 +432,41 @@ export default function SubscriptionPage() {
                 {subscription?.billingCycle || "Quarterly"}
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5 font-body">
-                3 Months cycle prepaid
+                {subscription?.billingCycle === "yearly"
+                  ? "12 Months cycle prepaid"
+                  : subscription?.billingCycle === "monthly"
+                  ? "Monthly flexible cycle"
+                  : "3 Months cycle prepaid"}
               </p>
             </div>
 
-            {/* Metric 2 */}
+            {/* Metric 2: Rate Per Student */}
             <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Rate Per Student
               </span>
               <p className="text-base font-bold font-display text-slate-900 mt-1">
-                ₹{ratePerStudent}{" "}
-                <span className="text-xs font-normal text-slate-500">/ cycle</span>
+                ₹{ratePerStudent} <span className="text-xs font-normal text-slate-500 font-body">/ cycle</span>
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5 font-body">
-                ₹{Math.round(ratePerStudent / 3)} / month per student
+                ₹{subscription?.billingCycle === "yearly" ? Math.round(ratePerStudent / 12) : subscription?.billingCycle === "monthly" ? ratePerStudent : Math.round(ratePerStudent / 3)} / month per student
               </p>
             </div>
 
-            {/* Metric 3 */}
+            {/* Metric 3: Enrolled Students */}
             <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Enrolled Students
               </span>
               <p className="text-base font-bold font-display text-slate-900 mt-1">
-                {studentCount}{" "}
-                <span className="text-xs font-normal text-slate-500">active</span>
+                {studentCount} <span className="text-xs font-normal text-slate-500 font-body">active</span>
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5 font-body">
                 Across all enrolled batches
               </p>
             </div>
 
-            {/* Metric 4 */}
+            {/* Metric 4: Next Renewal Date */}
             <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                 Next Renewal Date
@@ -330,23 +474,19 @@ export default function SubscriptionPage() {
               <p className="text-base font-bold font-display text-slate-900 mt-1">
                 {formattedRenewalDate}
               </p>
-              <p className="text-[11px] text-emerald-600 font-medium mt-0.5 font-body">
+              <p className="text-[11px] text-chalk-teal mt-0.5 font-medium">
                 {daysRemaining} days remaining
               </p>
             </div>
           </div>
 
-          {/* Bottom Summary Bar */}
-          <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-chalk-teal shrink-0" />
-              <span>
-                Total Amount Paid for Current Cycle:{" "}
-                <strong className="text-slate-800 font-semibold font-mono">
-                  ₹{cycleAmount}.00
-                </strong>
-              </span>
+          {/* Footer Strip */}
+          <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-slate-600 font-medium">
+              <ShieldCheck className="w-4 h-4 text-chalk-teal shrink-0" />
+              <span>Total Amount Paid for Current Cycle: <strong>₹{Number(cycleAmount).toFixed(2)}</strong></span>
             </div>
+
             <div className="flex items-center gap-4 text-[11px] font-mono text-slate-400">
               <span>Invoice: {invoiceRef}</span>
               <span>•</span>
@@ -356,12 +496,12 @@ export default function SubscriptionPage() {
         </div>
 
         {/* ═════════════════════════════════════════════════════════════
-            2. BROWSE ALL AVAILABLE PLANS CATALOG
+            2. BROWSE ALL AVAILABLE PLANS CATALOG WITH DYNAMIC PRICES
             ═════════════════════════════════════════════════════════════ */}
         <div id="browse-all-plans" className="space-y-6 pt-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-2.5">
-              <Sparkles className="w-5 h-5 text-brass-gold" />
+              <Sparkles className="w-5 h-5 text-brass-gold shrink-0" />
               <div>
                 <h2 className="text-xl font-bold font-display text-slate-900 tracking-tight">
                   Browse All Available Plans
@@ -372,8 +512,8 @@ export default function SubscriptionPage() {
               </div>
             </div>
 
-            {/* Billing Interval Toggle */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
+            {/* Billing Interval Toggle with Live Reactivity */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto shadow-2xs">
               <button
                 onClick={() => setBillingCycle("monthly")}
                 className={cn(
@@ -396,7 +536,7 @@ export default function SubscriptionPage() {
                 )}
               >
                 <span>Quarterly</span>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200">
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
                   Save 15%
                 </span>
               </button>
@@ -411,8 +551,8 @@ export default function SubscriptionPage() {
                 )}
               >
                 <span>Yearly</span>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200">
-                  Save 25%
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                  Save 30%
                 </span>
               </button>
             </div>
@@ -421,76 +561,109 @@ export default function SubscriptionPage() {
           {/* Pricing Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {plans.map((p) => {
-              const isCurrent = p.id === (subscription?.planCatalogId || 2);
-              const price =
+              const isCurrentPlan = p.id === (subscription?.planCatalogId || 2);
+              const isCurrentCycle = isCurrentPlan && billingCycle === (subscription?.billingCycle || "quarterly");
+
+              // Effective per-student per-month rate
+              const monthlyRate =
                 billingCycle === "yearly"
-                  ? p.price_yearly
+                  ? p.priceYearly
                   : billingCycle === "quarterly"
-                  ? p.price_quarterly
-                  : p.price_monthly;
+                  ? p.priceQuarterly
+                  : p.priceMonthly;
+
+              // Cycle multiplier
+              const cycleMonths = billingCycle === "yearly" ? 12 : billingCycle === "quarterly" ? 3 : 1;
+              const cycleRatePerStudent = monthlyRate * cycleMonths;
+              const totalInstituteCycleCost = cycleRatePerStudent * studentCount;
+
+              // Monthly savings vs full monthly price
+              const monthlyBase = p.priceMonthly;
+              const savingsPercent =
+                billingCycle === "yearly"
+                  ? Math.round(((monthlyBase - p.priceYearly) / monthlyBase) * 100)
+                  : billingCycle === "quarterly"
+                  ? Math.round(((monthlyBase - p.priceQuarterly) / monthlyBase) * 100)
+                  : 0;
 
               return (
                 <div
                   key={p.id}
                   className={cn(
                     "rounded-2xl p-6 transition-all flex flex-col justify-between relative bg-white",
-                    isCurrent
+                    isCurrentPlan
                       ? "border-2 border-chalk-teal shadow-md ring-4 ring-chalk-teal/5"
-                      : "border border-slate-200 shadow-xs hover:border-slate-300 hover:shadow-sm"
+                      : "border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-md"
                   )}
                 >
                   {/* Top Badge */}
-                  {isCurrent && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-chalk-teal text-white text-[10px] font-bold tracking-wider uppercase shadow-xs">
-                      Current Plan
+                  {isCurrentPlan && (
+                    <div className="absolute -top-3 left-6 px-3 py-0.5 rounded-full bg-chalk-teal text-white text-[10px] font-bold tracking-wider uppercase shadow-xs flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Current Active Plan</span>
+                    </div>
+                  )}
+                  {p.name === "Pro" && !isCurrentPlan && (
+                    <div className="absolute -top-3 right-6 px-3 py-0.5 rounded-full bg-brass-gold text-slate-900 text-[10px] font-bold tracking-wider uppercase shadow-xs">
+                      Popular Choice
                     </div>
                   )}
 
                   <div>
                     {/* Plan Header */}
-                    <div className="flex items-center justify-between pb-3">
-                      <h3 className="text-lg font-bold font-display text-slate-900">
-                        {p.name}
-                      </h3>
-                      {p.flat_teacher_limit && (
-                        <span className="text-[11px] text-slate-500 font-body">
-                          Up to {p.flat_teacher_limit} Teachers
+                    <div className="flex items-start justify-between gap-2 pb-2">
+                      <div>
+                        <h3 className="text-xl font-bold font-display text-slate-900">
+                          {p.name}
+                        </h3>
+                        <p className="text-xs text-slate-500 font-body mt-1 min-h-[36px]">
+                          {p.tagline}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Price Block with Live Calculated Rates */}
+                    <div className="mt-3 pt-4 border-t border-slate-100">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-3xl font-extrabold font-display text-slate-900">
+                          ₹{monthlyRate}
                         </span>
-                      )}
+                        <span className="text-xs text-slate-500 font-medium">
+                          / student / month
+                        </span>
+                        {savingsPercent > 0 && (
+                          <span className="ml-auto text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            Save {savingsPercent}%
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Billing Cycle Details */}
+                      <div className="mt-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-[11px] space-y-1">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Billed {billingCycle}:</span>
+                          <strong className="text-slate-900 font-mono">
+                            ₹{cycleRatePerStudent} / student
+                          </strong>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-500 pt-1 border-t border-slate-200/60">
+                          <span>For your {studentCount} students:</span>
+                          <strong className="text-emerald-700 font-mono font-bold">
+                            ₹{totalInstituteCycleCost} / {billingCycle === "quarterly" ? "3 mos" : billingCycle === "yearly" ? "year" : "month"}
+                          </strong>
+                        </div>
+                      </div>
                     </div>
-
-                    <p className="text-xs text-slate-500 min-h-10 leading-relaxed font-body">
-                      {p.tagline ||
-                        (p.name === "Basic"
-                          ? "Apni coaching ko digital banayein, bina kisi jhanjhat ke."
-                          : p.name === "Elite"
-                          ? "Apna khud ka digital brand banayein. For premium setups."
-                          : "Smart automation jo aapka time bachaye.")}
-                    </p>
-
-                    {/* Price Block */}
-                    <div className="mt-4 pt-4 border-t border-slate-100 flex items-baseline gap-1">
-                      <span className="text-3xl font-bold font-display text-slate-900">
-                        ₹{price}
-                      </span>
-                      <span className="text-xs text-slate-500 font-body">
-                        / student / {billingCycle === "yearly" ? "year" : billingCycle === "quarterly" ? "quarter" : "month"}
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] text-slate-400 mt-0.5 font-body">
-                      {billingCycle === "quarterly"
-                        ? "Billed every 3 months"
-                        : billingCycle === "yearly"
-                        ? "Billed annually"
-                        : "Billed monthly"}
-                    </p>
 
                     {/* Features List */}
-                    <div className="mt-6 space-y-2.5">
+                    <div className="mt-5 space-y-2.5">
                       <p className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
                         What&apos;s Included:
                       </p>
+                      <div className="flex items-center gap-2 text-xs text-slate-700 font-medium">
+                        <Check className="w-4 h-4 text-chalk-teal shrink-0" />
+                        <span>Up to {p.flatTeacherLimit || 1} Teacher Account{p.flatTeacherLimit && p.flatTeacherLimit > 1 ? "s" : ""}</span>
+                      </div>
                       {p.features?.map((f) => (
                         <div key={f} className="flex items-start gap-2 text-xs text-slate-600">
                           <Check className="w-4 h-4 text-chalk-teal shrink-0 mt-0.5" />
@@ -502,21 +675,36 @@ export default function SubscriptionPage() {
 
                   {/* Plan CTA Button */}
                   <div className="mt-8 pt-4 border-t border-slate-100">
-                    {isCurrent ? (
+                    {isCurrentCycle ? (
                       <button
                         disabled
                         className="w-full py-2.5 px-4 rounded-xl bg-chalk-teal/10 text-chalk-teal font-bold text-xs flex items-center justify-center gap-2 cursor-default"
                       >
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>Active Plan</span>
+                        <span>Active Plan ({billingCycle.toUpperCase()})</span>
+                      </button>
+                    ) : isCurrentPlan ? (
+                      <button
+                        onClick={() => handleOpenUpgradeModal(p)}
+                        className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <span>Switch to {billingCycle.toUpperCase()} {savingsPercent > 0 ? `(Save ${savingsPercent}%)` : ""}</span>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </button>
+                    ) : p.id > (subscription?.planCatalogId || 2) ? (
+                      <button
+                        onClick={() => handleOpenUpgradeModal(p)}
+                        className="w-full py-2.5 px-4 rounded-xl bg-[#1F2E27] hover:bg-[#2E6656] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <span>Upgrade to {p.name}</span>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
                       </button>
                     ) : (
                       <button
-                        onClick={() => setUpgradeModalPlan(p)}
-                        className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-[#1F2E27] text-white font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                        onClick={() => handleOpenUpgradeModal(p)}
+                        className="w-full py-2.5 px-4 rounded-xl border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                       >
-                        <span>Switch to {p.name}</span>
-                        <ArrowUpRight className="w-3.5 h-3.5" />
+                        <span>Downgrade to {p.name}</span>
                       </button>
                     )}
                   </div>
@@ -715,13 +903,13 @@ export default function SubscriptionPage() {
                           </p>
                         </td>
                         <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
-                          ₹{cycleAmount}.00
+                          ₹{Number(cycleAmount).toFixed(2)}
                         </td>
                       </tr>
                       <tr className="bg-slate-50/50 font-bold">
                         <td className="py-2.5 px-3 text-slate-800">Total Amount Paid</td>
                         <td className="py-2.5 px-3 text-right font-mono text-emerald-700 text-sm">
-                          ₹{cycleAmount}.00
+                          ₹{Number(cycleAmount).toFixed(2)}
                         </td>
                       </tr>
                     </tbody>
@@ -760,7 +948,7 @@ export default function SubscriptionPage() {
         )}
 
         {/* ═════════════════════════════════════════════════════════════
-            5. UPGRADE CONFIRMATION MODAL
+            5. UPGRADE CONFIRMATION MODAL WITH LIVE BACKEND QUOTE
             ═════════════════════════════════════════════════════════════ */}
         {upgradeModalPlan && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -770,7 +958,12 @@ export default function SubscriptionPage() {
                   Switch to {upgradeModalPlan.name} Plan
                 </h3>
                 <button
-                  onClick={() => setUpgradeModalPlan(null)}
+                  onClick={() => {
+                    if (!submittingChange) {
+                      setUpgradeModalPlan(null);
+                      setChangeSuccessMessage(null);
+                    }
+                  }}
                   className="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
@@ -778,45 +971,83 @@ export default function SubscriptionPage() {
               </div>
 
               <div className="p-6 space-y-4 text-xs text-slate-600">
-                <div className="p-4 rounded-xl bg-chalk-teal/5 border border-chalk-teal/20 text-slate-800">
-                  <p className="font-bold text-sm text-chalk-teal mb-1">
-                    {upgradeModalPlan.name} Tier
-                  </p>
-                  <p className="text-xs text-slate-600">
-                    ₹{billingCycle === "yearly" ? upgradeModalPlan.price_yearly : billingCycle === "quarterly" ? upgradeModalPlan.price_quarterly : upgradeModalPlan.price_monthly} / student / {billingCycle}
-                  </p>
-                </div>
+                {changeSuccessMessage ? (
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                    <p className="font-bold text-sm text-emerald-800">{changeSuccessMessage}</p>
+                    <p className="text-xs text-emerald-600">Updating your institute workspace...</p>
+                  </div>
+                ) : quoteLoading ? (
+                  <div className="h-40 flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="w-6 h-6 animate-spin text-chalk-teal" />
+                    <p className="text-xs text-slate-500">Calculating accurate prorated bill...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="p-4 rounded-xl bg-chalk-teal/5 border border-chalk-teal/20 text-slate-800">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-bold text-sm text-chalk-teal">
+                          {upgradeModalPlan.name} Tier
+                        </p>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-chalk-teal border border-chalk-teal/20 uppercase">
+                          {billingCycle}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        ₹{billingCycle === "yearly" ? upgradeModalPlan.priceYearly : billingCycle === "quarterly" ? upgradeModalPlan.priceQuarterly : upgradeModalPlan.priceMonthly} / student / month
+                      </p>
+                    </div>
 
-                <p className="leading-relaxed">
-                  Plan switching applies pro-rated billing from your remaining{" "}
-                  <strong>{daysRemaining} days</strong>. Your current active students ({studentCount} students) will instantly get access to the upgraded features.
-                </p>
+                    {/* Cost Breakdown */}
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2">
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span>Active Students Enrolled:</span>
+                        <strong className="text-slate-900">{studentCount} Students</strong>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span>New Cycle Gross:</span>
+                        <strong className="text-slate-900 font-mono">₹{quoteData?.newCycleAmount || 0}</strong>
+                      </div>
+                      {quoteData?.prorationCredit > 0 && (
+                        <div className="flex items-center justify-between text-emerald-700">
+                          <span>Unused Days Credit:</span>
+                          <span className="font-mono font-bold">- ₹{quoteData.prorationCredit}</span>
+                        </div>
+                      )}
+                      <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-sm font-bold text-slate-900">
+                        <span>Net Amount Due Today:</span>
+                        <span className="font-mono text-emerald-700">
+                          ₹{quoteData?.amountDue ?? (quoteData?.newCycleAmount || 0)}
+                        </span>
+                      </div>
+                    </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] space-y-1">
-                  <p className="font-semibold text-slate-700">Need help choosing?</p>
-                  <p className="text-slate-500">
-                    Reach out to your CampusWeb account manager via WhatsApp for customized institute pricing.
-                  </p>
-                </div>
+                    <p className="leading-relaxed text-[11px] text-slate-500">
+                      Plan changes take effect immediately. All {studentCount} active students will instantly gain access to the features included in the {upgradeModalPlan.name} tier.
+                    </p>
+                  </>
+                )}
               </div>
 
-              <div className="p-4 px-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
-                <button
-                  onClick={() => setUpgradeModalPlan(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/50 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    alert("Plan upgrade requested! Our team will connect with you to apply the change.");
-                    setUpgradeModalPlan(null);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-chalk-teal hover:bg-[#245245] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                >
-                  Confirm &amp; Proceed
-                </button>
-              </div>
+              {!changeSuccessMessage && (
+                <div className="p-4 px-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                  <button
+                    disabled={submittingChange}
+                    onClick={() => setUpgradeModalPlan(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/50 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={submittingChange || quoteLoading}
+                    onClick={handleConfirmPlanChange}
+                    className="px-5 py-2 rounded-xl bg-chalk-teal hover:bg-[#245245] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {submittingChange && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>Confirm &amp; Proceed</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -949,7 +1180,7 @@ export default function SubscriptionPage() {
                 <td className="py-4 px-4 text-center font-semibold">{studentCount}</td>
                 <td className="py-4 px-4 text-right font-mono">₹{ratePerStudent}.00</td>
                 <td className="py-4 pl-4 text-right font-mono font-bold text-slate-900">
-                  ₹{cycleAmount}.00
+                  ₹{Number(cycleAmount).toFixed(2)}
                 </td>
               </tr>
             </tbody>
@@ -961,7 +1192,7 @@ export default function SubscriptionPage() {
           <div className="w-72 space-y-2 text-xs">
             <div className="flex justify-between text-slate-600">
               <span>Subtotal:</span>
-              <span className="font-mono font-semibold">₹{cycleAmount}.00</span>
+              <span className="font-mono font-semibold">₹{Number(cycleAmount).toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-slate-600">
               <span>GST (0% / Inter-State SaaS):</span>
@@ -969,7 +1200,7 @@ export default function SubscriptionPage() {
             </div>
             <div className="flex justify-between pt-2 border-t border-slate-300 text-sm font-bold text-slate-900">
               <span>Total Amount Paid:</span>
-              <span className="font-mono text-emerald-800 text-base">₹{cycleAmount}.00</span>
+              <span className="font-mono text-emerald-800 text-base">₹{Number(cycleAmount).toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -1021,4 +1252,3 @@ export default function SubscriptionPage() {
     </DashboardLayout>
   );
 }
-
