@@ -16,6 +16,7 @@ import {
   QrCode,
   FileCheck,
   Building2,
+  Link2,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 
@@ -366,6 +367,72 @@ export default function AboutPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* Meet the Founder */}
+      <section className="py-20 bg-white border-t border-black/[0.05]">
+        <div className="container-main">
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <span className="badge-teal inline-flex items-center gap-1.5 mb-3">
+              <Building2 className="w-3.5 h-3.5 text-chalk-teal" />
+              Who's Building CampusWeb
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-display font-bold text-ink-green">
+              Meet the Founder
+            </h2>
+          </div>
+
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-[#F8F9F7] rounded-3xl border border-black/5 p-8 sm:p-10 flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8 shadow-sm">
+              <div className="w-28 h-28 shrink-0 rounded-full overflow-hidden shadow-md ring-1 ring-black/5">
+                <Image
+                  src="/founder-anees-shaikh.png"
+                  alt="Anees Shaikh, Founder & CEO of CampusWeb"
+                  width={600}
+                  height={750}
+                  className="w-full h-full object-cover"
+                  priority
+                />
+              </div>
+
+              <div className="text-center sm:text-left">
+                <h3 className="text-xl font-display font-bold text-ink-green">
+                  Anees Shaikh
+                </h3>
+                <p className="text-sm font-semibold text-chalk-teal font-body mt-0.5">
+                  Founder &amp; CEO, CampusWeb
+                </p>
+                <p className="text-sm text-ink-green/70 font-body leading-relaxed mt-3 max-w-md">
+                  Anees builds CampusWeb from the ground up — from backend architecture to the
+                  Android app in your reception's hands — after watching coaching institutes
+                  struggle with registers, paper receipts, and desktop-only software that never
+                  fit how they actually work. CampusWeb is his answer: a mobile-first system built
+                  directly with coaching directors, one weekly release at a time.
+                </p>
+                <div className="flex items-center justify-center sm:justify-start gap-3 mt-4">
+                  <a
+                    href="https://www.linkedin.com/in/anees-shaikhi"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-black/10 bg-white hover:border-chalk-teal/30 hover:shadow-sm text-ink-green text-sm font-semibold font-body transition-all"
+                  >
+                    <Link2 className="w-4 h-4 text-chalk-teal" />
+                    LinkedIn
+                  </a>
+                  <a
+                    href="https://github.com/anees-v8"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-black/10 bg-white hover:border-chalk-teal/30 hover:shadow-sm text-ink-green text-sm font-semibold font-body transition-all"
+                  >
+                    <Link2 className="w-4 h-4 text-chalk-teal" />
+                    GitHub
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
