@@ -8,7 +8,8 @@ export const createTeacherSchema = z
     fullName: z.string().trim().min(2).max(120),
     phone,
     password: z.string().min(6).max(100),
-    email: z.string().email().optional(),
+    // Required: teacher password-change/reset is OTP-verified via email
+    email: z.string().trim().email(),
   })
   .strict();
 

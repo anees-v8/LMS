@@ -235,12 +235,24 @@ export default function TeacherDetailsPage() {
       return;
     }
 
+    if (!editEmail.trim()) {
+      setEditError("Email is required — used to verify password resets and changes.");
+      return;
+    }
+
+    const cleanEmail = editEmail.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      setEditError("Please enter a valid email address.");
+      return;
+    }
+
     try {
       setIsSavingEdit(true);
       await apiClient.put(`/admin/teachers/${teacherId}`, {
         fullName: editFullName.trim(),
         phone: cleanPhone,
-        email: editEmail.trim() || null,
+        email: cleanEmail,
       });
 
       setIsEditOpen(false);
@@ -893,15 +905,19 @@ export default function TeacherDetailsPage() {
 
             <div>
               <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Email Address (Optional)
+                Email Address (App Recovery) <span className="text-red-500">*</span>
               </label>
               <input
                 type="email"
+                required
                 value={editEmail}
                 onChange={(e) => setEditEmail(e.target.value)}
                 placeholder="teacher@institute.com"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-chalk-teal/20 focus:border-chalk-teal transition-all text-slate-900"
               />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Required — used by educator to reset &amp; change password in the mobile app.
+              </p>
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">

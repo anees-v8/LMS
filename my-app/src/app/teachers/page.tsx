@@ -196,12 +196,24 @@ function TeachersContent() {
       return;
     }
 
+    if (!email.trim()) {
+      setFormError("Email is required — used to verify password resets and changes in the mobile app.");
+      return;
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      setFormError("Please enter a valid email address (e.g. teacher@institute.com).");
+      return;
+    }
+
     try {
       setSubmitting(true);
       await apiClient.post("/admin/teachers", {
         fullName: fullName.trim(),
         phone: cleanPhone,
-        email: email.trim() || undefined,
+        email: cleanEmail,
         password: password.trim() || "teacher123",
       });
 
@@ -607,15 +619,19 @@ function TeachersContent() {
 
             <div>
               <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Email Address (Optional)
+                Email Address (App Recovery) <span className="text-red-500">*</span>
               </label>
               <input
                 type="email"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="teacher@institute.com"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-chalk-teal/20 focus:border-chalk-teal transition-all text-slate-900"
               />
+              <p className="text-[10px] text-slate-400 font-body mt-1">
+                Required — used by educator to reset &amp; change password in the mobile app.
+              </p>
             </div>
 
             <div>
