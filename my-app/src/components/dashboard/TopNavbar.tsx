@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { apiClient } from "@/lib/api/client";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 interface StudentSearchResult {
   id: number;
@@ -88,6 +89,7 @@ export default function TopNavbar({
 
   // Menus State
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -611,7 +613,7 @@ export default function TopNavbar({
               <button
                 onClick={() => {
                   setShowProfileMenu(false);
-                  logout();
+                  setIsLogoutConfirmOpen(true);
                 }}
                 className="w-full flex items-center gap-2 px-3.5 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors text-left border-t border-slate-100 mt-1 cursor-pointer"
               >
@@ -622,6 +624,19 @@ export default function TopNavbar({
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={isLogoutConfirmOpen}
+        onClose={() => setIsLogoutConfirmOpen(false)}
+        onConfirm={async () => {
+          setIsLogoutConfirmOpen(false);
+          logout();
+        }}
+        title="Sign Out?"
+        message="You'll need to log in again to access the admin portal."
+        confirmText="Yes, Sign Out"
+        variant="warning"
+      />
     </header>
   );
 }

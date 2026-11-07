@@ -28,7 +28,7 @@ export default function PrivacyPolicyPage() {
           </p>
           <ul>
             <li>
-              the <strong>Campus mobile app</strong> (Android/iOS, used by
+              the <strong>Campus mobile app</strong> (Android, used by
               coaching institute admins, teachers, and students), and
             </li>
             <li>

@@ -22,6 +22,7 @@ export default function SiteShell({ children }: SiteShellProps) {
     pathname.startsWith("/students") ||
     pathname.startsWith("/teachers") ||
     pathname.startsWith("/batches") ||
+    pathname.startsWith("/subjects") ||
     pathname.startsWith("/attendance") ||
     pathname.startsWith("/fees") ||
     pathname.startsWith("/reports") ||

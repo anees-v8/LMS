@@ -23,8 +23,11 @@ import {
   ChevronRight,
   TrendingUp,
   Percent,
+  Edit2,
+  X,
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { apiClient } from "@/lib/api/client";
 
 interface SubjectRef {
@@ -97,6 +100,16 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
   const [newChapterName, setNewChapterName] = useState("");
   const [addingChapter, setAddingChapter] = useState(false);
   const [togglingChapterId, setTogglingChapterId] = useState<number | null>(null);
+
+  // Rename chapter (inline edit)
+  const [renamingChapterId, setRenamingChapterId] = useState<number | null>(null);
+  const [renameInput, setRenameInput] = useState("");
+  const [savingRename, setSavingRename] = useState(false);
+
+  // Delete chapter confirmation
+  const [deletingChapter, setDeletingChapter] = useState<ChapterItem | null>(null);
+  const [deletingChapterError, setDeletingChapterError] = useState<string | null>(null);
+  const [isDeletingChapter, setIsDeletingChapter] = useState(false);
 
   // Student filter
   const [studentSearch, setStudentSearch] = useState("");
@@ -193,6 +206,56 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
       console.error("Failed to add chapter", err);
     } finally {
       setAddingChapter(false);
+    }
+  };
+
+  const startRenameChapter = (chapter: ChapterItem) => {
+    setRenamingChapterId(chapter.id);
+    setRenameInput(chapter.name);
+  };
+
+  const cancelRenameChapter = () => {
+    setRenamingChapterId(null);
+    setRenameInput("");
+  };
+
+  const handleSaveRenameChapter = async (chapterId: number) => {
+    const name = renameInput.trim();
+    if (!name || !selectedSubjectId || savingRename) return;
+
+    setSavingRename(true);
+    try {
+      await apiClient.put(
+        `/admin/batches/${batchId}/subjects/${selectedSubjectId}/chapters/${chapterId}`,
+        { name }
+      );
+      setRenamingChapterId(null);
+      setRenameInput("");
+      await loadChapters(selectedSubjectId);
+    } catch (err: any) {
+      alert(err?.response?.data?.error?.message || "Failed to rename chapter.");
+    } finally {
+      setSavingRename(false);
+    }
+  };
+
+  const handleConfirmDeleteChapter = async () => {
+    if (!deletingChapter || !selectedSubjectId) return;
+    setIsDeletingChapter(true);
+    setDeletingChapterError(null);
+    try {
+      await apiClient.delete(
+        `/admin/batches/${batchId}/subjects/${selectedSubjectId}/chapters/${deletingChapter.id}`
+      );
+      setDeletingChapter(null);
+      await loadChapters(selectedSubjectId);
+    } catch (err: any) {
+      setDeletingChapterError(
+        err?.response?.data?.error?.message ||
+          "This chapter already has content uploaded, so it can't be deleted."
+      );
+    } finally {
+      setIsDeletingChapter(false);
     }
   };
 
@@ -452,56 +515,125 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                   </div>
                 ) : (
                   <div className="space-y-2.5">
-                    {chapters.map((ch, idx) => (
-                      <div
-                        key={ch.id}
-                        onClick={() => handleToggleComplete(ch)}
-                        className={`p-3.5 px-4 rounded-xl border transition-all flex items-center justify-between gap-4 cursor-pointer group ${
-                          ch.completed
-                            ? "bg-emerald-50/60 border-emerald-200 text-slate-900"
-                            : "bg-white border-slate-200 hover:border-slate-300 text-slate-800"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
+                    {chapters.map((ch, idx) =>
+                      renamingChapterId === ch.id ? (
+                        <div
+                          key={ch.id}
+                          className="p-3.5 px-4 rounded-xl border border-chalk-teal/40 bg-chalk-teal/5 flex items-center gap-2.5"
+                        >
+                          <input
+                            type="text"
+                            value={renameInput}
+                            onChange={(e) => setRenameInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveRenameChapter(ch.id);
+                              if (e.key === "Escape") cancelRenameChapter();
+                            }}
+                            autoFocus
+                            disabled={savingRename}
+                            className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-chalk-teal/20 focus:border-chalk-teal"
+                          />
                           <button
                             type="button"
-                            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
-                              ch.completed
-                                ? "bg-emerald-500 text-white shadow-xs"
-                                : "border-2 border-slate-300 group-hover:border-ink-green text-transparent"
-                            }`}
+                            onClick={() => handleSaveRenameChapter(ch.id)}
+                            disabled={savingRename || !renameInput.trim()}
+                            title="Save"
+                            className="p-2 rounded-lg bg-ink-green text-white hover:bg-[#283d34] transition-colors cursor-pointer disabled:opacity-50"
                           >
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            {savingRename ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Check className="w-3.5 h-3.5" />
+                            )}
                           </button>
-
-                          <div>
-                            <p
-                              className={`text-xs font-medium ${
-                                ch.completed ? "line-through text-slate-500 font-normal" : "text-slate-900 font-semibold"
-                              }`}
-                            >
-                              {ch.name}
-                            </p>
-                            <span className="text-[10px] text-slate-400">
-                              Chapter {ch.chapterNumber || idx + 1}
-                              {ch.completedAt && (
-                                <> • Completed on {new Date(ch.completedAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}</>
-                              )}
-                            </span>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={cancelRenameChapter}
+                            disabled={savingRename}
+                            title="Cancel"
+                            className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-
-                        <span
-                          className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                      ) : (
+                        <div
+                          key={ch.id}
+                          className={`p-3.5 px-4 rounded-xl border transition-all flex items-center justify-between gap-4 group ${
                             ch.completed
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-slate-100 text-slate-600"
+                              ? "bg-emerald-50/60 border-emerald-200 text-slate-900"
+                              : "bg-white border-slate-200 hover:border-slate-300 text-slate-800"
                           }`}
                         >
-                          {ch.completed ? "Done" : "Pending"}
-                        </span>
-                      </div>
-                    ))}
+                          <div
+                            onClick={() => handleToggleComplete(ch)}
+                            className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                          >
+                            <button
+                              type="button"
+                              className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all shrink-0 ${
+                                ch.completed
+                                  ? "bg-emerald-500 text-white shadow-xs"
+                                  : "border-2 border-slate-300 group-hover:border-ink-green text-transparent"
+                              }`}
+                            >
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            </button>
+
+                            <div className="min-w-0">
+                              <p
+                                className={`text-xs font-medium truncate ${
+                                  ch.completed ? "line-through text-slate-500 font-normal" : "text-slate-900 font-semibold"
+                                }`}
+                              >
+                                {ch.name}
+                              </p>
+                              <span className="text-[10px] text-slate-400">
+                                Chapter {ch.chapterNumber || idx + 1}
+                                {ch.completedAt && (
+                                  <> • Completed on {new Date(ch.completedAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}</>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span
+                              className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                                ch.completed
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {ch.completed ? "Done" : "Pending"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startRenameChapter(ch);
+                              }}
+                              title="Rename Chapter"
+                              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-chalk-teal hover:bg-chalk-teal/10 hover:border-chalk-teal/30 transition-colors cursor-pointer"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletingChapterError(null);
+                                setDeletingChapter(ch);
+                              }}
+                              title="Delete Chapter"
+                              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    )}
                   </div>
                 )}
               </div>
@@ -667,6 +799,29 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={!!deletingChapter}
+        onClose={() => {
+          setDeletingChapter(null);
+          setDeletingChapterError(null);
+        }}
+        onConfirm={handleConfirmDeleteChapter}
+        title="Delete This Chapter?"
+        message={
+          <span>
+            Are you sure you want to delete{" "}
+            <strong className="text-slate-900 font-semibold">{deletingChapter?.name}</strong>?
+            This only works if no content has been uploaded under this chapter yet.
+            {deletingChapterError && (
+              <span className="block mt-2 text-red-600 font-semibold">{deletingChapterError}</span>
+            )}
+          </span>
+        }
+        confirmText="Yes, Delete Chapter"
+        variant="danger"
+        isLoading={isDeletingChapter}
+      />
     </DashboardLayout>
   );
 }

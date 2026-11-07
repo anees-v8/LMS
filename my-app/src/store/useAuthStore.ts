@@ -70,6 +70,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const res = await apiClient.post('/auth/login', {
         phone: phone.trim(),
         password: pass,
+        clientType: 'web',
       });
 
       const { accessToken, refreshToken, user, tenant } = res.data;
@@ -95,9 +96,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return { success: true };
     } catch (err: any) {
       const errorMsg =
+        err?.response?.data?.error?.message ||
         err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
+        (typeof err?.response?.data?.error === 'string' ? err.response.data.error : undefined) ||
         'Login failed. Please check your credentials.';
       set({ isLoading: false, error: errorMsg });
       return { success: false, error: errorMsg };

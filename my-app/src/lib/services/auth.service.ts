@@ -27,6 +27,8 @@ export const CURRENT_TERMS_VERSION = '2026-09-15';
 export interface LoginInput {
   phone: string;
   password: string;
+  /** Defaults to 'mobile' when omitted — see loginSchema's doc comment for why. */
+  clientType?: 'web' | 'mobile';
 }
 
 export interface LoginResult {
@@ -42,7 +44,7 @@ export interface LoginResult {
  * disambiguate — one login form for every role.
  * Ported verbatim from the Express backend's src/services/auth.service.ts.
  */
-export async function login({ phone, password }: LoginInput): Promise<LoginResult> {
+export async function login({ phone, password, clientType }: LoginInput): Promise<LoginResult> {
   const user = await userRepo.findForLogin(phone);
   if (!user) throw ApiError.unauthorized('INVALID_CREDENTIALS', 'Invalid phone or password');
 
@@ -51,6 +53,18 @@ export async function login({ phone, password }: LoginInput): Promise<LoginResul
 
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) throw ApiError.unauthorized('INVALID_CREDENTIALS', 'Invalid phone or password');
+
+  // The web portal (dashboard.campusweb.co.in) is for coaching_admin and
+  // superadmin only — students and teachers use the Flutter mobile app
+  // exclusively. The web login page sends clientType: 'web'; the app sends
+  // nothing at all (treated as 'mobile'), so this never affects mobile logins.
+  const WEB_ALLOWED_ROLES = ['coaching_admin', 'super_admin'];
+  if (clientType === 'web' && !WEB_ALLOWED_ROLES.includes(user.role)) {
+    throw ApiError.forbidden(
+      'WEB_LOGIN_NOT_ALLOWED',
+      'Please use the Campus mobile app to log in.'
+    );
+  }
 
   let tenantInfo: TenantInfo | null = null;
   if (user.tenant_id) {

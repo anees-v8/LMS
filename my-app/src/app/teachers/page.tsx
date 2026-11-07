@@ -100,7 +100,7 @@ function TeachersContent() {
 
       const [teachersRes, timetableRes] = await Promise.allSettled([
         apiClient.get<Teacher[]>("/admin/teachers"),
-        apiClient.get<TimetableItem[]>("/admin/timetable"),
+        apiClient.get<TimetableItem[]>("/admin/schedule"),
       ]);
 
       let teacherList: Teacher[] = [];

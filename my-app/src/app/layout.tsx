@@ -126,14 +126,7 @@ const jsonLd = {
       name: "CampusWeb",
       applicationCategory: "EducationalApplication",
       applicationSubCategory: "Coaching Institute Management Software, LMS, Institute ERP",
-      operatingSystem: "Web, Android, iOS",
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: "4.9",
-        reviewCount: "128",
-        bestRating: "5",
-        worstRating: "1",
-      },
+      operatingSystem: "Web, Android",
       offers: {
         "@type": "AggregateOffer",
         priceCurrency: "INR",

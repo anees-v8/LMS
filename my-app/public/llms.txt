@@ -26,9 +26,9 @@ CampusWeb uses transparent, affordable per-student pricing with 0% platform comm
 
 ## Technical Architecture & Enterprise Infrastructure
 - **Frontend**: Next.js 16 (App Router), TypeScript, Vanilla Tailwind/CSS.
-- **Mobile Apps**: Flutter (Android & iOS) for Directors, Teachers, and Students.
-- **Backend**: Node.js microservices, Supabase / PostgreSQL relational database.
-- **Cloud Infrastructure**: Hosted on Google Cloud Platform & AWS Enterprise Infrastructure with bank-grade SSL encryption and private tenant isolation.
+- **Mobile Apps**: Flutter (Android) for Directors, Teachers, and Students.
+- **Backend**: Next.js API routes, Supabase / PostgreSQL relational database.
+- **Cloud Infrastructure**: Hosted on Vercel with bank-grade SSL encryption and private tenant isolation.
 - **Integrations**: Meta WhatsApp Cloud API, Razorpay payment gateway, Google Meet.
 
 ## Key Links & Resources

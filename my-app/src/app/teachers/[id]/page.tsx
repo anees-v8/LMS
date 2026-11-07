@@ -24,12 +24,15 @@ import {
   Sun,
   Palmtree,
   ExternalLink,
+  Plus,
+  X,
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Button from "@/components/ui/Button";
 import Drawer from "@/components/ui/Drawer";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import CustomDatePicker from "@/components/ui/CustomDatePicker";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { apiClient } from "@/lib/api/client";
 import { cn } from "@/utils/cn";
 
@@ -65,6 +68,17 @@ interface BatchItem {
   name: string;
   grade?: string;
   studentCount?: number;
+  subjects?: { id: number; name: string }[];
+}
+
+interface TeacherAssignment {
+  id: number;
+  teacherUserId: number;
+  teacherName: string;
+  batchId: number;
+  batchName: string;
+  subjectId: number;
+  subjectName: string;
 }
 
 const DAYS = [
@@ -87,6 +101,20 @@ export default function TeacherDetailsPage() {
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [timetable, setTimetable] = useState<TimetableSlot[]>([]);
   const [batches, setBatches] = useState<BatchItem[]>([]);
+  const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
+
+  // Assign Teacher to Batch+Subject drawer (mirrors the mobile app's
+  // assign_teacher_bottom_sheet.dart: batch dropdown, subject dropdown
+  // filtered to that batch's own subjects)
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [assignBatchId, setAssignBatchId] = useState<number | null>(null);
+  const [assignSubjectId, setAssignSubjectId] = useState<number | null>(null);
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [isSavingAssign, setIsSavingAssign] = useState(false);
+
+  // Remove-assignment confirmation
+  const [removingAssignment, setRemovingAssignment] = useState<TeacherAssignment | null>(null);
+  const [isRemovingAssignment, setIsRemovingAssignment] = useState(false);
 
   // Edit Drawer
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -120,10 +148,11 @@ export default function TeacherDetailsPage() {
       setLoading(true);
       setError(null);
 
-      const [teachersRes, timetableRes, batchesRes] = await Promise.all([
+      const [teachersRes, timetableRes, batchesRes, assignmentsRes] = await Promise.all([
         apiClient.get<Teacher[]>("/admin/teachers"),
-        apiClient.get<TimetableSlot[]>("/admin/timetable"),
+        apiClient.get<TimetableSlot[]>("/admin/schedule"),
         apiClient.get<BatchItem[]>("/admin/batches").catch(() => ({ data: [] })),
+        apiClient.get<TeacherAssignment[]>(`/admin/teacher-assignments?teacherId=${teacherId}`).catch(() => ({ data: [] })),
       ]);
 
       const found = teachersRes.data.find((t) => t.id === teacherId);
@@ -135,6 +164,7 @@ export default function TeacherDetailsPage() {
 
       setTeacher(found);
       setBatches(batchesRes.data || []);
+      setAssignments(assignmentsRes.data || []);
 
       // Filter timetable slots for this teacher
       const slots = (timetableRes.data || []).filter(
@@ -169,36 +199,29 @@ export default function TeacherDetailsPage() {
     fetchData();
   }, [fetchData]);
 
-  // Distinct batches and subjects
+  // Distinct batches and subjects, derived from the teacher's actual
+  // assignments (not the schedule) — a teacher can be assigned to a
+  // batch+subject before any class slot has been scheduled for it yet.
   const assignedBatchesList = useMemo(() => {
-    if (!timetable.length) return [];
-    const map = new Map<number, { id: number; name: string; subjects: Set<string> }>();
-    timetable.forEach((slot) => {
-      if (!map.has(slot.batchId)) {
-        map.set(slot.batchId, {
-          id: slot.batchId,
-          name: slot.batch,
-          subjects: new Set(),
-        });
-      }
-      if (slot.subject) {
-        map.get(slot.batchId)!.subjects.add(slot.subject);
-      }
-    });
-    return Array.from(map.values()).map((b) => ({
-      id: b.id,
-      name: b.name,
-      subjects: Array.from(b.subjects),
-    }));
-  }, [timetable]);
+    const ids = new Set(assignments.map((a) => a.batchId));
+    return Array.from(ids);
+  }, [assignments]);
 
   const assignedSubjectsList = useMemo(() => {
     const set = new Set<string>();
-    timetable.forEach((s) => {
-      if (s.subject) set.add(s.subject);
+    assignments.forEach((a) => {
+      if (a.subjectName) set.add(a.subjectName);
     });
     return Array.from(set);
-  }, [timetable]);
+  }, [assignments]);
+
+  // Subjects available for the Assign drawer's subject dropdown, filtered
+  // to the selected batch's own covered subjects (mirrors the mobile app's
+  // assign_teacher_bottom_sheet.dart client-side filter — no extra API call).
+  const assignSubjectOptions = useMemo(() => {
+    const batch = batches.find((b) => b.id === assignBatchId);
+    return (batch?.subjects || []).map((s) => ({ label: s.name, value: s.id }));
+  }, [batches, assignBatchId]);
 
   // Timetable grouped by day of week
   const groupedSchedule = useMemo(() => {
@@ -294,6 +317,55 @@ export default function TeacherDetailsPage() {
       );
     } finally {
       setIsSavingStatus(false);
+    }
+  };
+
+  // Assign Teacher to a Batch + Subject (mirrors mobile's assignTeacherToBatch)
+  const handleAssign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAssignError(null);
+
+    if (!assignBatchId) {
+      setAssignError("Please select a batch.");
+      return;
+    }
+    if (!assignSubjectId) {
+      setAssignError("Please select a subject.");
+      return;
+    }
+
+    try {
+      setIsSavingAssign(true);
+      await apiClient.post("/admin/teacher-assignments", {
+        teacherUserId: teacherId,
+        batchId: assignBatchId,
+        subjectId: assignSubjectId,
+      });
+      setIsAssignOpen(false);
+      setAssignBatchId(null);
+      setAssignSubjectId(null);
+      await fetchData();
+    } catch (err: any) {
+      setAssignError(
+        err?.response?.data?.error?.message || "Failed to assign teacher to this batch."
+      );
+    } finally {
+      setIsSavingAssign(false);
+    }
+  };
+
+  // Remove an existing assignment (mirrors mobile's inline chip ✕)
+  const handleConfirmRemoveAssignment = async () => {
+    if (!removingAssignment) return;
+    try {
+      setIsRemovingAssignment(true);
+      await apiClient.delete(`/admin/teacher-assignments/${removingAssignment.id}`);
+      setRemovingAssignment(null);
+      await fetchData();
+    } catch (err: any) {
+      alert(err?.response?.data?.error?.message || "Failed to remove this assignment.");
+    } finally {
+      setIsRemovingAssignment(false);
     }
   };
 
@@ -705,44 +777,43 @@ export default function TeacherDetailsPage() {
                     Assigned Batches &amp; Subjects
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Batches where this teacher is assigned to take sessions.
+                    Batches &amp; subjects this teacher is assigned to teach.
                   </p>
                 </div>
-                <Button href="/batches" variant="outline" size="xs">
-                  Manage in Batches
+                <Button
+                  variant="outline"
+                  size="xs"
+                  icon={<Plus className="w-3 h-3" />}
+                  onClick={() => {
+                    setAssignBatchId(null);
+                    setAssignSubjectId(null);
+                    setAssignError(null);
+                    setIsAssignOpen(true);
+                  }}
+                >
+                  Assign
                 </Button>
               </div>
 
-              {assignedBatchesList.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {assignedBatchesList.map((batch) => (
-                    <div
-                      key={batch.id}
-                      className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+              {assignments.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {assignments.map((a) => (
+                    <span
+                      key={a.id}
+                      className="inline-flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-xl border border-slate-200/80 bg-slate-50/50 text-xs font-medium text-slate-800"
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-xs text-slate-900">
-                          {batch.name}
-                        </span>
-                        <Link
-                          href="/batches"
-                          className="text-[11px] font-semibold text-chalk-teal hover:underline flex items-center gap-0.5"
-                        >
-                          <span>View</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </Link>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {batch.subjects.map((sub, idx) => (
-                          <span
-                            key={idx}
-                            className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-chalk-teal/10 text-chalk-teal border border-chalk-teal/20"
-                          >
-                            {sub}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+                      <span>
+                        {a.batchName} <span className="text-slate-400">•</span> {a.subjectName}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setRemovingAssignment(a)}
+                        title="Remove assignment"
+                        className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
                   ))}
                 </div>
               ) : (
@@ -750,15 +821,21 @@ export default function TeacherDetailsPage() {
                   <GraduationCap className="w-8 h-8 mx-auto text-slate-300 mb-2" />
                   <p className="font-medium">No batches assigned yet.</p>
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Assign this teacher to subjects from the Batches page timetable.
+                    Assign this teacher to a batch and subject to get started.
                   </p>
                   <Button
-                    href="/batches"
                     variant="outline"
                     size="sm"
                     className="mt-3"
+                    icon={<Plus className="w-3.5 h-3.5" />}
+                    onClick={() => {
+                      setAssignBatchId(null);
+                      setAssignSubjectId(null);
+                      setAssignError(null);
+                      setIsAssignOpen(true);
+                    }}
                   >
-                    Go to Batches
+                    Assign a Batch
                   </Button>
                 </div>
               )}
@@ -1081,6 +1158,96 @@ export default function TeacherDetailsPage() {
             </div>
           </form>
         </Drawer>
+
+        {/* ════════════════════════════════════════════════════════════
+            DRAWER 3: ASSIGN TEACHER TO BATCH + SUBJECT
+            ════════════════════════════════════════════════════════════ */}
+        <Drawer
+          isOpen={isAssignOpen}
+          onClose={() => {
+            setIsAssignOpen(false);
+            setAssignError(null);
+          }}
+          title="Assign to Batch &amp; Subject"
+          description="Link this teacher to a batch and the subject they'll teach there."
+        >
+          <form onSubmit={handleAssign} className="space-y-4">
+            {assignError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{assignError}</span>
+              </div>
+            )}
+
+            <div>
+              <CustomSelect
+                label="Batch *"
+                options={batches.map((b) => ({
+                  label: `${b.name}${b.grade ? ` (${b.grade})` : ""}`,
+                  value: b.id,
+                }))}
+                value={assignBatchId}
+                onChange={(val) => {
+                  setAssignBatchId(val);
+                  setAssignSubjectId(null);
+                }}
+                placeholder="Select batch..."
+                searchable
+              />
+            </div>
+
+            <div>
+              <CustomSelect
+                label="Subject *"
+                options={assignSubjectOptions}
+                value={assignSubjectId}
+                onChange={(val) => setAssignSubjectId(val)}
+                placeholder={assignBatchId ? "Select subject..." : "Select a batch first"}
+                disabled={!assignBatchId}
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Only subjects covered by the selected batch are shown.
+              </p>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAssignOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" size="sm" loading={isSavingAssign}>
+                Assign Teacher
+              </Button>
+            </div>
+          </form>
+        </Drawer>
+
+        {/* ════════════════════════════════════════════════════════════
+            MODAL: REMOVE ASSIGNMENT CONFIRMATION
+            ════════════════════════════════════════════════════════════ */}
+        <ConfirmModal
+          isOpen={!!removingAssignment}
+          onClose={() => setRemovingAssignment(null)}
+          onConfirm={handleConfirmRemoveAssignment}
+          title="Remove This Assignment?"
+          message={
+            <span>
+              Remove {teacher.fullName} from{" "}
+              <strong className="text-slate-900">
+                {removingAssignment?.batchName} • {removingAssignment?.subjectName}
+              </strong>
+              ? They will no longer appear in this batch&apos;s subject roster.
+            </span>
+          }
+          confirmText="Yes, Remove"
+          cancelText="Cancel"
+          variant="danger"
+          isLoading={isRemovingAssignment}
+        />
 
         {/* ════════════════════════════════════════════════════════════
             MODAL 3: DELETE TEACHER CONFIRMATION

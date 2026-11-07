@@ -1072,13 +1072,7 @@ export default function SubscriptionPage() {
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              CampusWeb EdTech Solutions Pvt. Ltd.
-            </p>
-            <p className="text-[11px] text-slate-400">
-              CIN: U72900MH2024PTC123456 • GSTIN: 27AABCC1234F1Z8
-            </p>
-            <p className="text-[11px] text-slate-400">
-              SAC Code: 998431 (Cloud Software &amp; SaaS EdTech Infrastructure)
+              CampusWeb
             </p>
           </div>
 

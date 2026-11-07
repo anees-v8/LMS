@@ -25,6 +25,9 @@ import {
   Eye,
   ChevronRight,
   Filter,
+  Upload,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import CustomSelect, { Option } from "@/components/ui/CustomSelect";
@@ -113,6 +116,9 @@ function StudentsContent() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // When set, the drawer is in "edit" mode for this student instead of "new admission"
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+
   // Form fields
   const [fullName, setFullName] = useState("");
   const [studentPhone, setStudentPhone] = useState("");
@@ -123,6 +129,18 @@ function StudentsContent() {
   const [batchId, setBatchId] = useState<number | null>(null);
   const [password, setPassword] = useState("student123");
   const [courseFee, setCourseFee] = useState("");
+
+  // Import Students drawer (mirrors import_students_bottom_sheet.dart)
+  const [isImportDrawerOpen, setIsImportDrawerOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [downloadingSample, setDownloadingSample] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<{
+    successCount: number;
+    failureCount: number;
+    failures: { row: number; fullName: string; reason: string }[];
+  } | null>(null);
 
   // Listen for top navbar custom event & URL param ?action=new
   useEffect(() => {
@@ -220,7 +238,7 @@ function StudentsContent() {
         grade: grade || undefined,
         rollNo: autoRollNo ? undefined : (rollNo.trim() || undefined),
         batchId: Number(batchId),
-        courseFee: courseFee ? Number(courseFee) : undefined,
+        feeOverrideAmount: courseFee ? Number(courseFee) : undefined,
       });
 
       // Reset form
@@ -241,6 +259,58 @@ function StudentsContent() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Download the sample .xlsx import template
+  const handleDownloadSample = async () => {
+    setDownloadingSample(true);
+    try {
+      const res = await apiClient.get("/admin/students/import-sample", {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "student-import-sample.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err?.response?.data?.error?.message || "Failed to download sample file.");
+    } finally {
+      setDownloadingSample(false);
+    }
+  };
+
+  // Submit the chosen file for bulk import
+  const handleImportStudents = async () => {
+    if (!importFile) {
+      setImportError("Please choose a file to import.");
+      return;
+    }
+    setImportError(null);
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+      const res = await apiClient.post("/admin/students/import", formData);
+      setImportResult(res.data);
+      await fetchData();
+    } catch (err: any) {
+      setImportError(
+        err?.response?.data?.error?.message || err?.message || "Failed to import students."
+      );
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleCloseImportDrawer = () => {
+    setIsImportDrawerOpen(false);
+    setImportFile(null);
+    setImportError(null);
+    setImportResult(null);
   };
 
   // Suspend / Unsuspend with Reusable Confirmation Modal
@@ -377,6 +447,19 @@ function StudentsContent() {
               className="p-2.5 bg-white border border-slate-200/90 rounded-xl hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            </button>
+
+            <button
+              onClick={() => {
+                setImportFile(null);
+                setImportError(null);
+                setImportResult(null);
+                setIsImportDrawerOpen(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200/90 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Import Students</span>
             </button>
 
             <button
@@ -845,6 +928,146 @@ function StudentsContent() {
             </div>
           </div>
         </form>
+      </Drawer>
+
+      {/* ─── Slide-over Drawer: Import Students ─── */}
+      <Drawer
+        isOpen={isImportDrawerOpen}
+        onClose={handleCloseImportDrawer}
+        title="Import Students"
+        description="Bulk-admit students from a spreadsheet instead of one at a time."
+        width="md"
+        footer={
+          importResult ? (
+            <button
+              type="button"
+              onClick={handleCloseImportDrawer}
+              className="px-4 py-2 bg-ink-green hover:bg-[#283d34] text-white text-xs font-semibold rounded-xl transition-all cursor-pointer"
+            >
+              Done
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleCloseImportDrawer}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleImportStudents}
+                disabled={!importFile || importing}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-ink-green hover:bg-[#283d34] text-white text-xs font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-60"
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Importing...</span>
+                  </>
+                ) : (
+                  <span>Import Students</span>
+                )}
+              </button>
+            </>
+          )
+        }
+      >
+        {importResult ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+                <p className="text-2xl font-bold font-display text-emerald-700">
+                  {importResult.successCount}
+                </p>
+                <p className="text-[11px] font-semibold text-emerald-700 mt-0.5">
+                  Imported Successfully
+                </p>
+              </div>
+              <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-center">
+                <p className="text-2xl font-bold font-display text-red-700">
+                  {importResult.failureCount}
+                </p>
+                <p className="text-[11px] font-semibold text-red-700 mt-0.5">Failed Rows</p>
+              </div>
+            </div>
+
+            {importResult.failures.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Failure Details
+                </p>
+                <div className="max-h-64 overflow-y-auto space-y-1.5">
+                  {importResult.failures.map((f, i) => (
+                    <div
+                      key={i}
+                      className="p-2.5 rounded-lg bg-red-50/60 border border-red-100 text-xs"
+                    >
+                      <span className="font-semibold text-red-800">
+                        Row {f.row} — {f.fullName || "Unnamed"}:
+                      </span>{" "}
+                      <span className="text-red-700">{f.reason}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {importError && (
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2 animate-fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+                <span>{importError}</span>
+              </div>
+            )}
+
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+              <p className="text-xs font-semibold text-slate-700">Step 1 — Download the template</p>
+              <p className="text-[11px] text-slate-500">
+                Fill in Full Name, Phone, Password, Parent Name, Parent Phone, Grade, Roll No, and
+                Batch Name (must exactly match an existing batch).
+              </p>
+              <button
+                type="button"
+                onClick={handleDownloadSample}
+                disabled={downloadingSample}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-60"
+              >
+                {downloadingSample ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-chalk-teal" />
+                )}
+                <span>Download Sample .xlsx</span>
+              </button>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+              <p className="text-xs font-semibold text-slate-700">Step 2 — Choose your file</p>
+              <label className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-slate-300 bg-white hover:border-chalk-teal/50 transition-colors cursor-pointer text-center">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="hidden"
+                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                />
+                <FileSpreadsheet className="w-7 h-7 text-chalk-teal" />
+                {importFile ? (
+                  <span className="text-xs font-semibold text-slate-800">{importFile.name}</span>
+                ) : (
+                  <>
+                    <span className="text-xs font-semibold text-slate-700">
+                      Click to choose a file
+                    </span>
+                    <span className="text-[10px] text-slate-400">.xlsx, .xls, or .csv — up to 1000 rows</span>
+                  </>
+                )}
+              </label>
+            </div>
+          </div>
+        )}
       </Drawer>
 
       {/* ─── Reusable Confirm Modal ─── */}

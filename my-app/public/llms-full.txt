@@ -97,14 +97,14 @@ All plans include a 7-day full-access free trial with no credit card required an
 **A:** Coaching institutes subscribing to the yearly Elite plan receive a custom, professional public website showcasing their faculty, course offerings, student toppers, and an admission inquiry form.
 
 ### Q: How secure is the institute's student data?
-**A:** All data is protected with 256-bit SSL encryption and hosted on enterprise Google Cloud and AWS infrastructure in India. CampusWeb adheres to strict data privacy principles and never sells student contact data.
+**A:** All data is protected with 256-bit SSL encryption and hosted on Vercel's enterprise infrastructure with a dedicated PostgreSQL database. CampusWeb adheres to strict data privacy principles and never sells student contact data.
 
 ---
 
 ## 5. Technology Stack & Enterprise Standards
-- **Cloud Infrastructure**: Google Cloud Platform (asia-south1 Mumbai) & Amazon Web Services (AWS).
-- **Core Frameworks**: Next.js 16 (App Router), Flutter Mobile SDK, Node.js.
-- **Database**: PostgreSQL with Supabase secure connection pooling and Row-Level Security (RLS).
+- **Cloud Infrastructure**: Vercel.
+- **Core Frameworks**: Next.js 16 (App Router), Flutter Mobile SDK (Android).
+- **Database**: PostgreSQL with Supabase secure connection pooling.
 - **Security Protocols**: Role-Based Access Control (RBAC), TLS 1.3, encrypted JWT session tokens.
 - **APIs**: Meta WhatsApp Cloud API, Razorpay Payment SDK, Google Meet API.
 
@@ -115,4 +115,3 @@ All plans include a 7-day full-access free trial with no credit card required an
 - **Customer Support & Partnerships**: support@campusweb.co.in
 - **Phone / WhatsApp**: +91 80801 61421
 - **Headquarters**: Maharashtra, India
-- **Legal Entity**: CampusWeb EdTech

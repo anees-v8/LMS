@@ -30,9 +30,29 @@ import {
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Button from "@/components/ui/Button";
+import Drawer from "@/components/ui/Drawer";
+import CustomSelect, { Option } from "@/components/ui/CustomSelect";
 import { apiClient } from "@/lib/api/client";
 import { useAuthStore } from "@/store/useAuthStore";
 import { cn } from "@/utils/cn";
+
+const GRADE_OPTIONS: Option[] = [
+  { label: "Class 9th", value: "Class 9th" },
+  { label: "Class 10th", value: "Class 10th" },
+  { label: "Class 11th (Science)", value: "Class 11th - Science" },
+  { label: "Class 11th (Commerce)", value: "Class 11th - Commerce" },
+  { label: "Class 12th (Science)", value: "Class 12th - Science" },
+  { label: "Class 12th (Commerce)", value: "Class 12th - Commerce" },
+  { label: "JEE Main / Advanced", value: "JEE" },
+  { label: "NEET Medical", value: "NEET" },
+  { label: "Foundation", value: "Foundation" },
+];
+
+interface Batch {
+  id: number;
+  name: string;
+  grade?: string | null;
+}
 
 interface SubjectScore {
   name: string;
@@ -118,10 +138,13 @@ export default function StudentDetailPage({
     phone: string;
     parentName?: string;
     parentPhone?: string;
+    batchId?: number | null;
     batchName?: string;
     rollNo?: string;
     grade?: string;
+    feeOverrideAmount?: number | null;
   } | null>(null);
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,6 +153,21 @@ export default function StudentDetailPage({
   const [courseFeeInput, setCourseFeeInput] = useState("");
   const [savingFee, setSavingFee] = useState(false);
 
+  // Edit Student drawer (mirrors the mobile app's edit dialog: fullName,
+  // phone, password, parent details, batch, grade, rollNo, fee override)
+  const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editFullName, setEditFullName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [editParentName, setEditParentName] = useState("");
+  const [editParentPhone, setEditParentPhone] = useState("");
+  const [editGrade, setEditGrade] = useState<string | null>(null);
+  const [editRollNo, setEditRollNo] = useState("");
+  const [editBatchId, setEditBatchId] = useState<number | null>(null);
+  const [editFeeOverride, setEditFeeOverride] = useState("");
+
   const handleSaveCourseFee = async (e: React.FormEvent) => {
     e.preventDefault();
     const amount = Number(courseFeeInput);
@@ -137,10 +175,8 @@ export default function StudentDetailPage({
 
     try {
       setSavingFee(true);
-      await apiClient.post("/admin/fees/structures", {
-        studentId: Number(studentId),
-        amount,
-        title: "Course Fee",
+      await apiClient.put(`/admin/students/${studentId}`, {
+        feeOverrideAmount: amount,
       });
       setIsFeeModalOpen(false);
       fetchData();
@@ -151,15 +187,81 @@ export default function StudentDetailPage({
     }
   };
 
+  const openEditDrawer = () => {
+    if (!studentInfo) return;
+    setEditFullName(studentInfo.fullName || "");
+    setEditPhone(studentInfo.phone || "");
+    setEditPassword("");
+    setEditParentName(studentInfo.parentName || "");
+    setEditParentPhone(studentInfo.parentPhone || "");
+    setEditGrade(studentInfo.grade || null);
+    setEditRollNo(studentInfo.rollNo || "");
+    setEditBatchId(studentInfo.batchId ?? null);
+    setEditFeeOverride(
+      studentInfo.feeOverrideAmount != null ? String(studentInfo.feeOverrideAmount) : ""
+    );
+    setEditError(null);
+    setIsEditDrawerOpen(true);
+  };
+
+  const handleEditStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditError(null);
+
+    const cleanStudentPhone = editPhone.replace(/\D/g, "");
+    const cleanParentPhone = editParentPhone.replace(/\D/g, "");
+
+    if (!editFullName.trim()) {
+      setEditError("Student full name is required.");
+      return;
+    }
+    if (cleanStudentPhone.length !== 10) {
+      setEditError("Please enter a valid 10-digit student mobile number.");
+      return;
+    }
+    if (cleanParentPhone.length !== 10) {
+      setEditError("Please enter a valid 10-digit parent mobile number.");
+      return;
+    }
+    if (!editBatchId) {
+      setEditError("Please select a batch for the student.");
+      return;
+    }
+
+    setEditSubmitting(true);
+    try {
+      await apiClient.put(`/admin/students/${studentId}`, {
+        fullName: editFullName.trim(),
+        phone: cleanStudentPhone,
+        password: editPassword ? editPassword : undefined,
+        parentName: editParentName.trim(),
+        parentPhone: cleanParentPhone,
+        grade: editGrade || "",
+        rollNo: editRollNo.trim(),
+        batchId: Number(editBatchId),
+        feeOverrideAmount: editFeeOverride ? Number(editFeeOverride) : undefined,
+      });
+      setIsEditDrawerOpen(false);
+      fetchData();
+    } catch (err: any) {
+      setEditError(
+        err?.response?.data?.error?.message || err?.message || "Failed to update student."
+      );
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
       // Fetch student details from API
-      const [detailsRes, studentsListRes] = await Promise.allSettled([
+      const [detailsRes, studentsListRes, batchesRes] = await Promise.allSettled([
         apiClient.get(`/admin/students/${studentId}/details`),
         apiClient.get(`/admin/students`),
+        apiClient.get(`/admin/batches`),
       ]);
 
       if (detailsRes.status === "fulfilled") {
@@ -182,11 +284,20 @@ export default function StudentDetailPage({
             phone: match.phone || "",
             parentName: match.parentName || "",
             parentPhone: match.parentPhone || "",
+            batchId: match.batchId ?? null,
             batchName: match.batchName || "Assigned Batch",
             rollNo: match.rollNo || "",
             grade: match.grade || "",
+            feeOverrideAmount: match.feeOverrideAmount ?? null,
           });
         }
+      }
+
+      if (batchesRes.status === "fulfilled") {
+        const batchList = Array.isArray(batchesRes.value.data)
+          ? batchesRes.value.data
+          : batchesRes.value.data?.batches || [];
+        setBatches(batchList);
       }
     } catch (err: any) {
       console.error("Error loading student:", err);
@@ -266,14 +377,24 @@ export default function StudentDetailPage({
             <span>Back to Student Directory</span>
           </Link>
 
-          <Button
-            onClick={handlePrint}
-            variant="secondary"
-            size="sm"
-            icon={<Printer className="w-3.5 h-3.5 text-slate-500" />}
-          >
-            Print Student Report
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={openEditDrawer}
+              variant="secondary"
+              size="sm"
+              icon={<Edit2 className="w-3.5 h-3.5 text-slate-500" />}
+            >
+              Edit Student
+            </Button>
+            <Button
+              onClick={handlePrint}
+              variant="secondary"
+              size="sm"
+              icon={<Printer className="w-3.5 h-3.5 text-slate-500" />}
+            >
+              Print Student Report
+            </Button>
+          </div>
         </div>
 
         {/* Student Identity Hero Card */}
@@ -469,6 +590,189 @@ export default function StudentDetailPage({
             </div>
           </div>
         )}
+
+        {/* Edit Student Drawer — mirrors the mobile app's edit-student dialog */}
+        <Drawer
+          isOpen={isEditDrawerOpen}
+          onClose={() => setIsEditDrawerOpen(false)}
+          title="Edit Student"
+          description="Update this student's profile, batch, and credentials."
+          width="md"
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => setIsEditDrawerOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="edit-student-form"
+                disabled={editSubmitting}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-ink-green hover:bg-[#283d34] text-white text-xs font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-60"
+              >
+                {editSubmitting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Save Changes</span>
+                )}
+              </button>
+            </>
+          }
+        >
+          <form id="edit-student-form" onSubmit={handleEditStudent} className="space-y-4">
+            {editError && (
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2 animate-fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+                <span>{editError}</span>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                value={editFullName}
+                onChange={(e) => setEditFullName(e.target.value)}
+                placeholder="e.g. Aman Sharma"
+                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-ink-green focus:bg-white text-slate-900 transition-all"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                Student Mobile Number *
+              </label>
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-xs font-semibold text-slate-400 pointer-events-none">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, ""))}
+                  placeholder="98765 43210"
+                  className="w-full pl-11 pr-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-ink-green focus:bg-white text-slate-900 transition-all font-mono"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Parent Name
+                </label>
+                <input
+                  type="text"
+                  value={editParentName}
+                  onChange={(e) => setEditParentName(e.target.value)}
+                  placeholder="Father / Guardian"
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-ink-green focus:bg-white text-slate-900 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Parent Phone *
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-xs font-semibold text-slate-400 pointer-events-none">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={editParentPhone}
+                    onChange={(e) => setEditParentPhone(e.target.value.replace(/\D/g, ""))}
+                    placeholder="98765 43210"
+                    className="w-full pl-11 pr-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-ink-green focus:bg-white text-slate-900 transition-all font-mono"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <CustomSelect
+                label="Assigned Batch *"
+                options={batches.map((b) => ({
+                  label: `${b.name}${b.grade ? ` (${b.grade})` : ""}`,
+                  value: b.id,
+                }))}
+                value={editBatchId}
+                onChange={(val) => setEditBatchId(val)}
+                placeholder="Select Batch..."
+                searchable
+              />
+            </div>
+
+            <div>
+              <CustomSelect
+                label="Class / Grade Level"
+                options={GRADE_OPTIONS}
+                value={editGrade}
+                onChange={(val) => setEditGrade(val)}
+                placeholder="Select Class/Grade..."
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Roll Number
+                </label>
+                <input
+                  type="text"
+                  value={editRollNo}
+                  onChange={(e) => setEditRollNo(e.target.value)}
+                  placeholder="e.g. 101 or G-302"
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-ink-green focus:bg-white text-slate-900 transition-all font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  New Password
+                </label>
+                <input
+                  type="text"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Leave blank to keep unchanged"
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-ink-green focus:bg-white text-slate-900 transition-all font-mono"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <span>Agreed Course Fee (₹)</span>
+                <span className="text-[10px] text-slate-400 font-normal lowercase">(optional — defaults to batch fee)</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">₹</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={editFeeOverride}
+                  onChange={(e) => setEditFeeOverride(e.target.value)}
+                  placeholder="e.g. 21000"
+                  className="w-full pl-8 pr-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-ink-green focus:bg-white text-slate-900 transition-all font-mono"
+                />
+              </div>
+            </div>
+          </form>
+        </Drawer>
 
         {/* Section Tabs */}
         <div className="flex border-b border-slate-200 gap-6 text-xs font-semibold">

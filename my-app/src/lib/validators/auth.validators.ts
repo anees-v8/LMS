@@ -2,10 +2,17 @@ import { z } from 'zod';
 
 const phone = z.string().regex(/^\d{10,15}$/, 'Phone must be 10-15 digits');
 
+// clientType is optional and defaults to 'mobile' in the service layer —
+// the Flutter app is already live on users' phones sending {phone, password}
+// only, so it can never be made required without breaking every installed
+// copy. Only the web login page is updated to explicitly send 'web', which
+// is what lets the backend restrict web login to coaching_admin without
+// touching the mobile login path at all.
 export const loginSchema = z
   .object({
     phone,
     password: z.string().min(6).max(100),
+    clientType: z.enum(['web', 'mobile']).optional(),
   })
   .strict();
 

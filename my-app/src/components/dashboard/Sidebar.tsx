@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import {
   LayoutDashboard,
   Users,
@@ -18,6 +19,7 @@ import {
   Shield,
   Sparkles,
   CalendarCheck,
+  BookMarked,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { cn } from "@/utils/cn";
@@ -27,6 +29,7 @@ const NAV_ITEMS = [
   { label: "Students", href: "/students", icon: Users },
   { label: "Teachers", href: "/teachers", icon: GraduationCap },
   { label: "Batches", href: "/batches", icon: BookOpen },
+  { label: "Subjects", href: "/subjects", icon: BookMarked },
   { label: "Attendance", href: "/attendance", icon: CalendarCheck },
   { label: "Fees & Receipts", href: "/fees", icon: CreditCard },
   { label: "Reports", href: "/reports", icon: BarChart3 },
@@ -43,6 +46,7 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const { user, tenant, logout } = useAuthStore();
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
   const instituteName = tenant?.name || "Institute Dashboard";
 
@@ -153,7 +157,7 @@ export default function Sidebar({
               </p>
             </div>
             <button
-              onClick={logout}
+              onClick={() => setIsLogoutConfirmOpen(true)}
               title="Sign Out"
               className="p-1.5 text-white/50 hover:text-red-300 hover:bg-white/10 rounded-lg transition-colors cursor-pointer shrink-0"
             >
@@ -162,6 +166,19 @@ export default function Sidebar({
           </div>
         </div>
       </aside>
+
+      <ConfirmModal
+        isOpen={isLogoutConfirmOpen}
+        onClose={() => setIsLogoutConfirmOpen(false)}
+        onConfirm={async () => {
+          setIsLogoutConfirmOpen(false);
+          logout();
+        }}
+        title="Sign Out?"
+        message="You'll need to log in again to access the admin portal."
+        confirmText="Yes, Sign Out"
+        variant="warning"
+      />
     </>
   );
 }

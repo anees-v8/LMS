@@ -136,7 +136,7 @@ function BatchesContent() {
         apiClient.get("/admin/batches"),
         apiClient.get("/admin/subjects"),
         apiClient.get("/admin/teachers"),
-        apiClient.get("/admin/timetable"),
+        apiClient.get("/admin/schedule"),
       ]);
 
       if (batchesRes.status === "rejected") {
@@ -200,7 +200,20 @@ function BatchesContent() {
     }
   };
 
-  // Handle Schedule Class Session
+  // Handle Schedule Class Session.
+  //
+  // Does NOT call the retired POST /admin/timetable (no overlap checking at
+  // all — a teacher could silently be double-booked across two batches at
+  // the same time). Instead, mirrors what the mobile app does with two
+  // separate, clash-checked calls:
+  //   1. PUT /admin/batches/:id/schedule — full-replace of this batch's
+  //      weekly schedule, so the new slot is appended to its existing ones
+  //      (not a destructive replace from the admin's point of view).
+  //   2. POST /admin/teacher-assignments — links the teacher to this
+  //      batch+subject; rejects with 409 TEACHER_SCHEDULE_CLASH if it would
+  //      double-book them against any other batch they teach.
+  // If the teacher is already assigned to this batch+subject (ALREADY_ASSIGNED),
+  // that's fine — the new schedule slot still took effect.
   const handleScheduleClass = async (e: React.FormEvent) => {
     e.preventDefault();
     setScheduleError(null);
@@ -209,26 +222,61 @@ function BatchesContent() {
       setScheduleError("Please select a batch.");
       return;
     }
+    if (!schedSubjectId) {
+      setScheduleError("Please select a subject for this class session.");
+      return;
+    }
     if (!schedTeacherId) {
       setScheduleError("Please select an educator / teacher.");
+      return;
+    }
+    if (schedStartTime >= schedEndTime) {
+      setScheduleError("Start time must be before end time.");
       return;
     }
 
     setScheduleSubmitting(true);
     try {
-      await apiClient.post("/admin/timetable", {
-        batchId: schedBatchId,
-        subjectId: schedSubjectId || undefined,
-        teacherId: schedTeacherId,
-        dayOfWeek: schedDay,
-        startTime: schedStartTime,
-        endTime: schedEndTime,
+      const existing = await apiClient.get(`/admin/batches/${schedBatchId}/schedule`);
+      const existingEntries = Array.isArray(existing.data) ? existing.data : [];
+
+      await apiClient.put(`/admin/batches/${schedBatchId}/schedule`, {
+        scheduleEntries: [
+          ...existingEntries.map((e: any) => ({
+            subjectId: e.subjectId,
+            dayOfWeek: e.dayOfWeek,
+            startTime: e.startTime,
+            endTime: e.endTime,
+          })),
+          {
+            subjectId: schedSubjectId,
+            dayOfWeek: schedDay,
+            startTime: schedStartTime,
+            endTime: schedEndTime,
+          },
+        ],
       });
+
+      try {
+        await apiClient.post("/admin/teacher-assignments", {
+          teacherUserId: schedTeacherId,
+          batchId: schedBatchId,
+          subjectId: schedSubjectId,
+        });
+      } catch (assignErr: any) {
+        const code = assignErr?.response?.data?.error?.code;
+        if (code !== "ALREADY_ASSIGNED") throw assignErr;
+      }
 
       setIsScheduleDrawerOpen(false);
       fetchData();
     } catch (err: any) {
-      setScheduleError(err?.response?.data?.message || err?.message || "Failed to schedule class.");
+      setScheduleError(
+        err?.response?.data?.error?.message ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to schedule class."
+      );
     } finally {
       setScheduleSubmitting(false);
     }
@@ -785,13 +833,16 @@ function BatchesContent() {
           {/* Subject Selector */}
           <div>
             <CustomSelect
-              label="Subject"
+              label="Subject *"
               options={subjectOptions}
               value={schedSubjectId}
               onChange={(val) => setSchedSubjectId(val)}
-              placeholder="Select subject (or leave general)..."
+              placeholder="Select subject..."
               searchable
             />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Must be one of this batch&apos;s covered subjects.
+            </p>
           </div>
 
           {/* Teacher Selector */}

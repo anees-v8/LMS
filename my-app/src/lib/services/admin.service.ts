@@ -258,6 +258,7 @@ export interface StudentItem {
   parentName: string | null;
   parentPhone: string | null;
   phone: string;
+  feeOverrideAmount: number | null;
   batchId: number | null;
   batchName: string | null;
   isActive: boolean;
@@ -304,6 +305,7 @@ export async function listStudents(tenantId: number, batchId: number | null): Pr
              s.parent_name AS "parentName",
              s.parent_phone AS "parentPhone",
              u.phone,
+             s.fee_override_amount AS "feeOverrideAmount",
              b.id AS "batchId",
              b.name AS "batchName",
              u.is_active AS "isActive",
@@ -1434,6 +1436,44 @@ export async function getBatchSchedule(tenantId: number, batchId: number): Promi
       WHERE bs.tenant_id = $1 AND bs.batch_id = $2
       ORDER BY bs.day_of_week, bs.start_time`,
     [tenantId, batchId]
+  );
+  return rows;
+}
+
+export interface InstituteScheduleItem {
+  id: number;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  batch: string;
+  subject?: string;
+  teacher: string;
+  batchId: number;
+  teacherId: number;
+  subjectId?: number;
+}
+
+/**
+ * Read-only, institute-wide view of every batch's weekly schedule, each row
+ * left-joined to whichever teacher is assigned to teach that batch+subject
+ * (same shape the retired /admin/timetable GET used to return) — for display
+ * only. Writes must go through setBatchSchedule + assignTeacherToBatch,
+ * which run the teacher-clash checks this view intentionally skips.
+ */
+export async function listInstituteSchedule(tenantId: number): Promise<InstituteScheduleItem[]> {
+  const { rows } = await query<InstituteScheduleItem>(
+    `SELECT bs.id, bs.day_of_week AS "dayOfWeek", bs.start_time AS "startTime",
+            bs.end_time AS "endTime",
+            b.name AS batch, sub.name AS subject, COALESCE(u.full_name, 'Unassigned') AS teacher,
+            bs.batch_id AS "batchId", COALESCE(ta.teacher_user_id, 0) AS "teacherId", bs.subject_id AS "subjectId"
+       FROM batch_schedule bs
+       JOIN batches b ON b.id = bs.batch_id
+       LEFT JOIN subjects sub ON sub.id = bs.subject_id
+       LEFT JOIN teacher_assignments ta ON ta.batch_id = bs.batch_id AND ta.subject_id = bs.subject_id AND ta.tenant_id = bs.tenant_id
+       LEFT JOIN users u ON u.id = ta.teacher_user_id
+      WHERE bs.tenant_id = $1
+      ORDER BY bs.day_of_week, bs.start_time`,
+    [tenantId]
   );
   return rows;
 }
